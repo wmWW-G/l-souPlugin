@@ -14,10 +14,10 @@
 
 ## 一句话安装 Prompt
 
-把下面这句话发给 Codex，即可从 GitHub 拉取当前包、校验并安装到本机 Accio：
+把下面这句话发给 Codex，即可从 GitHub 获取来搜Plugin，并安装到使用者自己的 Accio 环境：
 
 ```text
-使用 github-b ssh alias 从 git@github-b:wmWW-G/l-souPlugin.git 拉取来搜Plugin，校验 lsou-plugin.zip 和 lsou-plugin/，然后按 Accio plugin 注入流程安装到当前 Accio active space，安装后验证来搜Plugin已加载。
+请从 https://github.com/wmWW-G/l-souPlugin 获取来搜Plugin，下载并校验仓库里的 lsou-plugin.zip 和 lsou-plugin/ 插件目录，然后按 Accio Plugin 的本机安装流程安装到我当前登录的 Accio 环境。安装完成后，请验证来搜Plugin已加载，并提醒我登录来搜账号、绑定要分析的店铺后再使用。
 ```
 
 ## 校验
