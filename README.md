@@ -12,6 +12,14 @@
 
 使用前需要安装并启用来搜Plugin，登录来搜账号，并绑定要分析的店铺。插件会按用户的一句话需求打开对应页面，读取页面数据，并在回复里输出对应教程图和分析结果。
 
+## 一句话安装 Prompt
+
+把下面这句话发给 Codex，即可从 GitHub 拉取当前包、校验并安装到本机 Accio：
+
+```text
+使用 github-b ssh alias 从 git@github-b:wmWW-G/l-souPlugin.git 拉取来搜Plugin，校验 lsou-plugin.zip 和 lsou-plugin/，然后按 Accio plugin 注入流程安装到当前 Accio active space，安装后验证来搜Plugin已加载。
+```
+
 ## 校验
 
 当前包已通过 Accio plugin-create 官方校验：`plugin.json`、`skills/`、`subAgents`、`resources/` 和 `path-safety` 均通过。
