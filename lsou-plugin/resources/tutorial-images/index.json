@@ -3,6 +3,10 @@
     "title": "新手怎么开始用来搜Plugin",
     "image": "resources/tutorial-images/00-new-user-guide.png"
   },
+  "install": {
+    "title": "用 ZIP 安装来搜Plugin",
+    "image": "resources/tutorial-images/14-zip-install-guide.png"
+  },
   "skills": {
     "lsou-business-dashboard": {
       "title": "来搜经营驾驶舱",

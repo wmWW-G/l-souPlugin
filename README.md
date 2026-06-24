@@ -2,6 +2,8 @@
 
 来搜Plugin 把来搜经营驾驶舱、店铺诊断、产品诊断、广告诊断、品广诊断、重点产品跟进、新店运营规划、市场分析、选品、关键词、标题和卖点等页面整理成可直接触发的 Accio Plugin 工作流。
 
+![用 ZIP 安装来搜Plugin](lsou-plugin/resources/tutorial-images/14-zip-install-guide.png)
+
 ## 目录
 
 - `lsou-plugin/`：插件源码目录，可用于继续修改和校验。
