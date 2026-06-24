@@ -1,0 +1,8 @@
+[
+  {
+    "id": "product-selection",
+    "type": "capability",
+    "key": "选品经理",
+    "value": "输入产品生成选品 SOP 草稿，输出产品分组、定品和团队分工建议。"
+  }
+]

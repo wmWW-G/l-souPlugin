@@ -1,0 +1,8 @@
+[
+  {
+    "id": "product-diagnosis",
+    "type": "capability",
+    "key": "产品全面诊断",
+    "value": "读取 SKU 诊断总表，找出高潜、低转化、无流量和需要执行优化的产品。"
+  }
+]

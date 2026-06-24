@@ -1,0 +1,8 @@
+[
+  {
+    "id": "hero-cultivation",
+    "type": "capability",
+    "key": "优爆品培育",
+    "value": "同步优爆品数据看板，整理爆品矩阵和培育建议。"
+  }
+]

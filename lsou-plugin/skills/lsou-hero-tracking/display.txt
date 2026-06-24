@@ -1,0 +1,8 @@
+[
+  {
+    "id": "hero-tracking",
+    "type": "capability",
+    "key": "重点产品跟进",
+    "value": "同步重点产品跟进页，输出爆品清单和近期经营异常。"
+  }
+]

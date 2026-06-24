@@ -1,0 +1,3 @@
+interface:
+  display_name: 来搜产品全面诊断
+  description: 同步产品诊断总表，输出页面展示的 SKU 分层、空分类和优化动作。

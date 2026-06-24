@@ -1,0 +1,80 @@
+{
+  "name": "lsou-plugin",
+  "displayName": "来搜Plugin",
+  "version": "0.1.0",
+  "description": "外贸店铺经营增长助手：把看板、诊断、选品、关键词和详情页文案串成一套行动方案。",
+  "longDescription": "来搜Plugin为外贸老板和运营团队准备，把店铺看板、诊断复盘、广告排查、重点产品跟进、选品规划、关键词整理和详情页文案，变成一句话就能启动的经营助手。它帮你更快看清店铺表现、定位增长卡点、整理机会清单，并输出能直接推进的下一步动作。使用前请登录来搜账号并绑定店铺；页面无数据或需要补充条件时，会引导你补齐。",
+  "author": "来搜",
+  "icon": "logo.png",
+  "category": "business-operations",
+  "tags": [
+    "来搜",
+    "L-SOU",
+    "Alibaba",
+    "经营诊断",
+    "数据看板",
+    "外贸运营"
+  ],
+  "subAgents": [
+    {
+      "id": "lsou-browser-operator",
+      "description": "打开来搜经营页面，使用 Accio Work Browser Extension 点击同步或分析按钮，并提取页面数据。",
+      "tools": "inherit",
+      "timeoutSeconds": 600,
+      "skills": [
+        {
+          "id": "lsou-business-dashboard",
+          "mode": "systemPrompt"
+        },
+        {
+          "id": "lsou-store-diagnosis",
+          "mode": "systemPrompt"
+        },
+        {
+          "id": "lsou-product-diagnosis",
+          "mode": "systemPrompt"
+        },
+        {
+          "id": "lsou-hero-cultivation",
+          "mode": "systemPrompt"
+        },
+        {
+          "id": "lsou-ad-diagnosis",
+          "mode": "systemPrompt"
+        },
+        {
+          "id": "lsou-brand-ad-diagnosis",
+          "mode": "systemPrompt"
+        },
+        {
+          "id": "lsou-hero-tracking",
+          "mode": "systemPrompt"
+        },
+        {
+          "id": "lsou-new-store-plan",
+          "mode": "systemPrompt"
+        },
+        {
+          "id": "lsou-market-analysis",
+          "mode": "systemPrompt"
+        },
+        {
+          "id": "lsou-product-selection",
+          "mode": "systemPrompt"
+        },
+        {
+          "id": "lsou-keyword-collector",
+          "mode": "systemPrompt"
+        },
+        {
+          "id": "lsou-title-selling-points",
+          "mode": "systemPrompt"
+        },
+        {
+          "id": "lsou-title-generator",
+          "mode": "systemPrompt"
+        }
+      ]
+    }
+  ]
+}

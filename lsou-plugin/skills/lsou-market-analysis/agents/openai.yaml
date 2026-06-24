@@ -1,0 +1,3 @@
+interface:
+  display_name: 来搜市场分析
+  description: 输入产品生成市场分析框架草稿，输出待验证的数据项和切入建议。

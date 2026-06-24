@@ -1,0 +1,3 @@
+interface:
+  display_name: 来搜关键词整理
+  description: 输入主词生成关键词分组草稿，并标注需要真实词库验证。

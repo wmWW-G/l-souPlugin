@@ -1,0 +1,8 @@
+[
+  {
+    "id": "new-store-plan",
+    "type": "capability",
+    "key": "新店运营规划",
+    "value": "读取新店运营 SOP 表，整理阶段任务、负责人、截止日期和状态。"
+  }
+]

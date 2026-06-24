@@ -1,0 +1,3 @@
+interface:
+  display_name: 来搜广告维度诊断
+  description: 同步广告诊断中心，按计划和日期输出页面展示的投放效率与优化动作。

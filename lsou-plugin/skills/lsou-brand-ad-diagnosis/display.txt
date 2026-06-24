@@ -1,0 +1,8 @@
+[
+  {
+    "id": "brand-ad-diagnosis",
+    "type": "capability",
+    "key": "品广维度诊断",
+    "value": "读取品广诊断演示页，整理品广诊断框架和待补充数据。"
+  }
+]

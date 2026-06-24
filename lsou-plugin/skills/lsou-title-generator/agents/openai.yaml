@@ -1,0 +1,3 @@
+interface:
+  display_name: 来搜标题制作
+  description: 输入关键词和属性，生成 SEO 标题草稿并标注页面审计结果。

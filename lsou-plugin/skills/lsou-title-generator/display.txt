@@ -1,0 +1,8 @@
+[
+  {
+    "id": "title-generator",
+    "type": "capability",
+    "key": "标题制作",
+    "value": "输入关键词和属性，生成 SEO 标题草稿并做页面规范审计。"
+  }
+]

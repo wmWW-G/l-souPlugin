@@ -1,0 +1,8 @@
+[
+  {
+    "id": "market-analysis",
+    "type": "capability",
+    "key": "市场分析",
+    "value": "输入核心产品生成市场分析框架草稿，输出待验证机会和切入建议。"
+  }
+]

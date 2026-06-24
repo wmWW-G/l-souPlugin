@@ -1,0 +1,3 @@
+interface:
+  display_name: 来搜重点产品跟进
+  description: 同步爆品跟进页，整理页面展示的爆品清单、空数据和异常。

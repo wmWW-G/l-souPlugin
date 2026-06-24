@@ -1,0 +1,3 @@
+interface:
+  display_name: 来搜品广维度诊断
+  description: 读取品广诊断演示页，输出品广诊断框架和需要补充的真实数据。

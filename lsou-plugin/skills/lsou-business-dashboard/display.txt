@@ -1,0 +1,8 @@
+[
+  {
+    "id": "business-dashboard",
+    "type": "capability",
+    "key": "经营驾驶舱",
+    "value": "同步经营驾驶舱数据，汇总 GMV、询盘、访客、产品 TOP 和业务团队绩效。"
+  }
+]

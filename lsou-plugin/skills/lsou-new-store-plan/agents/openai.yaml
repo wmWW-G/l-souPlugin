@@ -1,0 +1,3 @@
+interface:
+  display_name: 来搜新店运营规划
+  description: 读取新店运营规划模板，输出启动路线图、责任人和状态草稿。

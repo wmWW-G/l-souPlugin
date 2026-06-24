@@ -1,0 +1,8 @@
+[
+  {
+    "id": "ad-diagnosis",
+    "type": "capability",
+    "key": "广告维度诊断",
+    "value": "同步广告诊断数据，分析计划、花费、CTR、CPC、CPA 和 L1+ 商机效率。"
+  }
+]

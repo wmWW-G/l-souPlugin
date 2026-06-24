@@ -1,0 +1,3 @@
+interface:
+  display_name: 来搜选品经理
+  description: 输入产品生成选品 SOP 草稿，输出分组、定品和分工建议。

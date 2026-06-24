@@ -1,0 +1,60 @@
+{
+  "default": {
+    "title": "新手怎么开始用来搜Plugin",
+    "image": "resources/tutorial-images/00-new-user-guide.png"
+  },
+  "skills": {
+    "lsou-business-dashboard": {
+      "title": "来搜经营驾驶舱",
+      "image": "resources/tutorial-images/01-lsou-business-dashboard.png"
+    },
+    "lsou-store-diagnosis": {
+      "title": "来搜店铺深度诊断",
+      "image": "resources/tutorial-images/02-lsou-store-diagnosis.png"
+    },
+    "lsou-product-diagnosis": {
+      "title": "来搜产品全面诊断",
+      "image": "resources/tutorial-images/03-lsou-product-diagnosis.png"
+    },
+    "lsou-hero-cultivation": {
+      "title": "来搜优爆品培育导航",
+      "image": "resources/tutorial-images/04-lsou-hero-cultivation.png"
+    },
+    "lsou-ad-diagnosis": {
+      "title": "来搜广告维度诊断",
+      "image": "resources/tutorial-images/05-lsou-ad-diagnosis.png"
+    },
+    "lsou-brand-ad-diagnosis": {
+      "title": "来搜品广维度诊断",
+      "image": "resources/tutorial-images/06-lsou-brand-ad-diagnosis.png"
+    },
+    "lsou-hero-tracking": {
+      "title": "来搜重点产品跟进",
+      "image": "resources/tutorial-images/07-lsou-hero-tracking.png"
+    },
+    "lsou-new-store-plan": {
+      "title": "来搜新店运营规划",
+      "image": "resources/tutorial-images/08-lsou-new-store-plan.png"
+    },
+    "lsou-market-analysis": {
+      "title": "来搜市场分析",
+      "image": "resources/tutorial-images/09-lsou-market-analysis.png"
+    },
+    "lsou-product-selection": {
+      "title": "来搜选品经理",
+      "image": "resources/tutorial-images/10-lsou-product-selection.png"
+    },
+    "lsou-keyword-collector": {
+      "title": "来搜关键词整理",
+      "image": "resources/tutorial-images/11-lsou-keyword-collector.png"
+    },
+    "lsou-title-generator": {
+      "title": "来搜标题制作",
+      "image": "resources/tutorial-images/12-lsou-title-generator.png"
+    },
+    "lsou-title-selling-points": {
+      "title": "来搜标题卖点制作",
+      "image": "resources/tutorial-images/13-lsou-title-selling-points.png"
+    }
+  }
+}

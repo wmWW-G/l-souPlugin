@@ -1,0 +1,8 @@
+[
+  {
+    "id": "keyword-collector",
+    "type": "capability",
+    "key": "关键词整理",
+    "value": "输入产品词生成关键词分组草稿，整理主词、同类词和待验证词库。"
+  }
+]
