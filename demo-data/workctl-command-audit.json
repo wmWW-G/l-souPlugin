@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "generatedAt": "2026-09-02T21:45:00+08:00",
+    "workctlVersion": "0.1.53",
+    "querySchemaCount": 124,
+    "liveAttemptedCount": 123,
+    "successfulCount": 112,
+    "blockedOrFailedCount": 11,
+    "schemaOnlyCount": 1,
+    "writeCommandsExecuted": 0,
+    "privacy": "sanitized"
+  },
+  "successfulAdditionalCommands": [
+    "workctl icbu cco icbu-faq-knowledge-chunk",
+    "workctl icbu other icbu-starrating-cgs-pc-page-data-open",
+    "workctl icbu product get-attr",
+    "workctl icbu product list-attribute",
+    "workctl icbu product list-attribute-options",
+    "workctl icbu product list-task-list",
+    "workctl icbu product predict-category",
+    "workctl icbu recruitment-topic list-user-valid-category",
+    "workctl icbu recruitment-topic product-topic-detect",
+    "workctl icbu recruitment-topic search",
+    "workctl icbu tm fetch-offline-message",
+    "workctl icbu trade chargeback-material-with-ai"
+  ],
+  "blockedOrFailed": [
+    {"command": "workctl icbu product get-seeshion-result", "reason": "没有现成任务 ID"},
+    {"command": "workctl icbu product icbu-product-3d-model-detail", "reason": "账号没有自有 3D 模型，公共库模型不能作为自有模型读取"},
+    {"command": "workctl icbu product product-ai-image-generate-result", "reason": "没有现成图片生成任务"},
+    {"command": "workctl icbu product product-ai-video-generate-result", "reason": "没有现成视频生成任务"},
+    {"command": "workctl icbu tm card-parse-chat-card", "reason": "现有会话没有可复用的真实卡片类型参数"},
+    {"command": "workctl icbu tm list-contact", "reason": "no privilege"},
+    {"command": "workctl icbu tm translate-im-accio", "reason": "缺少可复用的真实消息上下文"},
+    {"command": "workctl icbu trade list", "reason": "需要由提交型命令产生 uniqueKey，本轮未执行写命令"},
+    {"command": "workctl icbu product get-translate-attributes", "reason": "本地网关连续超时"},
+    {"command": "workctl icbu recruitment-topic image-generation-result", "reason": "没有现成定向征品图片任务"},
+    {"command": "workctl icbu tm fetch-offline-shardcount", "reason": "上游隐藏 pkey 前置条件不满足"}
+  ],
+  "schemaOnly": [
+    {"command": "workctl icbu tm query-conversation-info", "reason": "当前查询结果没有可用 chatToken"}
+  ],
+  "notes": [
+    "成功包含有数据、真实空数组、真实空对象三种业务状态。",
+    "失败不等于未接入；页面应区分无权限、缺任务 ID、缺上下文与网关超时。",
+    "原始 WorkCTL 返回仅保留在本次临时审计目录，不复制联系人、买家、订单或凭据到 Demo。"
+  ]
+}

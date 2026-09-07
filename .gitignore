@@ -1,0 +1,20 @@
+# macOS 与编辑器产生的本机文件不属于项目源码。
+.DS_Store
+.idea/
+.vscode/
+
+# 运行日志和临时文件可能包含本机路径或错误上下文，不进入远端仓库。
+*.log
+*.tmp
+tmp/
+
+# 凭据与部署环境只能由本机或部署平台注入。
+.env
+.env.*
+credentials.enc
+
+# 当前项目零依赖；若以后增加工具链，也不提交安装产物与测试缓存。
+node_modules/
+coverage/
+__pycache__/
+*.pyc

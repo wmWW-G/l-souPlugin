@@ -1,0 +1,828 @@
+{
+  "meta": {
+    "name": "来搜国际站经营驾驶舱 WorkCTL 脱敏 Demo",
+    "generatedAt": "2026-09-03T09:30:55+08:00",
+    "updatedAt": "2026-09-03T14:22:55+08:00",
+    "workctlVersion": "0.1.53",
+    "sourceMode": "live-read-only-audit",
+    "dateRange": {
+      "start": "2026-08-03",
+      "end": "2026-08-31"
+    },
+    "privacy": {
+      "sanitized": true,
+      "removedFields": [
+        "buyerName",
+        "contactName",
+        "email",
+        "phone",
+        "accountId",
+        "memberId",
+        "loginId",
+        "rfqId",
+        "quoteId",
+        "rfqUrl",
+        "quoteUrl",
+        "quoteBody",
+        "orderId",
+        "productId",
+        "chatToken",
+        "gatewayToken"
+      ],
+      "note": "仅保留页面设计与本地演示所需的汇总、状态和匿名示例，不保存真实联系人或凭据。"
+    }
+  },
+  "sidebar": [
+    {
+      "group": "经营中心",
+      "items": ["经营总览", "运营待办"]
+    },
+    {
+      "group": "增长运营",
+      "items": ["客户与询盘", "商品运营", "产品发布", "流量分析", "关键词与广告", "RFQ 商机"]
+    },
+    {
+      "group": "交易保障",
+      "items": ["订单与物流", "风险合规"]
+    },
+    {
+      "group": "内容资产",
+      "items": ["店铺装修", "素材工坊"]
+    },
+    {
+      "group": "组织管理",
+      "items": ["团队绩效", "知识库与接待", "账号与权限"]
+    },
+    {
+      "group": "系统工具",
+      "items": ["数据控制台"]
+    }
+  ],
+  "pages": {
+    "overview": {
+      "label": "经营总览",
+      "dataState": "populated",
+      "sourceCommands": [
+        "workctl icbu advisor data-advisor-shop-summary",
+        "workctl icbu advisor data-advisor-shop-channel",
+        "workctl icbu advisor data-advisor-shop-region",
+        "workctl icbu advisor data-advisor-shop-product"
+      ],
+      "totals": {
+        "exposure": 117906,
+        "clicks": 2929,
+        "searchExposure": 37985,
+        "searchClicks": 796,
+        "visitors": 1603,
+        "businessOpportunities": 277,
+        "tmVisitors": 235,
+        "inquiries": 54,
+        "createdOrders": 29,
+        "paidOrders": 9,
+        "paidAmountUsd": 10698.99,
+        "paidBuyers": 9
+      },
+      "serviceQuality": {
+        "firstReplyRate": 0.9734,
+        "averageReplyHours": 3.74
+      }
+    },
+    "todo": {
+      "label": "运营待办",
+      "dataState": "reserved-for-dify",
+      "renderPolicy": "untouched",
+      "demo": null,
+      "note": "后续读取 Dify 结构化输出，本轮不生成或改写待办内容。"
+    },
+    "customerInquiry": {
+      "label": "客户与询盘",
+      "dataState": "populated-multi-source",
+      "sourceCommands": [
+        "workctl icbu tm query-recent-conversation",
+        "workctl icbu advisor data-advisor-visitor-detail",
+        "workctl icbu advisor data-advisor-shop-customer-profile",
+        "workctl icbu advisor data-advisor-shop-summary",
+        "workctl icbu tm list-seller-acct-dim-diag-data",
+        "workctl icbu tm list-seller-shop-dim-diag-data",
+        "workctl icbu tm list-seller-chat-quality-check"
+      ],
+      "recentConversationRows": 20,
+      "recentUnreadConversations": 1,
+      "recentUnreadMessages": 4,
+      "recentUnreadCountry": "SN",
+      "recentUnreadTag": "自动接待中",
+      "visitorDetailTotal": 1535,
+      "visitorIntentSampleSize": 100,
+      "recentConversationCountries": {"CN": 3, "PL": 3, "AR": 2, "RO": 2, "SN": 2},
+      "firstReplyRate": 0.9734,
+      "averageReplyHours": 3.74,
+      "buyerIdentityProfile": [
+        {"identity": "offline_retailer", "visitorRate": 0.4152},
+        {"identity": "online_retailer", "visitorRate": 0.3614},
+        {"identity": "wholesale", "visitorRate": 0.1551},
+        {"identity": "manufacturer", "visitorRate": 0.0683}
+      ],
+      "topCountryProfile": [
+        {"country": "US", "visitorRate": 0.2309},
+        {"country": "IN", "visitorRate": 0.1136},
+        {"country": "BD", "visitorRate": 0.0861},
+        {"country": "CI", "visitorRate": 0.0562},
+        {"country": "VE", "visitorRate": 0.0550}
+      ],
+      "topEntryKeywords": [
+        {"keyword": "smart watch", "marketPv": 3512, "shopVisitors": 4},
+        {"keyword": "g shock watch", "marketPv": 709, "shopVisitors": 3},
+        {"keyword": "smartwatch band", "marketPv": 515, "shopVisitors": 3}
+      ],
+      "serviceDiagnostics": {
+        "accountRows": 0,
+        "shopRows": 0,
+        "qualityRows": 0,
+        "meaning": "接口成功但当前查询日无明细，页面不得编造客服问题。"
+      }
+    },
+    "product": {
+      "label": "商品运营",
+      "dataState": "populated-with-derived-analysis",
+      "sourceCommands": [
+        "workctl icbu advisor data-advisor-shop-product",
+        "workctl icbu product get-score",
+        "workctl icbu product diagnosis-list-low-score-products",
+        "workctl icbu product diagnosis-list-zero-effect-products",
+        "workctl icbu product list-risk-brand-name"
+      ],
+      "searchResultTotal": 378,
+      "validProductsSnapshot": 847,
+      "goodProductsSnapshot": 45,
+      "topProductsSnapshot": 0,
+      "analysis": {
+        "population": 378,
+        "searchExposure": 1309,
+        "searchClicks": 19,
+        "weightedCtr": 0.0145148969,
+        "highExposureThresholdP75": 4,
+        "quadrants": {"highExposureHighCtr": 12, "highExposureLowCtr": 101, "lowExposureHighCtr": 6, "lowExposureLowCtr": 259},
+        "layerCounts": {"优品": 37, "潜力优品": 265, "普通品": 74, "低质品": 2},
+        "funnelDiagnostics": {"clickedNoInquiry": 18, "inquiryNoDraft": 0, "noSearchExposure": 5, "p4pProducts": 0},
+        "lowScoreQueryRowsZeroToFour": 3,
+        "zeroEffectDiagnosisRows": 0
+      },
+      "primaryCategory": "Consumer Electronics > Smart Electronics > Wearable Devices > Smart Watches",
+      "categoryAttributesAvailable": true,
+      "productScoreAvailable": true,
+      "brandRiskQueryAvailable": true,
+      "note": "378 条商品效果记录与 847 个有效商品快照属于不同粒度，页面不得直接相减；0–4 分质量查询返回 3 条，不表述为全店低质总数。"
+    },
+    "productPublishing": {
+      "label": "产品发布",
+      "dataState": "schema-verified-real-queue-with-succeeded-draft-audit",
+      "sourceMode": "WorkCTL schema read-only inspection plus sanitized current-store thumbnails and an authorized Alibaba publish-page origin-list capture",
+      "schemaAuditedAt": "2026-09-03T10:31:36+08:00",
+    "activeSpaceVerified": true,
+    "workctlVersion": "0.1.53",
+    "dynamicCategoryMatching": {
+      "verifiedAt": "2026-09-03T13:02:00+08:00",
+      "source": "current signed-in account via WorkCTL",
+      "leafCategoryCount": 8885,
+      "categorySearchEndpoint": "/api/publish/categories",
+      "categorySchemaEndpoint": "/api/publish/category-schema",
+      "accountProductContext": {
+        "verifiedAt": "2026-09-03T14:22:55+08:00",
+        "endpoint": "/api/publish/account-context",
+        "productCount": 389,
+        "usedCategoryCount": 10,
+        "defaultCategory": "消费电子 > 智能电子 > 可穿戴设备 > 智能手表",
+        "defaultCategoryProductCount": 316,
+        "mappingOrder": ["same current-account product image", "category already used by current account", "current-account dominant category"],
+        "categorySelector": "the toolbar lists every category deduplicated from all current-account products; choosing one rebuilds the active product form from its live schema",
+        "privacy": "product IDs, owners, detail URLs and performance metrics are removed before the response reaches the browser; only sanitized thumbnail URLs remain for exact category matching"
+      },
+      "smartWatchCategory": {
+        "categoryId": 127684037,
+        "categoryPath": "消费电子 > 智能电子 > 可穿戴设备 > 智能手表",
+        "attributeCount": 21,
+        "requiredCount": 10,
+        "attributesWithOfficialOptions": 20
+      },
+      "crossCategoryVerification": {
+        "categoryId": 190000172,
+        "categoryPath": "珠宝眼镜手表及配饰 > 手表 > 时尚智能手表",
+        "attributeCount": 24,
+        "requiredCount": 5
+      },
+      "enumIdPolicy": "single fixed enums preserve and submit the positive attrValueId returned by WorkCTL; multi-value fields use one semicolon-separated attrValue with attrValueId -1 as required by the Alibaba product material contract",
+      "serverSideEnforcement": true
+    },
+    "writeCommandsExecuted": 2,
+      "prototypeCounts": {
+      "drafts": 8,
+      "ready": 0,
+      "needsAttention": 8,
+        "queueConcurrency": 1
+      },
+      "requiredBaseFields": [
+        "productTitle",
+        "productKeywords",
+        "category",
+        "images",
+        "productSellingPoint"
+      ],
+      "verifiedLeafCategories": {
+        "127684037": {
+          "name": "Smart watch",
+          "requiredCount": 10,
+          "requiredAttributes": ["Applicable People", "Battery Life", "Display Type", "Feature", "Function", "Screen Resolution", "Place of Origin", "Item Shape", "Screen Size", "Waterproof Standard"],
+          "systemOptions": {
+            "Applicable People": ["Children", "Elderly", "Female", "Male", "Unisex"],
+            "Battery Life": ["11 to 30 days", "3 months & above", "5 to 10 days", "Up to 4 days", "Within 6 hours"],
+            "Display Type": ["AMOLED", "IPS", "LCD", "LED Display Screen", "OLED Displays", "TFT"],
+            "Feature": ["Air Pump", "Anti-fluid corrosion", "3 G", "Anti-Impact", "4 G", "App Control", "5 G", "Bluetooth", "Cellular", "Dual SIM Card", "Dustproof", "E-sim", "Gps", "Health Airbag", "Led Flashlight", "Microphone", "NFC Technology", "SDK available", "SIM Card", "Touchscreen", "USB", "with earphone"],
+            "Function": ["Accelerometer", "Activity Tracker", "AI Voice Assistant", "Alarm Clock", "Altitude Meter", "Answer Call", "Audio Recording", "Breath Monitor", "Calculators", "Calendar", "Call Reminder", "Calorie Tracker", "chronograph", "COMPASS", "Countdown", "Dial Call", "Distance Tracker", "EMAIL", "Fitness Tracker", "Gesture Control", "Gps Navigation", "Heart Rate Tracker", "Interactive Music", "Menstrual Management", "Message Reminder", "Moisture Measurement", "Mood Tracker", "Multisport Tracker", "Music Player", "Noctilucent", "Passometer", "Payment", "Pedometer", "Playing the Quran", "Positioning", "Power Reserve", "Prayer reminder", "Pregnancy follow-up", "Push Message", "Qibla Direction", "Remote Control", "Sedentary Reminder", "Sleep Tracker", "Smart Counter", "Social Media Notifications", "SOS button", "Speed Measurement", "THERMOMETER", "Video Call", "Voice Call", "WORLD TIME"],
+            "Screen Resolution": ["1024x768", "1280X720", "1280X800", "128X128", "160X128", "1920X1080", "320x240", "480X320", "640X480", "800X480", "854X480", "960x640"],
+            "Item Shape": ["Heart", "Others", "Oval", "Rectangular", "Round", "Square", "Star"],
+            "Screen Size": ["≤25mm", "28mm", "29-35mm", "36-40mm", "41-43mm", "44-49mm", "≥50mm"],
+            "Waterproof Standard": ["3 ATM", "5 ATM", "10 ATM", "IP65", "Ip67", "IP68", "IP69", "IPX-6", "IPX-7", "IPX 8", "No"]
+          }
+        },
+        "127688045": {
+          "name": "Smart band",
+          "requiredCount": 5,
+          "requiredAttributes": ["Display Type", "Waterproof", "Place of Origin", "Operation System", "sytle"],
+          "systemOptions": {
+            "Display Type": ["AMOLED", "CSTN", "IPS", "no display screen", "OLED Displays", "TFT"],
+            "Waterproof": ["10 ATM", "3 ATM", "5 ATM", "Ip67", "IP68", "IPX 8", "IPX-6", "IPX-7"],
+            "Operation System": ["Android", "Fitbit OS", "Garmin OS", "Harmony OS", "Linux", "Tizen", "watch OS", "Wear OS", "Windows Mobile", "Zepp OS"],
+            "sytle": ["Casual", "Classic", "Fashion", "Sports"]
+          }
+        },
+        "202055012": {
+          "name": "Noise-cancelling true wireless earbuds",
+          "requiredCount": 7,
+          "requiredAttributes": ["Estimated Battery Life", "Noise Cancelling", "Touch Screen", "Place of Origin", "Battery Capacity(mAh)", "Headphone Form Factor", "Waterproof Standard"],
+          "systemOptions": {
+            "Estimated Battery Life": ["less than 3 hours", "3-5 hours", "5-10 hours", "10-15 hours", "15-20 hours", "more than 20 hours"],
+            "Noise Cancelling": ["Active Noise Cancellation (ANC)", "Environmental Noise Cancellation (ENC)"],
+            "Touch Screen": ["No", "Yes"],
+            "Battery Capacity(mAh)": ["200mAh", "200-500mah", "1000-2000mah", "2000-3000mah", "500-1000mah", "3000-5000mah", ">5000mAh"],
+            "Headphone Form Factor": ["Ear-clip", "Ear-hook", "In ear", "Semi-in-ear"],
+            "Waterproof Standard": ["IPX-0", "IPX-2", "IPX-3", "IPX-4", "IPX-5", "IPX-6", "IPX-7", "IPX-8", "IPX-9", "No"]
+          }
+        },
+        "202061615": {
+          "name": "Sports headphones",
+          "requiredCount": 7,
+          "requiredAttributes": ["Place of Origin", "Battery Capacity", "Battery Capacity(mAh)", "Connection", "Estimated Battery Life", "Volume Control", "Waterproof Standard"],
+          "systemOptions": {
+            "Battery Capacity": ["<200mah", "200-500mah", "500-1000mah", "1000-2000mah", "2000-3000mah", ">3000mah"],
+            "Battery Capacity(mAh)": ["<200mah", "200-500mah", "500-1000mah", "1000-2000mah", "2000-3000mah", ">3000mah"],
+            "Connection": ["Wired", "Wired+wireless dual mode", "Wireless"],
+            "Estimated Battery Life": ["less than 3 hours", "3-5 hours", "5-10 hours", "10-15 hours", "15-20 hours", "more than 20 hours"],
+            "Volume Control": ["No", "Yes"],
+            "Waterproof Standard": ["IPX-0", "IPX-1", "IPX-2", "IPX-3", "IPX-4", "IPX-5", "IPX-6", "IPX-7", "IPX-8", "IPX-9", "No"]
+          }
+        }
+      },
+      "fieldControlPolicy": {
+        "enumProp_single": "select",
+        "enumProp_multi": "selected chips plus option select",
+        "placeOfOrigin": "searchable single-select country list mirrored from the authorized Alibaba publish page; arbitrary free text is not accepted",
+        "integer_or_number": "number input with min, step and visible unit",
+        "ladderPrices": "repeatable quantity plus unit-price rows",
+        "ladderPeriod": "repeatable quantity-limit plus dispatch-days rows",
+        "priceUnit": "current-account business-name dropdown; internal code is kept outside the visible form",
+        "shippingTemplateId": "current-account shipping-plan dropdown; internal ID is resolved and validated by the server",
+      "freeText": "title, keywords, selling points, and category attributes with inputProp=true may use text controls"
+      },
+      "originPickerDemo": {
+        "capturedAt": "2026-09-03",
+        "source": "Alibaba International product publish page for category 127684037",
+        "interaction": "click field, search English country or region name, select one result",
+        "optionCount": 256,
+        "defaultValue": "China",
+        "verifiedSearchExample": {
+          "query": "China",
+          "results": ["China", "Taiwan, China"]
+        },
+        "workctlBoundary": "The current WorkCTL list-attribute-options call does not return this list; the demo list is stored separately as an Alibaba UI capture."
+      },
+      "tradeAndFulfillmentFields": [
+        "saleType",
+        "batchNum",
+        "moq",
+        "inventory",
+        "ladderPrices",
+        "priceUnit",
+        "sku",
+        "ladderPeriod",
+        "logisticsProperty",
+        "pkgLength",
+        "pkgWidth",
+        "pkgHeight",
+        "pkgWeight",
+        "shippingTemplateId"
+      ],
+      "verifiedLimitations": [
+        "No flat price string exists in product-edit-draft-trade; the former US$ range text was invalid.",
+        "No standalone WorkCTL command in the current icbu catalog lists every price-unit code; the page derives the current store choices from data-advisor-shop-product and validates them against product information.",
+        "No standalone WorkCTL command in the current icbu catalog lists store shipping-template IDs for every seller type; the page reuses values from current-account product information and otherwise leaves the optional field to the Alibaba account default.",
+        "Place of Origin is a platform selector and list-attribute-options still does not return its list; this prototype mirrors the 256 visible country or region names from the authorized Alibaba publish page instead.",
+        "Five selling-point inputs are serialized to detail.productSellingPoint.",
+        "Keyword chips are serialized to basicInfo.productKeywords.",
+        "The first real draft attempt used an invalid flat material envelope and was rejected with failed to parse material before draft validation; the corrected nested material contract then saved the same product to the International Station draft box successfully."
+      ],
+      "publishTypes": ["draft", "product"],
+      "implementedActions": {
+        "single": ["save current product as draft", "submit current product for publish"],
+        "batch": ["save selected products as drafts", "submit selected products for publish"],
+        "workctlCommand": "icbu.product.new-publish-product",
+        "queueConcurrency": 1,
+        "requiresExplicitConfirmation": true,
+        "idempotency": "client request key is deduplicated in the active server process; no automatic retry for this non-idempotent command",
+        "terminalStates": ["saved_draft", "submitted", "failed"],
+        "operationProgress": {
+          "single": "0/1 to 1/1",
+          "batch": "0/N to N/N with numbered steps 1..N",
+          "completion": "automatically opens one success or failure result dialog"
+        },
+        "platformMaterialShape": ["categoryId", "basicInfo", "trade", "fulfillment", "detail"]
+      },
+      "lastWriteAudit": {
+        "capturedAt": "2026-09-03T12:02:34+08:00",
+        "action": "draft",
+        "scope": "single",
+        "status": "saved_draft",
+        "retryable": false,
+        "message": "已保存到国际站草稿箱",
+        "materialShape": ["categoryId", "basicInfo", "trade", "fulfillment", "detail"],
+        "automaticRetryExecuted": false,
+        "previousFailure": {
+          "capturedAt": "2026-09-03T11:51:04+08:00",
+          "reason": "failed to parse material",
+          "rootCause": "the previous adapter sent a project-defined flat material envelope instead of the Alibaba nested product material contract"
+        }
+      },
+      "keywordEditing": {
+        "maxCount": 5,
+        "supportsInlineEdit": true,
+        "supportsRemoveAndAdd": true
+      },
+      "sellingPointCount": 5,
+      "plannedSequentialFlow": [
+        "upload-file",
+        "material-analysis",
+        "analyze-merge-optimize-material",
+        "list-user-category",
+        "list-attribute",
+        "product-generate-precheck",
+        "new-publish-product or publish-product",
+        "list-task-list"
+      ],
+    "implementationBoundary": "Remote HTTP(S) demo images can enter the real WorkCTL queue. Newly selected browser blob images are blocked until an OSS bucket-backed upload adapter is configured. Queue state is process-memory only and is not restored after server restart. The corrected nested material shape has been accepted in one user-confirmed remote draft save. Categories, PRODUCT attributes, price units and available shipping-plan values now come from the current account at runtime; the visible form never asks users to enter platform IDs.",
+      "sourceCommands": [
+        "workctl icbu other upload-file",
+        "workctl icbu product material-analysis",
+        "workctl icbu product analyze-merge-optimize-material",
+        "workctl icbu product list-user-category",
+        "workctl icbu product list-attribute",
+        "workctl icbu product list-attribute-options",
+        "workctl icbu product product-generate-precheck",
+        "workctl icbu product new-publish-product",
+        "workctl icbu product publish-product",
+        "workctl icbu product product-edit-draft-basic-info",
+        "workctl icbu product product-edit-draft-detail",
+        "workctl icbu product product-edit-draft-trade",
+        "workctl icbu product product-edit-draft-fulfillment",
+        "workctl icbu product product-edit-draft-sample",
+        "workctl icbu product product-edit-draft-customization",
+        "workctl icbu product product-edit-draft-special-service",
+        "workctl icbu product submit-draft",
+        "workctl icbu product list-task-list"
+      ]
+    },
+    "traffic": {
+      "label": "流量分析",
+      "dataState": "populated-with-market-opportunity-merged",
+      "mergedMarketOpportunity": true,
+      "sourceCommands": [
+        "workctl icbu advisor data-advisor-shop-flow",
+        "workctl icbu advisor data-advisor-shop-channel",
+        "workctl icbu advisor data-advisor-shop-region",
+        "workctl icbu advisor data-advisor-shop-customer-profile",
+        "workctl icbu advisor data-advisor-visitor-detail",
+        "workctl icbu product data-advisor-industry-country-rank",
+        "workctl icbu product data-advisor-industry-cate-rank",
+        "workctl icbu product data-advisor-opportunity-discovery"
+      ],
+      "dailyRows": 29,
+      "countryRows": 19,
+      "visitorDetailTotal": 1612,
+      "visitorPageRows": 10,
+      "channelTrendRows": 29,
+      "channelSummary": [
+        {"channel": "搜索", "visitors": 580, "inquiries": 0, "tmVisitors": 24},
+        {"channel": "系统推荐", "visitors": 484, "inquiries": 6, "tmVisitors": 28},
+        {"channel": "其他", "visitors": 307, "inquiries": 1, "tmVisitors": 26},
+        {"channel": "直接访问", "visitors": 171, "inquiries": 1, "tmVisitors": 8},
+        {"channel": "站外", "visitors": 162, "inquiries": 0, "tmVisitors": 0},
+        {"channel": "店内", "visitors": 116, "inquiries": 2, "tmVisitors": 13},
+        {"channel": "询盘", "visitors": 106, "inquiries": 2, "tmVisitors": 36},
+        {"channel": "会场", "visitors": 89, "inquiries": 1, "tmVisitors": 1},
+        {"channel": "站内收藏", "visitors": 28, "inquiries": 0, "tmVisitors": 5},
+        {"channel": "信保", "visitors": 9, "inquiries": 0, "tmVisitors": 2}
+      ],
+      "countryVisitorRates": [
+        {"country": "US", "rate": 0.2309}, {"country": "IN", "rate": 0.1136},
+        {"country": "BD", "rate": 0.0861}, {"country": "CI", "rate": 0.0562},
+        {"country": "VE", "rate": 0.0550}, {"country": "PK", "rate": 0.0478},
+        {"country": "BR", "rate": 0.0467}, {"country": "SN", "rate": 0.0419},
+        {"country": "BF", "rate": 0.0335}, {"country": "ID", "rate": 0.0311},
+        {"country": "JP", "rate": 0.0311}, {"country": "TR", "rate": 0.0311},
+        {"country": "CA", "rate": 0.0299}, {"country": "MX", "rate": 0.0287},
+        {"country": "SO", "rate": 0.0287}, {"country": "VN", "rate": 0.0287},
+        {"country": "NG", "rate": 0.0275}, {"country": "ML", "rate": 0.0263},
+        {"country": "AR", "rate": 0.0251}
+      ],
+      "marketOpportunity": {
+        "categoryId": "127734059",
+        "statDate": "2026-08-31",
+        "countrySample": [
+          {"country": "IQ", "opportunities": 118, "yoy": -0.6965, "directOpportunityRate": 0.0653, "supplyDemandRate": 3.7959},
+          {"country": "SA", "opportunities": 138, "yoy": -0.2625, "directOpportunityRate": 0.0805, "supplyDemandRate": 4.1371},
+          {"country": "CD", "opportunities": 247, "yoy": 0.4531, "directOpportunityRate": 0.1430, "supplyDemandRate": 4.7119}
+        ],
+        "categorySample": [
+          {"category": "智能手表表带", "opportunities": 492, "yoy": 1.3631, "supplyDemandRate": 101.0713},
+          {"category": "智能手环", "opportunities": 711, "yoy": 0.3243, "supplyDemandRate": 125.7882},
+          {"category": "智能手表", "opportunities": 2163, "yoy": -0.3220, "supplyDemandRate": 293.5014}
+        ],
+        "sceneSample": [
+          {"scene": "Smart Watches", "needsIndex": 1357.0863, "qoq": -0.1040, "supplyNeedsRate": 7.8974, "businessProductRate": 0.0211, "hotWords": ["smart watch", "watch", "reloj inteligente"]},
+          {"scene": "Smart Bracelets", "needsIndex": 353.7869, "qoq": 0.0271, "supplyNeedsRate": 3.6558, "businessProductRate": 0.0337, "hotWords": ["smart watch", "smart bracelets", "watch"]},
+          {"scene": "Smart Watch Bands", "needsIndex": 290.5502, "qoq": 0.2064, "supplyNeedsRate": 3.0965, "businessProductRate": 0.0104, "hotWords": ["apple watch bands", "whoop band", "fitbit air strap"]}
+        ]
+      },
+      "timeSeries": [
+        {"date": "2026-08-03", "exposure": 4615, "clicks": 136, "visitors": 76, "inquiries": 2, "tmVisitors": 9, "createdOrders": 4, "paidOrders": 0, "amountUsd": 2020.5},
+        {"date": "2026-08-04", "exposure": 5474, "clicks": 180, "visitors": 83, "inquiries": 4, "tmVisitors": 9, "createdOrders": 1, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-05", "exposure": 6577, "clicks": 149, "visitors": 76, "inquiries": 3, "tmVisitors": 11, "createdOrders": 1, "paidOrders": 2, "amountUsd": 4244.2},
+        {"date": "2026-08-06", "exposure": 6921, "clicks": 155, "visitors": 82, "inquiries": 3, "tmVisitors": 12, "createdOrders": 1, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-07", "exposure": 6549, "clicks": 157, "visitors": 61, "inquiries": 2, "tmVisitors": 8, "createdOrders": 2, "paidOrders": 1, "amountUsd": 1691.01},
+        {"date": "2026-08-08", "exposure": 6268, "clicks": 161, "visitors": 59, "inquiries": 5, "tmVisitors": 15, "createdOrders": 3, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-09", "exposure": 8048, "clicks": 235, "visitors": 85, "inquiries": 6, "tmVisitors": 13, "createdOrders": 0, "paidOrders": 1, "amountUsd": 475.32},
+        {"date": "2026-08-10", "exposure": 8441, "clicks": 214, "visitors": 84, "inquiries": 1, "tmVisitors": 13, "createdOrders": 2, "paidOrders": 2, "amountUsd": 661.75},
+        {"date": "2026-08-11", "exposure": 10414, "clicks": 255, "visitors": 83, "inquiries": 13, "tmVisitors": 12, "createdOrders": 1, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-12", "exposure": 10226, "clicks": 261, "visitors": 102, "inquiries": 5, "tmVisitors": 14, "createdOrders": 2, "paidOrders": 1, "amountUsd": 33.43},
+        {"date": "2026-08-13", "exposure": 9679, "clicks": 272, "visitors": 103, "inquiries": 7, "tmVisitors": 19, "createdOrders": 3, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-14", "exposure": 5573, "clicks": 113, "visitors": 62, "inquiries": 1, "tmVisitors": 7, "createdOrders": 1, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-15", "exposure": 2345, "clicks": 55, "visitors": 47, "inquiries": 0, "tmVisitors": 5, "createdOrders": 0, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-16", "exposure": 2023, "clicks": 60, "visitors": 36, "inquiries": 0, "tmVisitors": 3, "createdOrders": 1, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-17", "exposure": 1676, "clicks": 36, "visitors": 34, "inquiries": 0, "tmVisitors": 7, "createdOrders": 1, "paidOrders": 1, "amountUsd": 143.75},
+        {"date": "2026-08-18", "exposure": 1779, "clicks": 47, "visitors": 45, "inquiries": 0, "tmVisitors": 9, "createdOrders": 0, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-19", "exposure": 1585, "clicks": 33, "visitors": 36, "inquiries": 0, "tmVisitors": 7, "createdOrders": 0, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-20", "exposure": 1516, "clicks": 28, "visitors": 36, "inquiries": 0, "tmVisitors": 7, "createdOrders": 0, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-21", "exposure": 1790, "clicks": 30, "visitors": 43, "inquiries": 0, "tmVisitors": 7, "createdOrders": 0, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-22", "exposure": 1551, "clicks": 27, "visitors": 34, "inquiries": 1, "tmVisitors": 3, "createdOrders": 0, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-23", "exposure": 1769, "clicks": 44, "visitors": 39, "inquiries": 1, "tmVisitors": 2, "createdOrders": 1, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-24", "exposure": 1770, "clicks": 34, "visitors": 37, "inquiries": 0, "tmVisitors": 3, "createdOrders": 0, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-25", "exposure": 1708, "clicks": 26, "visitors": 38, "inquiries": 0, "tmVisitors": 8, "createdOrders": 2, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-26", "exposure": 1710, "clicks": 27, "visitors": 36, "inquiries": 0, "tmVisitors": 5, "createdOrders": 1, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-27", "exposure": 1631, "clicks": 44, "visitors": 46, "inquiries": 0, "tmVisitors": 10, "createdOrders": 0, "paidOrders": 0, "amountUsd": 1109.07},
+        {"date": "2026-08-28", "exposure": 1525, "clicks": 30, "visitors": 32, "inquiries": 0, "tmVisitors": 5, "createdOrders": 1, "paidOrders": 1, "amountUsd": 319.96},
+        {"date": "2026-08-29", "exposure": 1481, "clicks": 50, "visitors": 37, "inquiries": 0, "tmVisitors": 8, "createdOrders": 0, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-30", "exposure": 1547, "clicks": 38, "visitors": 43, "inquiries": 0, "tmVisitors": 2, "createdOrders": 0, "paidOrders": 0, "amountUsd": 0},
+        {"date": "2026-08-31", "exposure": 1715, "clicks": 32, "visitors": 28, "inquiries": 0, "tmVisitors": 2, "createdOrders": 1, "paidOrders": 0, "amountUsd": 0}
+      ]
+    },
+    "ads": {
+      "label": "关键词与广告",
+      "dataState": "mixed-populated-and-empty",
+      "latestPlatformDataDate": "2026-09-01",
+      "effectDateRange": {"start": "2026-08-03", "end": "2026-09-01"},
+      "effectProductLines": ["110102001", "110102004"],
+      "availableBrandKeywords": 100,
+      "nextMonthRecommendations": 3,
+      "companyEffectRows": 0,
+      "productEffectRows": 0,
+      "keywordEffectRows": 0,
+      "searchTermEffectRows": 0,
+      "achieveRateRows": 0,
+      "shopKeywordProfile": {
+        "showcaseProducts": 50,
+        "highInquiryRows": 16,
+        "highTrafficRows": 20,
+        "highP4pRows": 16,
+        "highInquiryKeywordSample": ["smart watch", "watch", "smartwatches", "airpods", "watch for men", "smart watch for men", "apple watch"],
+        "highTrafficKeywordSample": ["smart watch", "g shock watch", "smartwatch band", "watch", "montre connecte"],
+        "highP4pKeywordSample": ["watch", "smart watch", "watch for men smart", "smartwatch", "smart watch with earbuds"]
+      },
+      "emptyStateMeaning": "当前筛选周期无效果记录，不代表 WorkCTL 未接入。",
+      "availableKeywordSample": [
+        {"keyword": "smart watch", "channel": "APP", "index": 1000, "ctr": "2.39%", "opportunityRate": "3.62%", "status": "可预定", "linkedGoodProducts": 37},
+        {"keyword": "smartwatches", "channel": "APP", "index": 1000, "ctr": "2.36%", "opportunityRate": "4.30%", "status": "可预定", "linkedGoodProducts": 30},
+        {"keyword": "smartwatches", "channel": "PC", "index": 1000, "ctr": "<1%", "opportunityRate": "1.82%", "status": "可预定", "linkedGoodProducts": 30},
+        {"keyword": "smart watch for men", "channel": "APP", "index": 1000, "ctr": "3.12%", "opportunityRate": "2.47%", "status": "可预定", "linkedGoodProducts": 5},
+        {"keyword": "earphones", "channel": "APP", "index": 1000, "ctr": "2.12%", "opportunityRate": "5.56%", "status": "可预定", "linkedGoodProducts": 1},
+        {"keyword": "earbuds", "channel": "PC", "index": 1000, "ctr": "<1%", "opportunityRate": "1.93%", "status": "可预定", "linkedGoodProducts": 2},
+        {"keyword": "earbuds", "channel": "APP", "index": 1000, "ctr": "2.31%", "opportunityRate": "5.13%", "status": "可预定", "linkedGoodProducts": 2},
+        {"keyword": "earphones", "channel": "PC", "index": 1000, "ctr": "<1%", "opportunityRate": "2.88%", "status": "可预定", "linkedGoodProducts": 1},
+        {"keyword": "tws", "channel": "PC", "index": 1000, "ctr": "<1%", "opportunityRate": "<1%", "status": "可预定", "linkedGoodProducts": 3},
+        {"keyword": "waterproof smartwatch", "channel": "APP", "index": 1000, "ctr": "2.67%", "opportunityRate": "4.06%", "status": "可预定", "linkedGoodProducts": 16},
+        {"keyword": "headphones", "channel": "PC", "index": 1000, "ctr": "<1%", "opportunityRate": "5.34%", "status": "可预定", "linkedGoodProducts": 1},
+        {"keyword": "wristwatch", "channel": "APP", "index": 1000, "ctr": "2.78%", "opportunityRate": "3.54%", "status": "可预定", "linkedGoodProducts": 2},
+        {"keyword": "smart phone", "channel": "APP", "index": 1000, "ctr": "2.06%", "opportunityRate": "4.10%", "status": "可预定", "linkedGoodProducts": 2},
+        {"keyword": "wireless earbuds", "channel": "APP", "index": 1000, "ctr": "2.51%", "opportunityRate": "6.14%", "status": "可预定", "linkedGoodProducts": 1},
+        {"keyword": "wireless earbuds", "channel": "PC", "index": 1000, "ctr": "<1%", "opportunityRate": "2.84%", "status": "可预定", "linkedGoodProducts": 1},
+        {"keyword": "headset", "channel": "APP", "index": 1000, "ctr": "1.61%", "opportunityRate": "5.52%", "status": "可预定", "linkedGoodProducts": 3},
+        {"keyword": "4g smart watch", "channel": "APP", "index": 567, "ctr": "1.99%", "opportunityRate": "2.13%", "status": "可预定", "linkedGoodProducts": 1},
+        {"keyword": "fashion smart watches", "channel": "APP", "index": 931, "ctr": "1.49%", "opportunityRate": "2.06%", "status": "可预定", "linkedGoodProducts": 36},
+        {"keyword": "android watch", "channel": "APP", "index": 964, "ctr": "2.29%", "opportunityRate": "3.14%", "status": "可预定", "linkedGoodProducts": 11},
+        {"keyword": "android smart watch", "channel": "APP", "index": 716, "ctr": "2.46%", "opportunityRate": "2.76%", "status": "可预定", "linkedGoodProducts": 11}
+      ],
+      "sourceCommands": [
+        "workctl icbu ads accio-brand-stat-date",
+        "workctl icbu ads search-customer-shop",
+        "workctl icbu ads search-list",
+        "workctl icbu ads search-next-month-auction-resource",
+        "workctl icbu ads accio-brand-comp-effect",
+        "workctl icbu ads search-prod-effect",
+        "workctl icbu ads search-keyword-effect",
+        "workctl icbu ads accio-brand-package-word-effect",
+        "workctl icbu ads search-achieve-rate"
+      ]
+    },
+    "rfq": {
+      "label": "RFQ 商机",
+      "dataState": "populated",
+      "internalRfqTotal": 324,
+      "externalRfqTotal": 45,
+      "quoteHistoryTotal": 5,
+      "quoteRightsAvailable": "audit-snapshot",
+      "sampleKeyword": "smart watch",
+      "identityPolicy": "anonymous",
+      "rightsLiveStatus": "2026-09-03 实时权益接口等待 125 秒后未返回；商机池和报价历史接口正常。",
+      "rightsSnapshot": {
+        "auditedAt": "2026-08-30",
+        "availableQuote": 6,
+        "availableTopQuote": 8,
+        "availableGoldQuote": 13,
+        "availableSilverQuote": 1,
+        "availableTravel": 9,
+        "usedThisMonth": 5,
+        "sixHourQuotes": 1,
+        "replyCount": 4,
+        "predictedScore": 32,
+        "lastMonthScore": 77,
+        "rfqGmv": "0.0"
+      },
+      "sampleOpportunities": [
+        {
+          "source": "Alibaba.com",
+          "title": "Dual Bands GPS Smart Watch with 4G",
+          "country": "United States",
+          "category": "Smart Watches",
+          "quantity": "5,000 Piece/Pieces",
+          "createdText": "2 days ago",
+          "quotedCount": 7,
+          "remainingQuota": 3,
+          "buyerSignals": {"loginDays": 71, "searchCount": 177, "validInquiryCount": 11, "validRfqCount": 8, "viewedQuoteCount": 49},
+          "tags": ["Email Confirmed", "Experienced buyer", "Typically replies", "Complete order via RFQ"]
+        },
+        {
+          "source": "Alibaba.com",
+          "title": "1.43 inch Round AMOLED Smart Watch",
+          "country": "United States",
+          "category": "Fashion Smart Watches",
+          "quantity": "100 Piece/Pieces",
+          "createdText": "5 days ago",
+          "quotedCount": 7,
+          "remainingQuota": 3,
+          "buyerSignals": {"loginDays": 7, "searchCount": 2, "validInquiryCount": 0, "validRfqCount": 4, "viewedQuoteCount": 16},
+          "tags": ["Email Confirmed", "Typically replies"]
+        },
+        {
+          "source": "MIC",
+          "title": "New Model 4G Kids Smart Watch",
+          "country": "Pakistan",
+          "category": "Consumer Electronics",
+          "quantity": "150 Piece(s)",
+          "createdText": "2026-08-26",
+          "quotedCount": 2,
+          "remainingQuota": 8,
+          "tradeTerms": "DDP",
+          "paymentTerms": "T/T",
+          "buyerVerified": true
+        },
+        {
+          "source": "MIC",
+          "title": "S15 Max Smart Watch",
+          "country": "Ghana",
+          "category": "Consumer Electronics",
+          "quantity": "50 Piece(s)",
+          "createdText": "2026-08-19",
+          "quotedCount": 2,
+          "remainingQuota": 8,
+          "tradeTerms": "FOB",
+          "paymentTerms": "T/T",
+          "buyerVerified": true
+        }
+      ],
+      "quoteHistorySample": [
+        {"title": "Lenovo Smart Watch Fit 101 with AMOLED Ultra HD Display", "country": "UA", "buyerLevel": "L2", "quoteTime": "2026-08-27T10:32:54+08:00", "status": "待买家查看"},
+        {"title": "2026 Top Selling K56pro OEM Smart Watch", "country": "IT", "buyerLevel": "L2", "quoteTime": "2026-08-26T10:02:14+08:00", "status": "买家已查看"},
+        {"title": "Smart watch band strap nylon", "country": "DE", "buyerLevel": "L3", "quoteTime": "2026-08-26T09:59:06+08:00", "status": "买家已反馈"},
+        {"title": "Sports Smart Watch 2025 with Flashlight", "country": "US", "buyerLevel": "L1", "quoteTime": "2026-08-26T09:36:14+08:00", "status": "待买家查看"}
+      ],
+      "sourceCommands": [
+        "workctl icbu rfq rfq-aw-search",
+        "workctl icbu rfq external-rfq-search",
+        "workctl icbu rfq rfq-detail-search",
+        "workctl icbu rfq external-rfq-detail-search",
+        "workctl icbu rfq rfq-quote-history-search",
+        "workctl icbu rfq rfq-quote-rights-detail"
+      ]
+    },
+    "market": {
+      "label": "市场机会",
+      "dataState": "merged-into-traffic",
+      "renderedIn": "traffic",
+      "opportunityRows": 10,
+      "industryTrendRows": 25,
+      "countryRankRows": 20,
+      "categoryRankRows": 6,
+      "productSelectionRows": 9,
+      "recommendedRecruitmentTopicsPageRows": 20,
+      "recommendedRecruitmentTopicPool": 14051,
+      "sampleCategory": "Smart Watches",
+      "countryRankSample": [
+        {"country": "US", "opportunities": 347, "yoy": -0.2325, "directOpportunityRate": 0.0746, "supplyDemandRate": 20.7042},
+        {"country": "IN", "opportunities": 240, "yoy": -0.5270, "directOpportunityRate": 0.0465, "supplyDemandRate": 19.9655},
+        {"country": "CD", "opportunities": 233, "yoy": 0.4540, "directOpportunityRate": 0.1447, "supplyDemandRate": 5.5377},
+        {"country": "PK", "opportunities": 224, "yoy": -0.1032, "directOpportunityRate": 0.0811, "supplyDemandRate": 9.8871},
+        {"country": "CI", "opportunities": 217, "yoy": -0.1947, "directOpportunityRate": 0.1057, "supplyDemandRate": 7.2474},
+        {"country": "SN", "opportunities": 213, "yoy": 0.3674, "directOpportunityRate": 0.0970, "supplyDemandRate": 7.0733},
+        {"country": "VE", "opportunities": 190, "yoy": 0.3670, "directOpportunityRate": 0.0765, "supplyDemandRate": 8.1213},
+        {"country": "BF", "opportunities": 160, "yoy": -0.3680, "directOpportunityRate": 0.1243, "supplyDemandRate": 3.6453}
+      ],
+      "sourceCommands": [
+        "workctl icbu product data-advisor-opportunity-discovery",
+        "workctl icbu product data-advisor-industry-market-trend",
+        "workctl icbu product data-advisor-industry-country-rank",
+        "workctl icbu product data-advisor-industry-cate-rank",
+        "workctl icbu product data-advisor-product-selection",
+        "workctl icbu recruitment-topic search"
+      ]
+    },
+    "ordersLogistics": {
+      "label": "订单与物流",
+      "dataState": "populated",
+      "tradeOrders": 30,
+      "tradePageRows": 20,
+      "logisticsRecords": 162,
+      "tradePageStatusSample": {
+        "intention_processing": 1,
+        "trade_close": 11,
+        "trade_success": 2,
+        "unpay": 4,
+        "wait_confirm_receipt": 2
+      },
+      "logisticsPageRows": 20,
+      "logisticsPageStatusSample": {
+        "CLOSED": 1,
+        "DELIVERY_SUCCESS": 16,
+        "LEAVE_WAREHOUSE": 1,
+        "TERMINATED": 1,
+        "TRANSPORTING": 1
+      },
+      "tariffQuery": {
+        "destination": "US",
+        "classificationReturned": true,
+        "amountStored": false
+      },
+      "chargebackMaterials": {
+        "sampleOrderResultRows": 0,
+        "meaning": "抽样订单没有拒付材料。"
+      },
+      "sourceCommands": [
+        "workctl icbu trade list-trade-list-mcp",
+        "workctl icbu logistics list",
+        "workctl icbu logistics icbu-logistics-customs-calculate-tariff-tool",
+        "workctl icbu trade chargeback-material-with-ai"
+      ]
+    },
+    "risk": {
+      "label": "风险合规",
+      "dataState": "mixed-current-snapshot-and-violation-record",
+      "currentSnapshot": {
+        "date": "2026-09-02",
+        "riskProducts": 0,
+        "todayPunishPoints": 0,
+        "rectificationTasks": 0,
+        "fraudOrders": 0,
+        "iprCount": 0
+      },
+      "recordLayer": {
+        "cumulativePunishPoints": 24.0,
+        "hasViolation": true,
+        "violationCountInDemo": 1,
+        "violationType": "FCC related",
+        "affectedMarket": "US",
+        "productLabel": "无线音频产品（已脱敏）"
+      },
+      "renderRule": "当前风险商品为 0 与存在违规记录可以同时成立，页面必须并列展示两个数据层。",
+      "sourceCommands": [
+        "workctl icbu trade shop-risk-diagnosis",
+        "workctl icbu trade list-product-violation-result-v2",
+        "workctl icbu trade list-shop-violation-result-v2"
+      ]
+    },
+    "storefront": {
+      "label": "店铺装修",
+      "dataState": "real-empty",
+      "companyIdentityAvailable": true,
+      "companyInfoAvailable": true,
+      "pageCount": 0,
+      "cloudPageCount": 0,
+      "existingTemplateIdAvailable": false,
+      "existingTaskIdAvailable": false,
+      "emptyStateMeaning": "账号当前没有可读取的店铺页面或现成生成任务。",
+      "sourceCommands": [
+        "workctl icbu storefront get-company-id",
+        "workctl icbu storefront ai-minisite-get-company-info",
+        "workctl icbu storefront ai-minisite-get-acciowork-page-list",
+        "workctl icbu storefront get-cloud"
+      ]
+    },
+    "assets": {
+      "label": "素材工坊",
+      "dataState": "mixed-public-library-and-empty-owned-assets",
+      "threeDEligibilityAvailable": true,
+      "publicGalleryAvailable": true,
+      "ownedThreeDModels": 0,
+      "sampleProductHasModel": false,
+      "existingImageTaskAvailable": false,
+      "existingVideoTaskAvailable": false,
+      "renderRule": "公共素材库有内容，自有模型与生成任务为空；不得展示成未接入。",
+      "sourceCommands": [
+        "workctl icbu product icbu-product-3d-eligibility-query",
+        "workctl icbu product icbu-product-3d-gallery-query",
+        "workctl icbu product icbu-product-3d-model-list",
+        "workctl icbu product icbu-product-3d-product-model-query"
+      ]
+    },
+    "team": {
+      "label": "团队绩效",
+      "dataState": "populated",
+      "memberAccounts": 9,
+      "accountDiagnosisRows": 9,
+      "shopDiagnosisRows": 7,
+      "identityPolicy": "anonymous-account-01-to-09",
+      "sourceCommands": [
+        "workctl icbu member list",
+        "workctl icbu tm list-seller-acct-dim-diag-data",
+        "workctl icbu tm list-seller-shop-dim-diag-data",
+        "workctl icbu advisor data-advisor-account-summary"
+      ]
+    },
+    "knowledgeReception": {
+      "label": "知识库与接待",
+      "dataState": "populated",
+      "faqChunks": 20,
+      "sellerKnowledgeQueryAvailable": true,
+      "chatReceptionStrategies": 11,
+      "autoReceptionStrategies": 12,
+      "sourceCommands": [
+        "workctl icbu cco icbu-faq-knowledge-chunk",
+        "workctl icbu tm list-seller-knowledge",
+        "workctl icbu tm list-reception-strategies"
+      ]
+    },
+    "access": {
+      "label": "账号与权限",
+      "dataState": "mixed-populated-and-permission-blocked",
+      "memberAccounts": 9,
+      "contactRows": 100,
+      "queryContactAvailable": true,
+      "listContactAvailable": false,
+      "listContactBlockedReason": "no privilege",
+      "identityPolicy": "anonymous",
+      "sourceCommands": [
+        "workctl icbu member list",
+        "workctl icbu tm query-contact",
+        "workctl icbu tm list-contact"
+      ]
+    },
+    "console": {
+      "label": "数据控制台",
+      "dataState": "audit-summary",
+      "querySchemas": 124,
+      "liveAttempted": 123,
+      "successful": 112,
+      "blockedOrFailed": 11,
+      "schemaOnly": 1,
+      "schemaOnlyCommand": "workctl icbu tm query-conversation-info",
+      "schemaOnlyReason": "当前查询结果没有可用 chatToken。",
+      "writeCommandsExecuted": 0,
+      "writePolicy": "生成、发布、发送、删除、预定、绑定等写命令未执行。"
+    }
+  }
+}
