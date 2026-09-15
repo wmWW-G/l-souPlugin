@@ -19,19 +19,23 @@ function toast(msg, isErr) {
   clearTimeout(t._h);
   t._h = setTimeout(() => { t.className = 'toast' + (isErr ? ' err' : ''); }, 3200);
 }
-async function api(ep, params = {}) {
+async function api(ep, params = {}, options = {}) {
+  try {TimePolicy.validate(ep,params,EPS.find(item=>item.key===ep)?.flags);} catch(error){toast(error.message,true);return null;}
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
     if (v !== '' && v !== null && v !== undefined && v !== false) qs.set(k, v);
   }
   busy(true);
+  const advisorRead=window.LsouAdvisor?.beginRead('/api/q/'+ep,params);
   try {
     const r = await fetch(`/api/q/${ep}?${qs}`);
     const j = await r.json();
-    if (!j.ok) { toast(`${ep} 失败: ${(j.error || '').slice(0, 110)}`, true); return null; }
+    window.LsouAdvisor?.finishRead(advisorRead,j,!j.ok);
+    if (!j.ok) { if(!options.quiet)toast(ep==='shop-product'?'商品数据暂时读取失败，请稍后点击刷新。':`${ep} 读取失败，请稍后重试。`, true); return null; }
     return j;
   } catch (e) {
-    toast(`${ep} 网络错误: ${e.message}`, true); return null;
+    window.LsouAdvisor?.finishRead(advisorRead,null,true);
+    if(!options.quiet)toast('数据连接暂时失败，请稍后重试。', true); return null;
   } finally { busy(false); refreshLog(); }
 }
 
@@ -44,15 +48,18 @@ async function api(ep, params = {}) {
  */
 async function dashboardApi(path) {
   busy(true);
+  const advisorRead=window.LsouAdvisor?.beginRead(path);
   try {
     const response = await fetch(path);
     const payload = await response.json();
+    window.LsouAdvisor?.finishRead(advisorRead,payload,!payload.ok);
     if (!payload.ok) {
       toast(`经营分析失败: ${(payload.error || '').slice(0, 110)}`, true);
       return null;
     }
     return payload;
   } catch (error) {
+    window.LsouAdvisor?.finishRead(advisorRead,null,true);
     toast(`经营分析网络错误: ${error.message}`, true);
     return null;
   } finally {
@@ -92,20 +99,89 @@ const hideTip = () => { tip.style.display = 'none'; };
 
 // ============================ 日期 ============================
 const iso = d => d.toISOString().slice(0, 10);
-function setRange(days) {
-  const end = new Date(Date.now() - 86400000);          // 昨天
-  const start = new Date(end.getTime() - (days - 1) * 86400000);
-  $('#startDate').value = iso(start);
-  $('#endDate').value = iso(end);
+const timeStates = {};
+const timePages = {
+  overview: {modes:['month','week','day','range'], note:'经营与渠道按所选区间；商品榜独立按自然月；回复指标为平台近30天值'},
+  product: {modes:['month','day'], note:'商品效果仅支持近90天内自然日／自然月；质量诊断为独立快照'},
+  flow: {modes:['month','week','day','range'], note:'店铺与国家按所选区间；画像固定近30天，行业需求近90天'},
+  visitor: {modes:['week','month','day','range'], note:'访客与经营数据按所选区间（最长1个月）；画像近30天，会话为实时记录'},
+  staff: {modes:['month','week','day'], note:'日／月按所选周期；周报以平台返回的报告日期为准，不跨周相加'},
+  ads: {modes:['month','week','day','range'], note:'广告效果按所选区间（最多100天）；关键词、行业基准、计划与余额各自独立口径'},
+};
+const timeNotes = {
+  ads:'关键词为平台最新／历史快照；行业需求固定近90天，关键词指数按平台年度口径',
+  market:'行业供需、竞争与选品参考；类目和统计周期在各区域独立选择',
+  rfq:'当前商机池、报价历史与独立权益信息；本页不按经营日期筛选',
+  orders:'合同按下方创建日期查询；物流为当前状态，关税为本次测算',
+  risk:'风险诊断为当前快照；违规记录按下方日期查询',
+  'product-publish':'当前商品资料与发布任务，不按经营日期筛选',
+  storefront:'当前店铺资料与星等级快照，不按经营日期筛选',
+  assets:'当前素材与创作任务，不按经营日期筛选',
+  knowledge:'当前知识与商品资料，不按经营日期筛选',
+  access:'当前账号与权限，不按经营日期筛选',
+  console:'每个工具独立选择时间，按工具合同校验；不继承其他页面的日期',
+};
+/** 最新完整周期作为默认，避开尚未结束的自然周/月。@param {string} mode 粒度。@returns {string} 控件值。@throws 无。 */
+function defaultTimeValue(mode) {
+  const yesterday = TimePolicy.shift(TimePolicy.today(),-1);
+  if(mode==='month') return TimePolicy.addMonths(TimePolicy.today().slice(0,7)+'-01',-1).slice(0,7);
+  if(mode==='week') {
+    const monday=TimePolicy.period('week',TimePolicy.weekValue(yesterday),'9999-12-31').startDate;
+    return TimePolicy.weekValue(TimePolicy.shift(monday,-7));
+  }
+  // 商品平台默认日常有离线延迟；默认前天，但不把T+2强加给其他统计接口。
+  return TimePolicy.shift(TimePolicy.today(),-2);
 }
-const dates = () => ({ startDate: $('#startDate').value, endDate: $('#endDate').value });
-
-/** 访客接口最长 1 个月，自动收敛 */
-function visitorRange() {
-  const { startDate, endDate } = dates();
-  const e = new Date(endDate), s = new Date(startDate);
-  const min = new Date(e.getTime() - 29 * 86400000);
-  return { startDate: iso(s < min ? min : s), endDate: endDate };
+/** 返回当前已应用日期，编辑中的控件不会改变正在展示的口径。@returns {object} 日期对。@throws 无。 */
+const dates = name => timeStates[name] ? {startDate:timeStates[name].startDate,endDate:timeStates[name].endDate} : ({startDate:$('#startDate').value,endDate:$('#endDate').value});
+/** 访客日期严格校验，不再静默裁切为30天。@returns {object} 日期对。@throws 超过一个月。 */
+function visitorRange() {const d=dates('visitor');return TimePolicy.range(d.startDate,d.endDate,{months:1});}
+/** 生成页面默认时间状态。@param {string} name 页面。@returns {object} 已应用状态。@throws 无。 */
+function defaultTimeState(name) {
+  const mode=timePages[name]?.modes[0] || 'month', value=defaultTimeValue(mode);
+  return {mode,value,...TimePolicy.period(mode,value)};
+}
+/** 切页恢复各页自己的日期，隐藏不生效的控件。@param {string} name 页面。@returns {void}。@throws DOM缺失。 */
+function renderTimeControls(name) {
+  const policy=timePages[name], state=timeStates[name] ||= defaultTimeState(name);
+  $('#startDate').value=state.startDate;$('#endDate').value=state.endDate;
+  $('#timeControls').hidden=!policy;
+  $('#timeScope').textContent=policy ? `${state.startDate} — ${state.endDate} · ${policy.note}` : (timeNotes[name] || '当前记录');
+  if(!policy)return;
+  $('#quickRange').innerHTML=policy.modes.map(mode=>`<option value="${mode}">${({day:'按日',week:'按周',month:'按月',range:'自定义区间'})[mode]}</option>`).join('');
+  $('#quickRange').value=state.mode;
+  renderTimePicker(name,state.mode,state);
+}
+/** 只开放本页支持的输入形式；日期变更需点击应用，避免连续发请求。@param {string} name 页面。@param {string} mode 粒度。@param {object} state 可选已保存值。@returns {void}。@throws DOM缺失。 */
+function renderTimePicker(name,mode,state={}) {
+  const range=mode==='range', input=$('#timeValue');
+  $('#timeValueLabel').hidden=range;$('#timeRangeLabel').hidden=!range;
+  const latest=TimePolicy.shift(TimePolicy.today(),-1);
+  input.type=range?'date':mode;input.value=state.mode===mode?state.value:defaultTimeValue(mode);
+  input.max=mode==='month'?defaultTimeValue('month'):mode==='week'?TimePolicy.weekValue(TimePolicy.shift(TimePolicy.period('week',TimePolicy.weekValue(latest),'9999-12-31').endDate,-7)):latest;
+  input.min='';
+  if(name==='product') {
+    const earliest=TimePolicy.shift(TimePolicy.today(),-89);
+    input.min=mode==='month'?(earliest.endsWith('-01')?earliest.slice(0,7):TimePolicy.addMonths(earliest.slice(0,7)+'-01',1).slice(0,7)):earliest;
+  }
+  $('#timeValueText').textContent=mode==='week' && name==='staff'?'查询周 · 平台周报':({day:'统计日',week:'自然周 · 周一至周日',month:'自然月'})[mode] || '日期';
+  $('#timeFrom').value=state.startDate || dates().startDate;
+  $('#timeTo').value=state.endDate || dates().endDate;
+  $('#timeFrom').max=latest;$('#timeTo').max=latest;
+  $('#timeRangeHint').textContent=name==='visitor'?'最长1个月':name==='ads'?'最多100天':'最多90天';
+}
+/** 应用合法时间到查询参数并刷新；不合法时保留原图表。@returns {void}。@throws 错误转为页面提示。 */
+function applyTimeSelection() {
+  const name=$('#tabs button[data-tab].on')?.dataset.tab || 'overview', mode=$('#quickRange').value;
+  try {
+    if(!timePages[name]?.modes.includes(mode))throw new Error('此页面不支持该时间粒度');
+    const selected=mode==='range'?TimePolicy.range($('#timeFrom').value,$('#timeTo').value,{latest:TimePolicy.shift(TimePolicy.today(),-1),days:name==='visitor'?undefined:name==='ads'?100:90,months:name==='visitor'?1:undefined}):TimePolicy.period(mode,$('#timeValue').value);
+    if(name==='product')TimePolicy.validate('shop-product',{statDate:selected.startDate,statisticsType:mode});
+    timeStates[name]={mode,value:mode==='range'?'':$('#timeValue').value,...selected};
+    if(name==='visitor')vState.pageNO=1;
+    if(name==='overview' && mode==='month')overviewRankingMonth=selected.startDate.slice(0,7);
+    renderTimeControls(name);reloadAll();
+  } catch(error) {toast(error.message,true);}
 }
 
 // ============================ KPI 定义 ============================
@@ -117,23 +193,46 @@ const KPIS = [
   { k: 'fstReplyRate30d', n: '首次回复率', c: '#278c98', aggregate: 'latest', format: 'percent' },
   { k: 'avgReplyTime30d', n: '平均回复时长', c: '#d88a13', aggregate: 'latest', format: 'hours', lowerBetter: true },
 ];
+// 顶部指标独立配置：扩展展示不改变诊断生成器原有的六项输入契约。
+// 商品数是最新库存快照，访客数是每日去重人数的累加，不能当作周期去重人数。
+const OVERVIEW_KPIS = [
+  { ...KPIS[3], n: '成交订单数', icon: 'ri-file-list-3-line', primary: true },
+  { k: 'adSpend', n: '广告花费', icon: 'ri-wallet-3-line', primary: true, unavailable: true },
+  { k: 'abCnt', n: '商机数', icon: 'ri-chat-check-line', primary: true, aggregate: 'sum', format: 'number', c: '#ff6200' },
+  { ...KPIS[2], icon: 'ri-mail-line', primary: true },
+  { ...KPIS[0], icon: 'ri-eye-line' },
+  { ...KPIS[1], icon: 'ri-cursor-line' },
+  { k: 'uvCnt', n: '店铺访客数', icon: 'ri-user-line', aggregate: 'sum', format: 'number', c: '#ff6200', scope: '每日去重人数累加' },
+  { k: 'pvCnt', n: '店铺浏览量', icon: 'ri-pages-line', aggregate: 'sum', format: 'number', c: '#ff6200' },
+  { k: 'validProdCnt', n: '有效商品数', icon: 'ri-box-3-line', aggregate: 'latest', format: 'number', c: '#ff6200', scope: '最新快照' },
+  { k: 'goodProdCnt', n: '优爆品数', icon: 'ri-medal-line', aggregate: 'latest', format: 'number', c: '#ff6200', scope: '最新快照' },
+  { ...KPIS[4], icon: 'ri-message-3-line', scope: '近30天滚动值' },
+  { ...KPIS[5], icon: 'ri-time-line', scope: '近30天滚动值' },
+];
 let curKpi = 'totalImpsCnt';
 let summaryRows = [];
 
 // ============================ 经营大盘 ============================
 async function loadOverview() {
-  const j = await api('shop-summary', { ...dates(), statisticsType: 'day' });
-  if (!j) return;
+  const timeRequest=JSON.stringify(timeStates['overview']);
+  const j = await api('shop-summary', { ...dates('overview'), statisticsType: 'day' });
+  if(timeRequest!==JSON.stringify(timeStates['overview']))return;
+  overviewInsightPromise = loadOverviewInsights();
+  if (!j) {
+    summaryRows=[];
+    ['#kpis','#journeyFlow','#trendChart'].forEach(id=>$(id).innerHTML='<div class="empty">此周期读取失败，请刷新重试</div>');
+    renderActionItems(); generateOverviewTodo(false, true); return;
+  }
   summaryRows = (Array.isArray(j.data) ? j.data : [])
     .filter(r => r && r.statDate)
     .sort((a, b) => a.statDate < b.statDate ? -1 : 1);
-  if (!summaryRows.length) { $('#kpis').innerHTML = '<div class="empty">该区间无数据</div>'; return; }
+  if (!summaryRows.length) { ['#kpis','#journeyFlow','#trendChart'].forEach(id=>$(id).innerHTML='<div class="empty">该区间无数据</div>'); renderActionItems(); generateOverviewTodo(false, true); return; }
   renderKpis();
   renderJourney();
   renderTrend();
   renderActionItems();
   $('#dataFreshness').textContent = `已更新 · ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
-  loadOverviewInsights();
+  generateOverviewTodo();
 }
 
 function sum(key) { return summaryRows.reduce((a, r) => a + num(r[key]), 0); }
@@ -210,23 +309,52 @@ function metricComparison(meta, mine, rival) {
 }
 
 /**
- * 渲染六个最重要的经营结果。点击任一指标会同步切换下方趋势线。
- *
- * @returns {void} 直接更新 #kpis，不返回数据。
+ * 读取顶部指标值，严格区分真实零值和缺失值。
+ * @param {object} meta 指标配置，包含 k 与 aggregate。
+ * @param {string} suffix 同行字段后缀，默认读取本店。
+ * @returns {number|null} 完整序列的合计或最新快照；空值或不完整序列返回 null。
+ * @throws {Error} 不主动抛出异常。
+ */
+function overviewMetricValue(meta, suffix = '') {
+  const rows = meta.aggregate === 'latest' ? summaryRows.slice(-1) : summaryRows;
+  const key = meta.k + suffix;
+  if (!rows.length || rows.some(row => row[key] == null || String(row[key]).trim() === '' || !Number.isFinite(Number(row[key])))) return null;
+  return rows.reduce((total, row) => total + Number(row[key]), 0);
+}
+
+/**
+ * 渲染两排各六项经营指标，使用真实同行对比，不把原型中的示意环比当事实。
+ * 广告花费尚无完整店铺消耗来源：显示未接入，不用问鼎/顶展空记录替代全店花费。
+ * @returns {void} 更新顶部指标及其趋势切换事件。
  * @throws {Error} 页面缺少 KPI 容器时可能抛出 DOM 访问异常。
  */
 function renderKpis() {
-  $('#kpis').innerHTML = KPIS.map(m => {
-    const mine = metricValue(m);
-    const rival = metricValue(m, 'RivalAvg');
-    const comparison = metricComparison(m, mine, rival);
-    return `<button class="kpi ${m.k === curKpi ? 'on' : ''}" data-k="${m.k}" type="button">
-      <span class="k">${m.n}</span><strong class="v">${formatMetric(m, mine)}</strong>
-      <span class="c ${comparison.className}">${comparison.text}</span></button>`;
+  $('#kpis').innerHTML = OVERVIEW_KPIS.map(m => {
+    const mine = m.unavailable ? null : overviewMetricValue(m);
+    const rival = m.unavailable ? null : overviewMetricValue(m, 'RivalAvg');
+    const comparison = mine == null || rival == null
+      ? { className: 'neutral', text: m.unavailable ? '尚未接入完整花费' : '暂无同行参考' }
+      : rival === 0
+        ? { className: 'neutral', text: mine === 0 ? '与行业均值持平' : '行业均值为 0' }
+        : metricComparison(m, mine, rival);
+    // 对比对象必须直接可见，尤其避免百分点被误解为与上期比较。
+    if (mine != null && rival != null && rival !== 0) comparison.text = comparison.text.replace('vs 同行', '较行业均值') + (m.format === 'percent' ? ' · 较均值' : '');
+    const scope = m.unavailable ? '等待花费数据来源' : m.aggregate === 'latest'
+      ? `${summaryRows.slice(-1)[0]?.statDate || ''} · ${m.scope}`
+      : (m.scope || '所选周期累计');
+    const tag = mine == null ? 'article' : 'button';
+    return `<${tag} class="kpi${m.primary ? ' kpi-primary' : ''}${m.k === curKpi ? ' on' : ''}${mine == null ? ' kpi-unavailable' : ''}" data-k="${m.k}"${tag === 'button' ? ` type="button" aria-pressed="${m.k === curKpi}" title="查看${m.n}趋势"` : ''}>
+      <span class="k"><i class="${m.icon}" aria-hidden="true"></i>${m.n}</span>
+      <strong class="v">${mine == null ? (m.unavailable ? '未接入' : '—') : formatMetric(m, mine)}</strong>
+      <span class="c ${comparison.className}">${esc(comparison.text)}</span>
+      <span class="kpi-scope">${esc(scope)}</span></${tag}>`;
   }).join('');
-  $$('.kpi').forEach(e => e.onclick = () => {
+  $$('#kpis button.kpi').forEach(e => e.onclick = () => {
     curKpi = e.dataset.k;
-    $$('.kpi').forEach(x => x.classList.toggle('on', x.dataset.k === curKpi));
+    $$('#kpis button.kpi').forEach(x => {
+      x.classList.toggle('on', x.dataset.k === curKpi);
+      x.setAttribute('aria-pressed', String(x.dataset.k === curKpi));
+    });
     renderTrend();
   });
 }
@@ -265,7 +393,7 @@ function formatTrendValue(meta, value) {
  * @throws {Error} 当前指标不存在或图表容器缺失时可能抛出 DOM 异常。
  */
 function renderTrend() {
-  const meta = KPIS.find(m => m.k === curKpi);
+  const meta = OVERVIEW_KPIS.find(m => m.k === curKpi);
   $('#trendName').textContent = meta.n;
   const box = $('#trendChart'); box.innerHTML = '';
 
@@ -329,7 +457,7 @@ function renderTrend() {
 }
 
 /**
- * 渲染曝光到成交的完整经营链路。六个节点均来自 shop-summary 的真实字段。
+ * 并列展示六项经营指标，均来自 shop-summary 的返回字段。
  *
  * @returns {void} 直接更新 #journeyFlow。
  * @throws {Error} 页面缺少链路容器时可能抛出 DOM 访问异常。
@@ -343,111 +471,240 @@ function renderJourney() {
     { name: '询盘', value: sum('fbCnt') },
     { name: '成交', value: sum('sucOrdCnt') },
   ];
-  $('#journeyFlow').innerHTML = stages.map((stage, index) => {
-    const previous = index ? stages[index - 1].value : 0;
-    const conversion = previous ? `${(stage.value / previous * 100).toFixed(index > 2 ? 1 : 2)}%` : '经营起点';
-    return `<div class="journey-step"><span>${stage.name}</span><strong>${fmt(stage.value)}</strong><small>${conversion}</small></div>${
-      index < stages.length - 1 ? '<i class="ri-arrow-right-s-line journey-arrow" aria-hidden="true"></i>' : ''}`;
-  }).join('');
+  // 各指标没有同一批访客的归因关系，只并列呈现，不计算跨口径转化率。
+  $('#journeyFlow').innerHTML = stages.reverse().map(stage =>
+    `<div class="journey-step"><span>${stage.name}</span><strong>${fmt(stage.value)}</strong><small>所选周期</small></div>`).join('');
 }
 
 /**
- * 根据真实经营差距生成三项可执行任务，并将尚未接入的两项能力明确标为规划中。
+ * 当前页面的待办生成版本及请求状态，用于丢弃过期响应。
  *
  * @returns {void} 直接更新待办列表和待办数量。
  * @throws {Error} 页面缺少待办容器时可能抛出 DOM 访问异常。
  */
+let overviewTodoRevision = 0;
+let overviewTodoController = null;
+let overviewInsightPromise = Promise.resolve();
+let overviewTodoResult = null;
+let overviewTodoSelected = -1;
+// 默认展示已保存的优化诊断，指标对标由用户按需切换。
+let overviewDiagnosisView = 'insights';
+
+/** 展示待办初始状态并绑定重新生成。无参数、无返回值；不主动抛出异常。 */
 function renderActionItems() {
-  const clickRate = sum('totalImpsCnt') ? sum('totalClkCnt') / sum('totalImpsCnt') : 0;
-  const rivalClickRate = sum('totalImpsCntRivalAvg') ? sum('totalClkCntRivalAvg') / sum('totalImpsCntRivalAvg') : 0;
-  const inquiryRate = sum('pvCnt') ? sum('fbCnt') / sum('pvCnt') : 0;
-  const rivalInquiryRate = sum('pvCntRivalAvg') ? sum('fbCntRivalAvg') / sum('pvCntRivalAvg') : 0;
-  const orderRate = sum('fbCnt') ? sum('sucOrdCnt') / sum('fbCnt') : 0;
-  const tasks = [
-    {
-      level: rivalClickRate && clickRate < rivalClickRate ? '高' : '常规',
-      title: '提升全站点击效率',
-      detail: `当前点击率 ${(clickRate * 100).toFixed(2)}%${rivalClickRate ? `，同行均值 ${(rivalClickRate * 100).toFixed(2)}%` : ''}`,
-      action: '查看商品', tab: 'product', icon: 'ri-cursor-line', tone: 'orange',
-    },
-    {
-      level: rivalInquiryRate && inquiryRate < rivalInquiryRate ? '高' : '常规',
-      title: '提升询盘承接效率',
-      detail: `访问转询盘率 ${(inquiryRate * 100).toFixed(2)}%${rivalInquiryRate ? `，同行均值 ${(rivalInquiryRate * 100).toFixed(2)}%` : ''}`,
-      action: '查看访客', tab: 'visitor', icon: 'ri-customer-service-2-line', tone: 'green',
-    },
-    {
-      level: orderRate < 0.15 ? '高' : '常规',
-      title: '复盘成交转化',
-      detail: `${fmt(sum('fbCnt'))} 条询盘形成 ${fmt(sum('sucOrdCnt'))} 笔成交，转化率 ${(orderRate * 100).toFixed(1)}%`,
-      action: '定位商品', tab: 'product', icon: 'ri-shopping-cart-2-line', tone: 'purple',
-    },
-    {
-      level: '规划中', title: '排查零效果商品', detail: '需接入商品诊断规则后生成具体数量',
-      action: '规划中', planned: true, icon: 'ri-error-warning-line', tone: 'yellow',
-    },
-    {
-      level: '规划中', title: '检查风险与物流异常', detail: '需接入订单、物流与风控数据源',
-      action: '规划中', planned: true, icon: 'ri-shield-check-line', tone: 'blue',
-    },
-  ];
-  const liveCount = tasks.filter(task => !task.planned).length;
-  $('#actionCount').textContent = String(liveCount);
-  $('#todoCount').textContent = String(liveCount);
-  $('#actionList').innerHTML = tasks.map((task, index) => `<article class="action-row ${task.planned ? 'is-planned' : ''}">
-    <span class="action-icon ${task.tone}"><i class="${task.icon}" aria-hidden="true"></i></span>
-    <div class="action-copy"><div><b>${task.title}</b><span class="priority p-${task.level}">${task.level}</span></div><p>${task.detail}</p></div>
-    <button type="button" class="action-go" data-action-index="${index}">${task.action}<i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-  </article>`).join('');
-  $$('.action-go').forEach(button => {
-    button.onclick = () => {
-      const task = tasks[Number(button.dataset.actionIndex)];
-      if (task.planned) toast(`${task.title}：该能力正在规划中，当前没有伪造数据`);
-      else switchTab(task.tab);
-    };
-  });
+  overviewTodoRevision++;
+  overviewTodoController?.abort();
+  $('#actionCount').textContent = '0';
+  $('#actionList').innerHTML = '<div class="empty">正在读取已保存诊断…</div>';
+  $('#generateOverviewTasks').onclick = () => generateOverviewTodo(true);
 }
 
 /**
- * 并行读取渠道、国家和商品数据，为总览底部的三块诊断摘要提供真实数据。
+ * 优先读取持久化待办，仅每日首次访问或手动更新时提交当前总览快照。
+ * @param {boolean} force 用户是否点击更新。
+ * @param {boolean} readOnly 总览缺数据时只恢复历史结果。
+ * @returns {Promise<void>} 更新诊断卡片；网络及结构异常就地显示，不向外抛出。
+ */
+async function generateOverviewTodo(force = false, readOnly = false) {
+  // 新六页顾问复用原诊断位置；由用户显式生成，避免旧入口同时重复调用模型。
+  if(window.LsouAdvisor?.enabled){void window.LsouAdvisor.refresh('overview');return;}
+  const revision = ++overviewTodoRevision;
+  const requestPeriod = JSON.stringify(dates('overview'));
+  overviewTodoController?.abort();
+  const controller = new AbortController();
+  overviewTodoController = controller;
+  const button = $('#generateOverviewTasks');
+  button.disabled = true;
+  $('#actionCount').textContent = '0';
+  $('#actionList').innerHTML = '<div class="empty" role="status">正在读取已保存诊断…</div>';
+  try {
+    const savedResponse = await fetch('/api/overview-tasks', {signal: controller.signal});
+    const saved = await savedResponse.json();
+    if (!savedResponse.ok || !saved.ok) throw new Error(saved.error || '读取诊断失败');
+    if (revision !== overviewTodoRevision) return;
+    renderSavedOverviewTodo(saved);
+    if (readOnly || (!force && !saved.shouldGenerate && !saved.generating)) return;
+    button.textContent = '更新中…';
+    $('#overviewTodoMeta').textContent += ' · 正在更新';
+    if (!saved.result) $('#actionList').innerHTML = '<div class="empty" role="status">正在依据经营数据生成运营诊断…</div>';
+    await overviewInsightPromise;
+    if (window.overviewStarsReady) await window.overviewStarsReady;
+    if (revision !== overviewTodoRevision || requestPeriod !== JSON.stringify(dates('overview'))) return;
+    const snapshot = {
+      module: 'overview', as_of: new Date().toISOString(), period: dates('overview'),
+      source: '当前工作台经营总览接口及页面展示',
+      analysis_goal: '逐指标对比行业均值和行业优秀，解释已知差距与可能原因，指向标题、主图、详情、广告等具体优化内容。',
+      metrics: KPIS.map(meta => ({key: meta.k, label: meta.n, value: summaryRows.some(row => row[meta.k] != null) ? formatMetric(meta, metricValue(meta)) : null, peer_average: summaryRows.some(row => row[meta.k+'RivalAvg'] != null) ? formatMetric(meta, metricValue(meta, 'RivalAvg')) : null, peer_excellent: summaryRows.some(row => row[meta.k+'RivalGood'] != null) ? formatMetric(meta, metricValue(meta, 'RivalGood')) : null, aggregation: meta.aggregate})),
+      trend: summaryRows.map(row => Object.fromEntries(['statDate', ...KPIS.flatMap(meta => [meta.k, meta.k+'RivalAvg', meta.k+'RivalGood'])].filter(key => row[key] !== undefined).map(key => [key,row[key]]))),
+      business_summary: $('#journeyFlow').innerText,
+      traffic_channels: $('#overviewFlowList').innerText,
+      country_ranking: $('#overviewRegionList').innerText,
+      product_ranking: $('#overviewProductList').innerText,
+      star_rating: $('#ops-stars')?.innerText || '星级数据未加载',
+      limitations: ['经营指标独立，不能拼成转化漏斗。','流量来源口径独立，商机率为记录算术平均。','国家仅为TOP5内部占比。','商品排行为接口默认周期的搜索曝光，不与全店曝光合计。','星级为独立统计日期；未展示字段不代表零。'],
+      existing_tasks: [],
+    };
+    const response = await fetch(`/api/overview-tasks${force ? '?refresh=1' : ''}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(snapshot), signal:controller.signal});
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || '生成失败');
+    if (revision !== overviewTodoRevision || requestPeriod !== JSON.stringify(dates('overview'))) return;
+    renderSavedOverviewTodo(result);
+  } catch (error) {
+    if (revision !== overviewTodoRevision || requestPeriod !== JSON.stringify(dates('overview'))) return;
+    // 生成失败仍恢复旧待办；读取接口不触发模型调用，也不自动重试付费请求。
+    try {
+      const response = await fetch('/api/overview-tasks', {signal: controller.signal});
+      const saved = await response.json();
+      if (revision !== overviewTodoRevision) return;
+      if (response.ok && saved.ok) renderSavedOverviewTodo(saved);
+    } catch { /* 本地服务暂时不可达时保留当前列表。 */ }
+    if (revision !== overviewTodoRevision) return;
+    $('#overviewTodoMeta').textContent = `${error.message} · 点击“更新诊断”重试`;
+    if (!overviewTodoResult?.tasks.length) $('#actionList').innerHTML = '<div class="empty">暂时无法更新诊断。</div>';
+  } finally { if (revision === overviewTodoRevision) {button.disabled = false;button.textContent='更新诊断';} }
+}
+
+/** 展示待办摘要与原始周期。@param {object} status 服务端保存状态。@returns {void} 更新 DOM。@throws DOM 缺失时抛出异常。 */
+function renderSavedOverviewTodo(status) {
+  const result = status.result;
+  const changed = result?.generatedAt !== overviewTodoResult?.generatedAt;
+  overviewTodoResult = result;
+  if (changed) overviewTodoSelected = -1;
+  const count = result?.tasks.length || 0;
+  renderDiagnosisBenchmarks(result);
+  renderDiagnosisView();
+  $('#actionCount').textContent = String(count);
+  $('#actionList').innerHTML = count ? result.tasks.map((task, index) => {
+    const priority = {high:'优先', normal:'常规', low:'跟进'}[task.priority] || '常规';
+    // 图标与颜色只表达优先级，不根据标题猜测业务归因；正文保留完整内容供详情阅读。
+    const appearance = {high:['orange','ri-flashlight-line'], normal:['green','ri-task-line'], low:['purple','ri-search-eye-line']}[task.priority] || ['green','ri-task-line'];
+    return `<button type="button" class="todo-brief ${index === overviewTodoSelected ? 'is-selected' : ''}" data-todo-index="${index}" aria-expanded="${index === overviewTodoSelected}" aria-controls="overviewTodoDetail" aria-haspopup="dialog">
+      <span class="action-icon ${appearance[0]}" aria-hidden="true"><i class="${appearance[1]}"></i></span>
+      <span class="todo-brief-copy"><span class="todo-title-line"><strong title="${esc(task.title)}">${esc(task.title)}</strong><span class="todo-priority ${task.priority === 'high' ? 'is-high' : ''}">${priority}</span></span>
+        <span class="todo-summary">${esc(task.basis || '')}</span>
+      </span><span class="todo-open">查看诊断 <i class="ri-arrow-right-s-line" aria-hidden="true"></i></span></button>`;
+  }).join('') : `<div class="todo-empty"><i class="ri-checkbox-circle-line" aria-hidden="true"></i><strong>${result ? '暂无有证据支持的短板诊断' : '准备经营对标诊断'}</strong><p>${result ? '当前数据不足以支持进一步诊断，可补充数据后更新。' : '生成后会展示双基准差距、可能原因和定向优化建议，当天可反复查看。'}</p></div>`;
+  $('#actionList').onclick = event => {
+    const button = event.target.closest('[data-todo-index]');
+    if (!button) return;
+    overviewTodoSelected = Number(button.dataset.todoIndex);
+    button.classList.add('is-selected');
+    button.setAttribute('aria-expanded','true');
+    renderOverviewTodoDetail();
+  };
+  renderOverviewTodoDetail();
+  const generated = result ? new Date(result.generatedAt).toLocaleString('zh-CN', {timeZone:'Asia/Shanghai', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false}) : '';
+  const period = result?.period;
+  $('#overviewTodoMeta').textContent = [
+    result ? `已保存 ${generated}` : '每天自动更新一次',
+    period?.startDate && period?.endDate ? `依据 ${period.startDate} 至 ${period.endDate}` : '',
+    period && (period.startDate!==dates('overview').startDate || period.endDate!==dates('overview').endDate) ? '与当前筛选不同，点击更新诊断可重算' : status.stale && result ? '上次结果' : '当天复用 · 按需更新',
+    result && result.diagnosisVersion !== 2 ? '历史待办，点击更新诊断生成新版分析' : '',
+    status.notice || '',
+  ].filter(Boolean).join(' · ');
+}
+
+/** 以原生模态弹窗展示诊断，浏览器负责焦点限制与背景隔离。@returns {void}。@throws DOM 缺失或弹窗无法打开时抛出异常。 */
+function renderOverviewTodoDetail() {
+  const box = $('#overviewTodoDetail');
+  const task = overviewTodoResult?.tasks[overviewTodoSelected];
+  if (!task) {if (box.open) box.close();box.hidden = true;return;}
+  box.hidden = false;
+  // 标题已在上方诊断清单展示，详情不再重复；无障碍名称仍保留对应诊断主题。
+  box.setAttribute('aria-label', task.title);
+  box.innerHTML = `<div class="diagnosis-controls"><button type="button" class="todo-close" aria-label="关闭诊断详情"><i class="ri-close-line" aria-hidden="true"></i></button></div>
+    <div class="todo-detail-grid"><aside class="todo-evidence"><h3>差距与原因分析</h3><p>${esc(task.basis)}</p><div class="todo-delivery"><h3>验证与复查</h3><ul>${task.acceptance_criteria.map(item=>`<li><i class="ri-check-line" aria-hidden="true"></i><span>${esc(item)}</span></li>`).join('')}</ul></div><small>原因假设需结合商品与投放证据验证</small></aside>
+    <div class="todo-method"><h3>定向优化建议 <span>${task.steps.length} 个方向</span></h3><ol>${task.steps.map((step,index)=>`<li><span>${String(index+1).padStart(2,'0')}</span><p>${esc(step)}</p></li>`).join('')}</ol></div></div>`;
+  // 关闭、Esc 与点击遮罩共用清理逻辑，恢复原位置的触发按钮焦点。
+  box.onclose = () => {
+    overviewTodoSelected = -1;
+    box.hidden = true;
+    document.documentElement.classList.remove('diagnosis-open');
+    const selected = $('#actionList .is-selected');
+    selected?.classList.remove('is-selected');
+    selected?.setAttribute('aria-expanded','false');
+    selected?.focus({preventScroll:true});
+  };
+  box.querySelector('.todo-close').onclick = () => box.close();
+  box.oncancel = event => {event.preventDefault();box.close();};
+  box.onclick = event => {
+    if (event.target !== box) return;
+    const rect = box.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) box.close();
+  };
+  if (!box.open) box.showModal();
+  document.documentElement.classList.add('diagnosis-open');
+}
+
+/** 展示已保存诊断的六项对标，颜色按指标改善方向判断。@param {object|null} result 保存结果。@returns {void}。@throws DOM 缺失异常。 */
+function renderDiagnosisBenchmarks(result) {
+  const box = $('#diagnosisBenchmarks');
+  const rows = result?.benchmarks || [];
+  box.hidden = !rows.length;
+  if (!rows.length) {box.innerHTML = '';return;}
+  const behind = rows.filter(row => row.vs_average.state === 'behind').length;
+  const chasing = rows.filter(row => ['better','equal'].includes(row.vs_average.state) && row.vs_excellent.state === 'behind').length;
+  const leading = rows.filter(row => ['better','equal'].includes(row.vs_excellent.state)).length;
+  const summary = [behind ? `${behind}项低于均值` : '', chasing ? `${chasing}项达到均值、未及优秀` : '', leading ? `${leading}项达到优秀` : ''].filter(Boolean).join(' · ') || '暂缺可比数据';
+  box.innerHTML = `<p class="diagnosis-overview">${esc(summary)}</p><div class="diagnosis-table-wrap"><table><thead><tr><th>指标 / 本店</th><th>行业均值</th><th>行业优秀</th></tr></thead><tbody>${rows.map(row => `<tr><th>${esc(row.label)}<strong>${esc(row.display.current)}</strong></th>${['average','excellent'].map(key => `<td><span>${esc(row.display[key])}</span><small class="diagnosis-gap ${esc(row['vs_'+key].state)}">${esc(row['vs_'+key].text)}${row.direction === 'lower_better' ? ' · 越低越好' : ''}</small></td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="diagnosis-scope">平台同行参考 · 差距表示本店相对参考值 · 未返回具体类目范围</p>`;
+}
+
+/** 切换对标表与优化诊断清单，避免两块同时拉长总览。@returns {void}。@throws DOM 缺失异常。 */
+function renderDiagnosisView() {
+  const available = !!overviewTodoResult?.benchmarks?.length;
+  $('#diagnosisViews').hidden = !available;
+  $('#diagnosisBenchmarks').hidden = !available || overviewDiagnosisView !== 'benchmarks';
+  $('#actionList').hidden = available && overviewDiagnosisView === 'benchmarks';
+  $('#diagnosisCompareView').setAttribute('aria-pressed',String(overviewDiagnosisView === 'benchmarks'));
+  $('#diagnosisInsightsView').setAttribute('aria-pressed',String(overviewDiagnosisView === 'insights'));
+  $('#diagnosisInsightsView').textContent = `优化诊断 · ${overviewTodoResult?.tasks.length || 0}`;
+  $('#diagnosisCompareView').onclick = () => {overviewDiagnosisView = 'benchmarks';renderDiagnosisView();};
+  $('#diagnosisInsightsView').onclick = () => {overviewDiagnosisView = 'insights';renderDiagnosisView();};
+}
+
+/**
+ * 并行读取渠道、国家和商品数据，为总览底部的一排四块榜单提供真实数据。
  * 单个接口失败不会阻断另外两块，错误提示由统一 api() 函数负责。
  *
  * @returns {Promise<void>} 所有诊断请求完成后结束，不返回业务值。
  * @throws {Error} 理论上不向外抛出，接口异常会被 api() 转成空结果。
  */
 async function loadOverviewInsights() {
-  const [flow, region, product] = await Promise.all([
-    api('shop-flow', { ...dates(), terminalType: 'TOTAL' }),
-    api('shop-region', { ...dates(), statisticsType: 'month', dimensionType: 'shop_uv', terminalType: 'TOTAL' }),
-    api('shop-product', { pageNo: 1, pageSize: 5, orderBy: 'views', orderModel: 'DESC' }),
+  const timeRequest=JSON.stringify(timeStates['overview']);
+  const [flow, region] = await Promise.all([
+    api('shop-channel', { ...dates('overview'), statisticsType:'day', terminalType: 'TOTAL' }),
+    api('shop-region', { ...dates('overview'), statisticsType: 'day', dimensionType: 'shop_uv', terminalType: 'TOTAL' }),
+    loadOverviewRankings(),
   ]);
+  if(timeRequest!==JSON.stringify(timeStates['overview']))return;
   if (flow) renderOverviewFlow(flow);
   if (region) renderOverviewRegion(region);
-  if (product) renderOverviewProducts(product);
+
 }
 
-/**
- * 汇总并渲染前五个流量来源，商机率按每日记录做简单平均以保持与原接口口径一致。
- *
- * @param {object} response - shop-flow 接口完整响应。
- * @returns {void} 直接更新渠道摘要列表。
- * @throws {Error} 不主动抛出异常，异常数据会得到空列表。
- */
+/** 汇总每日渠道的访客和询盘，不累计shop-flow返回的滚动窗口。@param {object[]} blocks 按日分组记录。@param {object} range 查询范围。@returns {object[]} 前五个渠道。@throws 无。 */
+function overviewChannelRanking(blocks, range) {
+  const groups=new Map();
+  for(const block of blocks)for(const [date,rows] of Object.entries(block || {})) {
+    if(date<range.startDate || date>range.endDate || !Array.isArray(rows))continue;
+    for(const row of rows) {
+      if(!row.channelType || row.channelType==='TOTAL' || (row.statisticsType && row.statisticsType!=='day'))continue;
+      const item=groups.get(row.channelType) || {name:row.channelType,value:null,inquiries:null};
+      if(row.detailUv!=null && Number.isFinite(Number(row.detailUv)))item.value=(item.value??0)+Number(row.detailUv);
+      if(row.fbUv!=null && Number.isFinite(Number(row.fbUv)))item.inquiries=(item.inquiries??0)+Number(row.fbUv);
+      groups.set(row.channelType,item);
+    }
+  }
+  return [...groups.values()].filter(row=>row.value!=null).sort((a,b)=>b.value-a.value).slice(0,5);
+}
+/** 渲染同一区间的渠道日累计；不同渠道/日期的人数不解释为周期去重人数。@param {object} response shop-channel响应。@returns {void}。@throws DOM缺失。 */
 function renderOverviewFlow(response) {
-  const groups = new Map();
-  (Array.isArray(response.data) ? response.data : []).forEach(row => {
-    if (!row || row.subSourceType !== 'TOTAL' || row.sourceType === 'TOTAL') return;
-    const item = groups.get(row.sourceType) || { name: row.sourceType, value: 0, rate: 0, count: 0 };
-    item.value += num(row.uv); item.rate += num(row.abRate); item.count += 1;
-    groups.set(row.sourceType, item);
-  });
-  const rows = [...groups.values()].map(row => ({ ...row, rate: row.rate / (row.count || 1) }))
-    .sort((a, b) => b.value - a.value).slice(0, 5);
-  renderMiniRows('#overviewFlowList', rows, row => `${fmt(row.value)} 访客 · 商机率 ${(row.rate * 100).toFixed(1)}%`);
+  const rows=overviewChannelRanking(Array.isArray(response.data)?response.data:[],dates('overview'));
+  renderMiniRows('#overviewFlowList',rows,row=>`${fmt(row.value)} 访客 · 询盘 ${row.inquiries==null?'—':fmt(row.inquiries)}`);
 }
 
 /**
- * 合并月份区块中的国家访客，并按访客数渲染前五名。
+ * 合并每日区块中的国家访客，并按访客数渲染前五名。
  *
  * @param {object} response - shop-region 接口完整响应。
  * @returns {void} 直接更新国家摘要列表。
@@ -457,7 +714,7 @@ function renderOverviewRegion(response) {
   const groups = new Map();
   (Array.isArray(response.data) ? response.data : []).forEach(block => {
     Object.values(block || {}).forEach(list => (Array.isArray(list) ? list : []).forEach(row => {
-      const name = row.countryName || row.regionName || '未知';
+      const name = businessCountry(row.countryName || row.regionName);
       groups.set(name, (groups.get(name) || 0) + num(row.countryUv ?? row.regionUv ?? row.value));
     }));
   });
@@ -467,23 +724,79 @@ function renderOverviewRegion(response) {
   renderMiniRows('#overviewRegionList', rows, row => `${fmt(row.value)} 访客 · TOP5 占比 ${total ? (row.value / total * 100).toFixed(1) : '0.0'}%`);
 }
 
-/**
- * 渲染前五个商品，并复用 API 返回的真实商品缩略图和指标。
- *
- * @param {object} response - shop-product 接口完整响应。
- * @returns {void} 直接更新商品摘要列表并绑定跳转。
- * @throws {Error} 不主动抛出异常，无商品时展示空状态。
- */
-function renderOverviewProducts(response) {
-  const rows = Array.isArray(response.data?.data) ? response.data.data.slice(0, 5) : [];
-  const box = $('#overviewProductList');
-  if (!rows.length) { box.innerHTML = '<div class="empty">暂无商品数据</div>'; return; }
-  box.innerHTML = rows.map(row => `<button class="product-mini" type="button">
-    ${row.prodImage ? `<img src="${esc(row.prodImage)}" alt="" loading="lazy">` : '<span class="product-placeholder"><i class="ri-image-line"></i></span>'}
-    <span class="product-mini-copy"><b title="${esc(row.subject)}">${esc(row.subject || '未命名商品')}</b><small>曝光 ${fmt(row.sumProdShowNum)} · 点击 ${fmt(row.sumProdClickNum)} · 询盘 ${fmt(row.sumProdFbNum)}</small></span>
-    <i class="ri-arrow-right-s-line" aria-hidden="true"></i>
-  </button>`).join('');
-  box.querySelectorAll('.product-mini').forEach(button => { button.onclick = () => switchTab('product'); });
+const overviewRankMetrics = {
+  sumProdShowNum:['搜索曝光','次'],sumProdClickNum:['搜索点击','次'],sumProdClickRate:['点击率','%'],
+  sumProdVisitorCnt:['访客','人'],sumProdFbNum:['询盘','次'],atmFbUv:['TM咨询','人'],crtOrd:['起草订单','单']
+};
+let overviewRankingRows = [], overviewRankingScope = '', overviewRankingVersion = 0;
+let overviewRankingMonth = '';
+/** 将月份转换为平台自然月查询参数，禁止日期缺失时静默退回单日。@param {string} month YYYY-MM。@returns {object} 日期与周期。@throws 月份无效。 */
+function overviewProductPeriod(month) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error('请选择有效的商品统计月份');
+  return {statDate:`${month}-01`,statisticsType:'month'};
+}
+/** 从完整商品集合中排序，保留缺失，不把第一页重排当成全榜。@param {object[]} rows 商品行。@param {string} key 指标。@param {boolean} positiveOnly 仅保留正数。@returns {object[]} 前五行。@throws 无。 */
+function rankedOverviewProducts(rows, key, positiveOnly = false) {
+  const value = row => row[key] == null || row[key] === '' || !Number.isFinite(Number(row[key])) ? null : Number(row[key]);
+  return rows.filter(row => value(row) != null && (!positiveOnly || value(row) > 0)).slice()
+    .sort((a,b) => value(b)-value(a) || String(a.id ?? a.subject ?? '').localeCompare(String(b.id ?? b.subject ?? ''))).slice(0,5);
+}
+/** 分页读取商品样本，两个榜共用数据；排序只在本地进行，迟到响应不覆盖新一轮。@returns {Promise<void>} 更新榜单。@throws API错误转为局部提示。 */
+async function loadOverviewRankings() {
+  const version = ++overviewRankingVersion;
+  const monthInput = $('#overviewRankingMonth');
+  overviewRankingMonth = overviewRankingMonth || (timeStates.overview?.mode==='month'?dates('overview').startDate.slice(0,7):defaultTimeValue('month'));
+  const earliest=TimePolicy.shift(TimePolicy.today(),-89);
+  monthInput.min=earliest.endsWith('-01')?earliest.slice(0,7):TimePolicy.addMonths(earliest.slice(0,7)+'-01',1).slice(0,7);
+  monthInput.max=defaultTimeValue('month');
+  monthInput.value = overviewRankingMonth;
+  monthInput.onchange = () => {try {TimePolicy.period('month',monthInput.value);TimePolicy.validate('shop-product',overviewProductPeriod(monthInput.value));overviewRankingMonth=monthInput.value;loadOverviewRankings();}catch(error){toast(error.message,true);monthInput.value=overviewRankingMonth;}};
+  const month = overviewRankingMonth;
+  $('#overviewInquiryPeriod').textContent = `${month} · 自然月 · TOP5`;
+  const ids = ['#overviewProductList','#overviewInquiryList'];
+  ids.forEach(id => $(id).innerHTML='<div class="empty">正在读取商品排行…</div>');
+  $('#overviewProductSort').onchange = () => renderOverviewProducts();
+  $('#overviewProductSort').disabled = true;
+  overviewRankingRows = [];
+  const params = {pageSize:20,orderBy:'views',orderModel:'DESC',...overviewProductPeriod(month)};
+  const first = await api('shop-product',{...params,pageNo:1},{quiet:true});
+  if(version!==overviewRankingVersion)return;
+  if(!first){ids.forEach(id=>$(id).innerHTML='<div class="empty">商品数据读取失败，请刷新重试</div>');return;}
+  const total = Number(first.data?.recordCount), pages = Number.isFinite(total) ? Math.max(1,Math.ceil(total/20)) : 1;
+  const results = [first];
+  for(let page=2;page<=pages;page+=2){
+    const batch = await Promise.all(Array.from({length:Math.min(2,pages-page+1)},(_,i)=>api('shop-product',{...params,pageNo:page+i},{quiet:true})));
+    if(version!==overviewRankingVersion)return;
+    results.push(...batch);
+  }
+  // 仅按平台商品编号去重；缺编号的行保留，不用相似标题合并不同商品。
+  const seen = new Set();
+  overviewRankingRows = results.flatMap(r=>Array.isArray(r?.data?.data)?r.data.data:[]).filter(row=>{
+    if(row.id==null)return true;
+    const id=String(row.id);if(seen.has(id))return false;seen.add(id);return true;
+  });
+  if(results.some(r=>!r))toast('部分商品数据未读完，当前展示已读取的商品；可稍后刷新。',true);
+  const complete=results.every(Boolean)&&Number.isFinite(total)&&overviewRankingRows.length===total;
+  overviewRankingScope = `${month} 自然月 · ${complete?'':'已读取样本 '}${overviewRankingRows.length} 件商品`;
+  $('#overviewProductSort').disabled = false;
+  renderOverviewProducts();
+}
+/** 渲染可切换商品榜和固定询盘榜，未知值不补零。@returns {void} 更新两块榜单。@throws DOM缺失异常。 */
+function renderOverviewProducts() {
+  const key = $('#overviewProductSort').value;
+  const draw = (selector,metric,positiveOnly) => {
+    const rows = rankedOverviewProducts(overviewRankingRows,metric,positiveOnly), [label,unit] = overviewRankMetrics[metric];
+    const box=$(selector), max=Math.max(1,...rows.map(row=>Number(row[metric])));
+    if(!rows.length){
+      const known=overviewRankingRows.filter(row=>row[metric]!=null&&row[metric]!==''&&Number.isFinite(Number(row[metric])));
+      const allZero=known.length===overviewRankingRows.length&&known.length>0&&known.every(row=>Number(row[metric])===0);
+      box.innerHTML=`<div class="ranking-empty"><i class="ri-chat-3-line" aria-hidden="true"></i><b>${positiveOnly?'暂无有询盘商品入榜':'暂无可排序数据'}</b><span>${allZero?'所选月份商品询盘数均为 0':'本次未返回可用的商品指标'}</span><small>${esc(overviewRankingScope)}</small></div>`;return;
+    }
+    box.innerHTML=rows.map((row,index)=>`<button class="product-mini ranking-product" type="button" title="${esc(row.subject||row.prodName||'未命名商品')}"><span class="mini-rank">${index+1}</span>${row.prodImage?`<img src="${esc(row.prodImage)}" alt="" loading="lazy">`:'<span class="product-placeholder"><i class="ri-image-line"></i></span>'}<span class="product-mini-copy"><b>${esc(row.subject||row.prodName||'未命名商品')}</b><small>${label} <strong>${metric==='sumProdClickRate'?(Number(row[metric])*100).toFixed(2):fmt(Number(row[metric]))}</strong> ${unit}${metric==='sumProdClickRate'?` · ${row.sumProdClickNum == null?'—':fmt(row.sumProdClickNum)}/${row.sumProdShowNum == null?'—':fmt(row.sumProdShowNum)} 点击/曝光`:''}</small><span class="mini-track"><i style="width:${Math.max(0,Number(row[metric])/max*100)}%"></i></span></span></button>`).join('')+`<p class="ranking-scope">${esc(overviewRankingScope)}</p>`;
+    box.querySelectorAll('.product-mini').forEach(button=>button.onclick=()=>switchTab('product'));
+  };
+  draw('#overviewProductList',overviewRankMetrics[key]?key:'sumProdShowNum',false);
+  draw('#overviewInquiryList','sumProdFbNum',true);
 }
 
 /**
@@ -532,14 +845,11 @@ function renderFunnel() {
     svg.appendChild(el('text', { x: L - 9, y: y + 20, class: 'gt', 'text-anchor': 'end' }, s.n));
     svg.appendChild(el('rect', { x: L, y, width: iw, height: 25, rx: 4, fill: '#f2eeeb' }));
     const bar = el('rect', { x: L, y, width: w, height: 25, rx: 4, fill: s.c, opacity: .82, class: 'bar' });
-    const prev = i ? steps[i - 1].v : 0;
-    bar.addEventListener('mousemove', ev => showTip(ev,
-      `${s.n}: ${fmt(s.v)}` + (i ? `\n上一环节转化: ${prev ? (s.v / prev * 100).toFixed(3) + '%' : '—'}` : '')));
+    bar.addEventListener('mousemove', ev => showTip(ev, `${s.n}: ${fmt(s.v)}\n所选周期独立指标`));
     bar.addEventListener('mouseleave', hideTip);
     svg.appendChild(bar);
     svg.appendChild(el('text', { x: L + iw + 9, y: y + 17, class: 'gt', fill: '#4c4e53' }, fmt(s.v)));
-    if (i) svg.appendChild(el('text', { x: L + iw + 9, y: y + 29, class: 'gt' },
-      prev ? '↳ ' + (s.v / prev * 100).toFixed(2) + '%' : '—'));
+
   });
   box.appendChild(svg);
 }
@@ -613,7 +923,9 @@ async function loadProductPage() {
  * @throws {Error} 接口异常由 dashboardApi 转为页面提示。
  */
 async function loadProductAnalysis() {
-  const response = await dashboardApi('/api/dashboard/product-analysis');
+  const timeRequest=JSON.stringify(timeStates['product']);
+  const response = await dashboardApi('/api/dashboard/product-analysis?' + new URLSearchParams({statDate:timeStates.product.startDate,statisticsType:timeStates.product.mode}));
+  if(timeRequest!==JSON.stringify(timeStates['product']))return;
   if (!response) return;
   productAnalysisData = response.data;
   productFocusPage = 1;
@@ -629,7 +941,6 @@ async function loadProductAnalysis() {
 function renderProductAnalysis() {
   const data = productAnalysisData;
   if (!data) return;
-  if ($('#productPopulationBadge')) $('#productPopulationBadge').textContent = `${fmt(data.population)} 个商品样本 · 动态重算`;
   const q = data.quadrantCounts || {};
   const d = data.diagnostics || {};
   const layer = data.layerCounts || {};
@@ -667,8 +978,8 @@ function renderProductAnalysis() {
     ['有商机但无起草单', d.inquiryNoDraft, '复盘报价速度、样品与跟进节奏', '中'],
     ['搜索曝光为 0', d.noSearchExposure, '补关键词、类目属性或降低无效供给', '中'],
     ['0–4 分质量审计命中', d.lowScoreQueryRows, '逐品查看质量分问题，不等同全店低质总数', '中'],
-    ['零效果审计返回', d.zeroEffectRows, '最近一次实跑返回 0 条，不制造待办', '常规'],
-    ['P4P 商品', d.p4pProducts, '当前商品效果样本中未识别到投放商品', '观察'],
+    ['零效果审计返回', d.zeroEffectRows, '尚未取得当前账号质量诊断，不推断为零', '常规'],
+    ['P4P 商品', d.p4pProducts, '按本次商品效果记录识别投放商品', '观察'],
   ];
   $('#productDiagnostics').innerHTML = diagnostics.map(([label, value, advice, level]) =>
     `<article><span class="diag-count">${value == null ? '—' : fmt(value)}</span><div><b>${esc(label)}</b><p>${esc(advice)}</p></div><em>${esc(level)}</em></article>`).join('');
@@ -800,16 +1111,7 @@ async function openProdModal(r) {
  * 产品发布原型使用当前店铺商品效果接口返回过的公开缩略图作为演示素材。
  * 这些记录不包含商品 ID、账号或联系人，仅用于还原用户选中的批量矩阵界面。
  */
-const PUBLISH_PRODUCT_IMAGES = [
-  'https://sc04.alicdn.com/kf/H02062df234f2459b8373706db7805cb7D.png_100x100.png',
-  'https://sc04.alicdn.com/kf/Hae721d44b9c749ac96071ba9db2e3374i.jpg_100x100.jpg',
-  'https://sc04.alicdn.com/kf/H2bf256178f1f46a8afa8333073437d127.jpg_100x100.jpg',
-  'https://sc04.alicdn.com/kf/H72d123173d8d447a90d9a144eb82ed13m.jpg_100x100.jpg',
-  'https://sc04.alicdn.com/kf/H7a0c8d1a176446ebad92e5043d56347e8.jpg_100x100.jpg',
-  'https://sc04.alicdn.com/kf/H35d797c28baf4073aed62f92e6c35ea7e.png_100x100.png',
-  'https://sc04.alicdn.com/kf/Heaaced7cf5fd4e6bbb7268a7e7a708a4O.png_100x100.png',
-  'https://sc04.alicdn.com/kf/H1e0057800cc2490dbb1b5af9b17ab95ap.png_100x100.png',
-];
+const PUBLISH_PRODUCT_IMAGES = [];
 
 /**
  * Alibaba 国际站真实发品页“产地”控件返回的国家/地区名称。
@@ -879,65 +1181,8 @@ const PUBLISH_ORIGIN_OPTIONS = [
  *
  * @type {Record<string, {categoryId:number,label:string,shortLabel:string,fields:Array<object>}>}
  */
-const PUBLISH_CATEGORY_CONFIG = {
-  watch: {
-    categoryId: 127684037,
-    label: '消费电子 > 可穿戴设备 > 智能手表',
-    shortLabel: '智能手表',
-    fields: [
-      { key: 'applicablePeople', attrId: 200001175, label: '适用人群', schemaName: 'Applicable People', control: 'select', choices: ['Children', 'Elderly', 'Female', 'Male', 'Unisex'], defaultValue: 'Unisex' },
-      { key: 'batteryLife', attrId: 200000564, label: '电池续航', schemaName: 'Battery Life', control: 'select', choices: ['11 to 30 days', '3 months & above', '5 to 10 days', 'Up to 4 days', 'Within 6 hours'], defaultValue: '5 to 10 days' },
-      { key: 'displayType', attrId: 100008161, label: '显示类型', schemaName: 'Display Type', control: 'multi', choices: ['AMOLED', 'IPS', 'LCD', 'LED Display Screen', 'OLED Displays', 'TFT'], defaultValue: ['AMOLED'] },
-      { key: 'feature', attrId: 191284141, label: '产品特性', schemaName: 'Feature', control: 'multi', choices: ['Air Pump', 'Anti-fluid corrosion', '3 G', 'Anti-Impact', '4 G', 'App Control', '5 G', 'Bluetooth', 'Cellular', 'Dual SIM Card', 'Dustproof', 'E-sim', 'Gps', 'Health Airbag', 'Led Flashlight', 'Microphone', 'NFC Technology', 'SDK available', 'SIM Card', 'Touchscreen', 'USB', 'with earphone'], defaultValue: ['Bluetooth', 'Gps', 'Touchscreen'] },
-      { key: 'function', attrId: 210194090, label: '主要功能', schemaName: 'Function', control: 'multi', choices: ['Accelerometer', 'Activity Tracker', 'AI Voice Assistant', 'Alarm Clock', 'Altitude Meter', 'Answer Call', 'Audio Recording', 'Breath Monitor', 'Calculators', 'Calendar', 'Call Reminder', 'Calorie Tracker', 'chronograph', 'COMPASS', 'Countdown', 'Dial Call', 'Distance Tracker', 'EMAIL', 'Fitness Tracker', 'Gesture Control', 'Gps Navigation', 'Heart Rate Tracker', 'Interactive Music', 'Menstrual Management', 'Message Reminder', 'Moisture Measurement', 'Mood Tracker', 'Multisport Tracker', 'Music Player', 'Noctilucent', 'Passometer', 'Payment', 'Pedometer', 'Playing the Quran', 'Positioning', 'Power Reserve', 'Prayer reminder', 'Pregnancy follow-up', 'Push Message', 'Qibla Direction', 'Remote Control', 'Sedentary Reminder', 'Sleep Tracker', 'Smart Counter', 'Social Media Notifications', 'SOS button', 'Speed Measurement', 'THERMOMETER', 'Video Call', 'Voice Call', 'WORLD TIME'], defaultValue: ['Fitness Tracker', 'Heart Rate Tracker', 'Sleep Tracker'] },
-      { key: 'screenResolution', attrId: 100008162, label: '屏幕分辨率', schemaName: 'Screen Resolution', control: 'multi', choices: ['1024x768', '1280X720', '1280X800', '128X128', '160X128', '1920X1080', '320x240', '480X320', '640X480', '800X480', '854X480', '960x640'], defaultValue: ['480X320'] },
-      { key: 'placeOfOrigin', attrId: 1, label: '原产地', schemaName: 'Place of Origin', control: 'region', choices: PUBLISH_ORIGIN_OPTIONS, defaultValue: 'China' },
-      { key: 'itemShape', attrId: 200000161, label: '表盘形状', schemaName: 'Item Shape', control: 'select', choices: ['Heart', 'Others', 'Oval', 'Rectangular', 'Round', 'Square', 'Star'], defaultValue: 'Round' },
-      { key: 'screenSize', attrId: 294526319, label: '屏幕尺寸', schemaName: 'Screen Size', control: 'select', choices: ['≤25mm', '28mm', '29-35mm', '36-40mm', '41-43mm', '44-49mm', '≥50mm'], defaultValue: '36-40mm' },
-      { key: 'waterproofStandard', attrId: 210188460, label: '防水等级', schemaName: 'Waterproof Standard', control: 'multi', choices: ['3 ATM', '5 ATM', '10 ATM', 'IP65', 'Ip67', 'IP68', 'IP69', 'IPX-6', 'IPX-7', 'IPX 8', 'No'], defaultValue: ['IP68'] },
-    ],
-  },
-  tracker: {
-    categoryId: 127688045,
-    label: '消费电子 > 可穿戴设备 > 智能手环',
-    shortLabel: '智能手环',
-    fields: [
-      { key: 'displayType', attrId: 100008161, label: '显示类型', schemaName: 'Display Type', control: 'multi', choices: ['AMOLED', 'CSTN', 'IPS', 'no display screen', 'OLED Displays', 'TFT'], defaultValue: ['AMOLED'] },
-      { key: 'waterproof', attrId: 191284683, label: '防水能力', schemaName: 'Waterproof', control: 'multi', choices: ['10 ATM', '3 ATM', '5 ATM', 'Ip67', 'IP68', 'IPX 8', 'IPX-6', 'IPX-7'], defaultValue: ['IP68'] },
-      { key: 'placeOfOrigin', attrId: 1, label: '原产地', schemaName: 'Place of Origin', control: 'region', choices: PUBLISH_ORIGIN_OPTIONS, defaultValue: 'China' },
-      { key: 'operationSystem', attrId: 191286108, label: '操作系统', schemaName: 'Operation System', control: 'select', choices: ['Android', 'Fitbit OS', 'Garmin OS', 'Harmony OS', 'Linux', 'Tizen', 'watch OS', 'Wear OS', 'Windows Mobile', 'Zepp OS'], defaultValue: 'Android' },
-      { key: 'style', attrId: 400027416, label: '风格', schemaName: 'sytle', control: 'multi', choices: ['Casual', 'Classic', 'Fashion', 'Sports'], defaultValue: ['Sports'] },
-    ],
-  },
-  earbuds: {
-    categoryId: 202055012,
-    label: '消费电子 > 音频设备 > 降噪真无线耳机',
-    shortLabel: '降噪真无线耳机',
-    fields: [
-      { key: 'estimatedBatteryLife', attrId: 400013808, label: '预计续航', schemaName: 'Estimated Battery Life', control: 'select', choices: ['less than 3 hours', '3-5 hours', '5-10 hours', '10-15 hours', '15-20 hours', 'more than 20 hours'], defaultValue: '5-10 hours' },
-      { key: 'noiseCancelling', attrId: 349387903, label: '降噪方式', schemaName: 'Noise Cancelling', control: 'multi', choices: ['Active Noise Cancellation (ANC)', 'Environmental Noise Cancellation (ENC)'], defaultValue: ['Active Noise Cancellation (ANC)'] },
-      { key: 'touchScreen', attrId: 19093, label: '触控屏', schemaName: 'Touch Screen', control: 'select', choices: ['No', 'Yes'], defaultValue: 'No' },
-      { key: 'placeOfOrigin', attrId: 1, label: '原产地', schemaName: 'Place of Origin', control: 'region', choices: PUBLISH_ORIGIN_OPTIONS, defaultValue: 'China' },
-      { key: 'batteryCapacity', attrId: 200001063, label: '电池容量', schemaName: 'Battery Capacity(mAh)', control: 'select', choices: ['200mAh', '200-500mah', '1000-2000mah', '2000-3000mah', '500-1000mah', '3000-5000mah', '>5000mAh'], defaultValue: '200-500mah' },
-      { key: 'headphoneFormFactor', attrId: 395580019, label: '耳机形态', schemaName: 'Headphone Form Factor', control: 'select', choices: ['Ear-clip', 'Ear-hook', 'In ear', 'Semi-in-ear'], defaultValue: 'In ear' },
-      { key: 'waterproofStandard', attrId: 210188460, label: '防水等级', schemaName: 'Waterproof Standard', control: 'select', choices: ['IPX-0', 'IPX-2', 'IPX-3', 'IPX-4', 'IPX-5', 'IPX-6', 'IPX-7', 'IPX-8', 'IPX-9', 'No'], defaultValue: 'IPX-5' },
-    ],
-  },
-  sportsHeadphones: {
-    categoryId: 202061615,
-    label: '消费电子 > 音频设备 > 运动耳机',
-    shortLabel: '运动耳机',
-    fields: [
-      { key: 'placeOfOrigin', attrId: 1, label: '原产地', schemaName: 'Place of Origin', control: 'region', choices: PUBLISH_ORIGIN_OPTIONS, defaultValue: 'China' },
-      { key: 'batteryCapacity', attrId: 267221405, label: '电池容量', schemaName: 'Battery Capacity', control: 'select', choices: ['<200mah', '200-500mah', '500-1000mah', '1000-2000mah', '2000-3000mah', '>3000mah'], defaultValue: '200-500mah' },
-      { key: 'batteryCapacityMah', attrId: 200001063, label: '电池容量 (mAh)', schemaName: 'Battery Capacity(mAh)', control: 'select', choices: ['<200mah', '200-500mah', '500-1000mah', '1000-2000mah', '2000-3000mah', '>3000mah'], defaultValue: '200-500mah' },
-      { key: 'connection', attrId: 102539109, label: '连接方式', schemaName: 'Connection', control: 'select', choices: ['Wired', 'Wired+wireless dual mode', 'Wireless'], defaultValue: 'Wireless' },
-      { key: 'estimatedBatteryLife', attrId: 400013808, label: '预计续航', schemaName: 'Estimated Battery Life', control: 'select', choices: ['less than 3 hours', '3-5 hours', '5-10 hours', '10-15 hours', '15-20 hours', 'more than 20 hours'], defaultValue: '5-10 hours' },
-      { key: 'volumeControl', attrId: 210236266, label: '音量控制', schemaName: 'Volume Control', control: 'select', choices: ['No', 'Yes'], defaultValue: 'Yes' },
-      { key: 'waterproofStandard', attrId: 210188460, label: '防水等级', schemaName: 'Waterproof Standard', control: 'select', choices: ['IPX-0', 'IPX-1', 'IPX-2', 'IPX-3', 'IPX-4', 'IPX-5', 'IPX-6', 'IPX-7', 'IPX-8', 'IPX-9', 'No'], defaultValue: 'IPX-5' },
-    ],
-  },
-};
+// 空态不代表任何行业；真实类目由当前账号的实时 Schema 注册。
+const PUBLISH_CATEGORY_CONFIG = { unselected: { categoryId: null, label: '请选择类目', shortLabel: '未选择类目', fields: [] } };
 
 /**
  * 返回一个字段是否属于当前类目发布时的必填项。
@@ -1029,7 +1274,7 @@ function registerLivePublishCategory(schema) {
  */
 async function ensureLivePublishCategory(categoryId) {
   const existing = Object.entries(PUBLISH_CATEGORY_CONFIG)
-    .find(([, config]) => Number(config.categoryId) === Number(categoryId) && config.source === 'workctl-live');
+    .find(([, config]) => Number(config.categoryId) === Number(categoryId) && config.source === 'workctl-live' && !config.needsRefresh);
   if (existing) return existing[0];
   const response = await fetch(`/api/publish/category-schema?categoryId=${encodeURIComponent(categoryId)}`);
   const payload = await response.json();
@@ -1046,38 +1291,59 @@ async function ensureLivePublishCategory(categoryId) {
  */
 async function searchPublishCategories(query) {
   const normalized = String(query || '').trim();
-  if (!normalized) return;
+  const requestId = ++publishState.categorySearchRequestId;
+  const productId = publishState.activeId;
+  publishState.categorySearchError = '';
+  if (!normalized) {
+    publishState.categoryMatches = [];
+    publishState.categorySearchLoading = false;
+    updatePublishCategoryResultSelect();
+    return;
+  }
   publishState.categorySearchLoading = true;
   updatePublishCategoryResultSelect();
   try {
     const response = await fetch(`/api/publish/categories?q=${encodeURIComponent(normalized)}&limit=40`);
     const payload = await response.json();
+    if (requestId !== publishState.categorySearchRequestId || productId !== publishState.activeId) return;
     if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
     publishState.categoryMatches = Array.isArray(payload.categories) ? payload.categories : [];
   } catch (error) {
+    if (requestId !== publishState.categorySearchRequestId || productId !== publishState.activeId) return;
     publishState.categoryMatches = [];
-    toast(`类目搜索失败：${error.message}`, true);
+    publishState.categorySearchError = `类目搜索失败：${error.message}`;
   } finally {
-    publishState.categorySearchLoading = false;
-    updatePublishCategoryResultSelect();
+    if (requestId === publishState.categorySearchRequestId && productId === publishState.activeId) {
+      publishState.categorySearchLoading = false;
+      updatePublishCategoryResultSelect();
+    }
   }
 }
 
 /**
- * 生成并更新当前编辑器的实时类目结果下拉。
+ * 更新同一类目控件内的搜索结果，保留当前选择和搜索框焦点。
  *
- * @returns {void} 仅更新 select，不重绘整个编辑器，因此输入搜索词时不会失焦。
+ * @returns {void} 仅更新结果列表并绑定选择按钮，不重绘整个编辑器。
  * @throws {Error} 不主动抛出异常；编辑器尚未渲染时直接返回。
  */
 function updatePublishCategoryResultSelect() {
-  const select = $('#publishCategoryResults');
+  const list = $('#publishCategoryResults');
   const product = publishState.products.find(item => item.id === publishState.activeId);
-  if (!select || !product) return;
+  if (!list || !product) return;
   const matches = publishState.categoryMatches.filter(category => Number(category.id) !== Number(product.categoryId));
-  select.innerHTML = `<option value="${esc(product.categoryId)}" selected>${esc(product.category)}</option>` +
-    matches.map(category => `<option value="${esc(category.id)}" data-category-path="${esc(category.path)}">${esc(category.path)}</option>`).join('');
-  select.disabled = publishState.categorySearchLoading || product.schemaLoading ||
-    !publishState.accountContextLoaded;
+  const options = [{ id: product.categoryId, path: product.category }, ...matches];
+  list.innerHTML = options.map(category => `<button type="button" role="option" aria-selected="${Number(category.id) === Number(product.categoryId)}" data-publish-category-option="${esc(category.id)}"><span>${esc(category.path || category.name)}</span>${Number(category.id) === Number(product.categoryId) ? '<i class="ri-check-line" aria-hidden="true"></i>' : ''}</button>`).join('');
+  $('#publishCategorySearchStatus').textContent = publishState.categorySearchLoading ? '正在搜索…'
+    : publishState.categorySearchError || ($('#publishCategorySearch')?.value && !matches.length ? '没有其他匹配类目，可保留当前选择' : '');
+  $$('[data-publish-category-option]').forEach(button => {
+    button.onclick = () => {
+      const picker = $('.publish-category-picker');
+      picker.open = false;
+      const id = Number(button.dataset.publishCategoryOption);
+      if (id !== Number(product.categoryId)) applyLivePublishCategory(product, id);
+      else picker.querySelector('summary').focus();
+    };
+  });
 }
 
 /**
@@ -1113,10 +1379,10 @@ async function applyLivePublishCategory(product, categoryId) {
  *
  * @param {string} categoryKey - PUBLISH_CATEGORY_CONFIG 中的类目键。
  * @returns {Record<string, string|string[]>} 单选值为字符串，多选值为字符串数组。
- * @throws {Error} 类目键不存在时退回智能手表配置，不主动抛出异常。
+ * @throws {Error} 类目键不存在时退回特定产品配置，不主动抛出异常。
  */
 function defaultPublishAttributes(categoryKey) {
-  const config = PUBLISH_CATEGORY_CONFIG[categoryKey] || PUBLISH_CATEGORY_CONFIG.watch;
+  const config = PUBLISH_CATEGORY_CONFIG[categoryKey] || PUBLISH_CATEGORY_CONFIG.unselected;
   return Object.fromEntries(config.fields.map(field => [
     field.key,
     Array.isArray(field.defaultValue) ? [...field.defaultValue] : field.defaultValue,
@@ -1131,7 +1397,7 @@ function defaultPublishAttributes(categoryKey) {
  * @throws {Error} 不主动抛出异常。
  */
 function publishAttributeProgress(product) {
-  const fields = (PUBLISH_CATEGORY_CONFIG[product.categoryKey] || PUBLISH_CATEGORY_CONFIG.watch).fields
+  const fields = (PUBLISH_CATEGORY_CONFIG[product.categoryKey] || PUBLISH_CATEGORY_CONFIG.unselected).fields
     .filter(isRequiredPublishField);
   const completed = fields.filter(field => {
     const value = product.attributes?.[field.key];
@@ -1148,8 +1414,8 @@ function publishAttributeProgress(product) {
  * @throws {Error} 本函数只组合普通对象，不主动抛出异常。
  */
 function createPublishProduct(overrides = {}) {
-  const categoryKey = overrides.categoryKey || 'watch';
-  const categoryConfig = PUBLISH_CATEGORY_CONFIG[categoryKey] || PUBLISH_CATEGORY_CONFIG.watch;
+  const categoryKey = overrides.categoryKey || 'unselected';
+  const categoryConfig = PUBLISH_CATEGORY_CONFIG[categoryKey] || PUBLISH_CATEGORY_CONFIG.unselected;
   const blank = overrides.blank === true;
   const emptyAttributes = Object.fromEntries(categoryConfig.fields.map(field => [
     field.key,
@@ -1171,11 +1437,11 @@ function createPublishProduct(overrides = {}) {
     categoryKey,
     categoryId: categoryConfig.categoryId,
     category: categoryConfig.label,
-    image: blank ? '' : PUBLISH_PRODUCT_IMAGES[0],
+    image: '',
     // 新建草稿绝不能继承开发账号的演示图。参考商品和文件夹导入必须显式提供图片，
     // 浏览器 blob: 预览仍会在真实提交前被图片上传校验拦截。
-    gallery: blank ? [] : [...PUBLISH_PRODUCT_IMAGES].slice(0, 5),
-    imageCount: blank ? 0 : 5,
+    gallery: [],
+    imageCount: 0,
     requiredCompleted: categoryConfig.fields.length,
     requiredTotal: categoryConfig.fields.length,
     tradeReady: true,
@@ -1185,34 +1451,22 @@ function createPublishProduct(overrides = {}) {
     schemaLoading: false,
     uploads: [],
     referenceImported: false,
-    keywords: blank ? [] : ['AMOLED Display', 'BT Call', 'GPS Tracking', 'Heart Rate', 'IP68'],
+    keywords: [],
     attributes,
     saleType: 'normal',
     batchNum: 1,
-    moq: 100,
-    inventory: 5000,
+    moq: '',
+    inventory: '',
     priceUnit: '件 / 个',
     priceUnitId: null,
-    priceTiers: [
-      { minQuantity: 100, unitPrice: 12.5 },
-      { minQuantity: 500, unitPrice: 10.8 },
-      { minQuantity: 1000, unitPrice: 8.9 },
-    ],
-    leadTimeTiers: [
-      { maxQuantity: 500, days: 5 },
-      { maxQuantity: 2000, days: 7 },
-    ],
-    package: { length: 10, width: 8, height: 6, weight: 0.18 },
-    logisticsProperty: ['battery_0_0'],
+    priceTiers: [{ minQuantity: '', unitPrice: '' }],
+    skus: [window.LsouPublishUtils.createEmptyPublishSku()],
+    leadTimeTiers: [{ maxQuantity: '', days: '' }],
+    package: { length: '', width: '', height: '', weight: '' },
+    logisticsProperty: [],
     shippingTemplate: '使用国际站默认运费设置',
     shippingTemplateId: null,
-    sellingPoints: blank ? ['', '', '', '', ''] : [
-      '1.43-inch AMOLED display with 480×320 platform resolution option, vivid and clear.',
-      'Bluetooth calling and GPS tracking for smarter daily connectivity.',
-      'IP68 waterproof with all-day health and sports monitoring.',
-      'OEM/ODM branding, packaging and multilingual interface options available.',
-      'Low-MOQ samples and stable lead times for wholesale buyers.',
-    ],
+    sellingPoints: ['', '', '', '', ''],
   };
   const result = { ...base, ...overrides, categoryKey, categoryId: categoryConfig.categoryId, category: categoryConfig.label, attributes };
   const progress = publishAttributeProgress(result);
@@ -1221,7 +1475,11 @@ function createPublishProduct(overrides = {}) {
   return result;
 }
 
+const PUBLISH_IMAGE_LIMIT = window.LsouPublishUtils.MAX_PRODUCT_IMAGES;
+
 const publishState = {
+  removedProducts: [], // 仅本页保留删除历史，供用户撤销；不调用平台删除接口。
+  removalNoticeTimer: null,
   // 工作区初始为空：当前账号已有商品只进入参考库，绝不能自动变成待发布任务。
   products: [],
   activeId: '',
@@ -1236,6 +1494,8 @@ const publishState = {
   categoryMatches: [],
   categorySearchLoading: false,
   categorySearchTimer: null,
+  categorySearchRequestId: 0,
+  categorySearchError: '',
   businessOptions: {
     priceUnits: [],
     shippingTemplates: [],
@@ -1243,6 +1503,10 @@ const publishState = {
     defaultShippingTemplate: null,
     shippingFallbackLabel: '使用国际站默认运费设置',
   },
+  businessOptionsLoaded: false,
+  sourceRefreshing: false,
+  sourceCache: null,
+  sourceRefreshError: '',
   businessOptionsLoading: false,
   businessOptionsError: '',
   accountContextLoading: false,
@@ -1304,7 +1568,11 @@ function publishProductStatus(product) {
   product.tradeReady = ['normal', 'batch'].includes(product.saleType) && batchValid &&
     Number.isInteger(product.moq) && product.moq >= 1 &&
     Number.isInteger(product.inventory) && product.inventory >= 0 &&
-    Number.isSafeInteger(Number(product.priceUnitId)) && Number(product.priceUnitId) > 0 && priceTiersValid;
+    Number.isSafeInteger(Number(product.priceUnitId)) && Number(product.priceUnitId) > 0 && priceTiersValid &&
+    Array.isArray(product.skus) && product.skus.length > 0 && product.skus.every(sku =>
+      sku.skuAttributes?.length > 0 && sku.skuAttributes.every(attr => attr.attrName?.trim() && attr.attrValue?.trim()) &&
+      (sku.unitPrice === null || sku.unitPrice === '' || Number(sku.unitPrice) > 0) &&
+      ((sku.stock === null || sku.stock === '') ? product.skus.length === 1 : Number.isInteger(Number(sku.stock)) && Number(sku.stock) >= 0));
 
   // 包装长宽高必须成组填写；交期必须是数量与天数组成的阶梯数组。物流模板
   // 本身不是底层发布素材的必填项：有店铺方案时服务端自动回填，没有时
@@ -1315,7 +1583,7 @@ function publishProductStatus(product) {
     product.leadTimeTiers.every(tier => Number.isInteger(tier.maxQuantity) && tier.maxQuantity >= 1 && Number.isInteger(tier.days) && tier.days >= 1);
   product.logisticsReady = leadTimeValid && packageValid;
 
-  const complete = product.title.trim() && product.imageCount >= 5 &&
+  const complete = product.title.trim() && product.imageCount >= 5 && product.imageCount <= PUBLISH_IMAGE_LIMIT &&
     progress.completed >= progress.total && product.tradeReady && product.logisticsReady;
   return complete ? 'ready' : 'needs_attention';
 }
@@ -1376,7 +1644,7 @@ function applyPublishBusinessOptionsToProducts(options) {
  * @throws {Error} 网络错误会在函数内转为页面状态和提示，不继续向外抛出。
  */
 async function loadPublishBusinessOptions() {
-  if (publishState.businessOptionsLoading) return;
+  if (publishState.businessOptionsLoading || publishState.businessOptionsLoaded) return;
   publishState.businessOptionsLoading = true;
   publishState.businessOptionsError = '';
   renderProductPublish();
@@ -1385,6 +1653,7 @@ async function loadPublishBusinessOptions() {
     const payload = await response.json();
     if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
     publishState.businessOptions = payload.options || publishState.businessOptions;
+    publishState.businessOptionsLoaded = true;
     applyPublishBusinessOptionsToProducts(publishState.businessOptions);
   } catch (error) {
     publishState.businessOptionsError = String(error?.message || error || '同步失败');
@@ -1396,10 +1665,10 @@ async function loadPublishBusinessOptions() {
 }
 
 /**
- * 读取服务端是否已经配置发品图片存储。
+ * 读取服务端是否已取得当前 Accio 图片上传会话。
  *
- * 浏览器只需要知道“能否上传”和单图大小限制；bucket、endpoint 等基础设施参数
- * 永远不会进入前端。读取失败时保守地禁止真实上传，避免把 blob: 误当远程图片。
+ * 浏览器只需要知道上传入口是否就绪和单图大小限制；网关地址与登录凭据
+ * 永远不会进入前端。读取失败时禁止真实上传，避免把 blob: 误当远程图片。
  *
  * @returns {Promise<void>} 能力状态写入 publishState 后刷新编辑器。
  * @throws {Error} 网络错误会被函数内部转换为页面状态，不向外抛出。
@@ -1413,6 +1682,7 @@ async function loadPublishUploadCapability() {
       loaded: true,
       configured: payload.configured === true,
       maxBytes: Number(payload.maxBytes) || 8 * 1024 * 1024,
+      error: payload.error || '',
     };
   } catch (error) {
     publishState.uploadCapability = {
@@ -1429,7 +1699,7 @@ async function loadPublishUploadCapability() {
  * 将一条本地待发布商品迁移到当前账号实时读取的类目配置。
  *
  * 可复用值只按平台 attrNameId 迁移；固定选项还必须出现在新类目的官方 choices
- * 中，否则清空等待用户选择。这样既能保住“产地”等通用字段，也不会把智能手表
+ * 中，否则清空等待用户选择。这样既能保住“产地”等通用字段，也不会把特定产品
  * 的选项错误带进耳机或其他商家的类目。
  *
  * @param {object} product - publishState 中的一条本地商品草稿。
@@ -1554,7 +1824,7 @@ function publishReferenceImageCandidates() {
  * referenceKey，不接触商品 ID。
  *
  * @param {string} referenceKey - 当前账号商品对应的短期随机令牌。
- * @returns {Promise<void>} 图片载入后默认选中最多十张主副图并刷新创建面板。
+ * @returns {Promise<void>} 图片载入后默认选中最多六张主副图并刷新创建面板。
  * @throws {Error} 网络或 WorkCTL 错误会显示在图片选择区域，不继续向外抛出。
  */
 async function loadPublishReferenceImages(referenceKey) {
@@ -1581,7 +1851,7 @@ async function loadPublishReferenceImages(referenceKey) {
     const accountProduct = publishState.accountProducts.find(product => product.referenceKey === referenceKey);
     if (accountProduct) accountProduct.imageCount = Number(payload.images?.total) ||
       publishReferenceImageCandidates().length;
-    publishState.creationSelectedImages = publishState.creationReferenceImages.primary.slice(0, 10);
+    publishState.creationSelectedImages = publishState.creationReferenceImages.primary.slice(0, PUBLISH_IMAGE_LIMIT);
   } catch (error) {
     if (publishState.creationReferenceKey === referenceKey) {
       publishState.creationReferenceImagesError = String(error?.message || error || '历史图片读取失败');
@@ -1612,22 +1882,7 @@ async function loadPublishAccountContext() {
     const response = await fetch('/api/publish/account-context?limit=500');
     const payload = await response.json();
     if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
-    const contextProducts = Array.isArray(payload.context?.products) ? payload.context.products : [];
-    const contextCategories = Array.isArray(payload.context?.categories) ? payload.context.categories : [];
-    const defaultCategoryId = Number(payload.context?.defaultCategory?.categoryId);
-    if (!Number.isSafeInteger(defaultCategoryId) || defaultCategoryId <= 0) {
-      throw new Error('当前账号没有可用于自动匹配的商品类目');
-    }
-    // 初始只加载最常用类目的 Schema，其他类目在用户选中时再读取并缓存。这样既能
-    // 立即创建空白商品，也不会为了一个尚未发生的操作请求所有类目参数。
-    const defaultCategoryKey = await ensureLivePublishCategory(defaultCategoryId);
-    publishState.accountCategories = contextCategories;
-    publishState.accountProducts = contextProducts;
-    publishState.imageLibrary = normalizePublishImageLibraryStatus(payload.context?.imageLibrary);
-    publishState.defaultCategoryKey = defaultCategoryKey;
-    publishState.creationCategoryId = String(defaultCategoryId);
-    publishState.accountContextLoaded = true;
-    refreshPublishImageLibraryStatus();
+    await applyPublishSourceContext(payload.context);
   } catch (error) {
     publishState.accountContextError = String(error?.message || error || '自动匹配失败');
     toast(`当前账号类目暂未匹配：${publishState.accountContextError}`, true);
@@ -1635,6 +1890,84 @@ async function loadPublishAccountContext() {
     publishState.accountContextLoading = false;
     renderProductPublish();
   }
+}
+
+/**
+ * 将只读资料加载到参考库，不重新创建或覆盖待发布商品。
+ * @param {object} context 当前账号商品、类目、缓存时间和图库状态。
+ * @returns {Promise<void>} 默认类目可用后更新参考库。
+ * @throws {Error} 缺少有效类目或读取规则失败时抛出，调用方显示错误。
+ */
+async function applyPublishSourceContext(context) {
+  const defaultCategoryId = Number(context?.defaultCategory?.categoryId);
+  if (!Number.isSafeInteger(defaultCategoryId) || defaultCategoryId <= 0) throw new Error('当前账号没有可用于自动匹配的商品类目');
+  const defaultCategoryKey = await ensureLivePublishCategory(defaultCategoryId);
+  publishState.accountCategories = Array.isArray(context.categories) ? context.categories : [];
+  publishState.accountProducts = Array.isArray(context.products) ? context.products : [];
+  publishState.imageLibrary = normalizePublishImageLibraryStatus(context.imageLibrary);
+  publishState.sourceCache = context.cache || { fetchedAt: context.fetchedAt };
+  publishState.defaultCategoryKey = defaultCategoryKey;
+  if (!publishState.creationCategoryId) publishState.creationCategoryId = String(defaultCategoryId);
+  publishState.accountContextLoaded = true;
+  refreshPublishImageLibraryStatus();
+}
+
+/**
+ * 用户主动更新发布参考资料；保留正在编辑的商品、价格、规格、选中项和队列。
+ * @returns {Promise<void>} 更新缓存提示和参考库；失败仍展示已有页面资料。
+ * @throws {Error} 网络/平台错误内部显示，不向外抛出。
+ */
+async function refreshPublishSourceData() {
+  if (publishState.sourceRefreshing || publishState.accountContextLoading || publishState.businessOptionsLoading ||
+      publishState.creationLoading || publishState.creationReferenceImagesLoading ||
+      publishState.products.some(product => product.schemaLoading || isPublishProductBusy(product))) return;
+  publishState.sourceRefreshing = true;
+  publishState.sourceRefreshError = '';
+  renderPublishCacheStatus();
+  try {
+    const response = await fetch('/api/publish/cache/refresh', { method: 'POST' });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    // 保留旧字段定义供按属性编码迁移已填值；新的选品会按需取得更新后的规则。
+    Object.values(PUBLISH_CATEGORY_CONFIG).forEach(config => { config.needsRefresh = true; });
+    await applyPublishSourceContext(payload.context);
+    // 编辑中的其他类目也更新字段定义，避免提交时才发现页面仍显示旧选项。
+    await Promise.all([...new Set(publishState.products.map(product => Number(product.categoryId)))]
+      .filter(categoryId => Number.isSafeInteger(categoryId) && categoryId > 0)
+      .map(categoryId => ensureLivePublishCategory(categoryId)));
+    publishState.businessOptions = payload.options;
+    publishState.businessOptionsLoaded = true;
+    publishState.businessOptionsError = '';
+    publishState.accountContextError = '';
+    publishState.creationReferenceKey = '';
+    publishState.creationReferenceImages = { primary: [], sku: [], detail: [] };
+    publishState.creationSelectedImages = [];
+    toast('店铺资料已更新，已填写的商品保留');
+  } catch (error) {
+    publishState.sourceRefreshError = String(error?.message || error || '更新失败');
+    toast(`更新未完成：${publishState.sourceRefreshError}`, true);
+  } finally {
+    publishState.sourceRefreshing = false;
+    renderProductPublish();
+  }
+}
+
+/** 无参数；返回 void，显示本地缓存的实际保存状态及时间，绑定更新按钮；缺少节点时不抛错。 */
+function renderPublishCacheStatus() {
+  const label = $('#publishCacheStatus');
+  const button = $('#publishRefreshSources');
+  if (!label || !button) return;
+  const cache = publishState.sourceCache;
+  const time = cache?.fetchedAt ? new Date(cache.fetchedAt).toLocaleString('zh-CN', { hour12: false }) : '';
+  label.textContent = publishState.sourceRefreshing ? '正在更新店铺资料，已填写的商品会保留…'
+    : publishState.sourceRefreshError ? `更新未完成，仍可使用已加载资料：${publishState.sourceRefreshError}`
+    : cache ? `${cache.savedLocally ? '店铺资料已本地缓存' : '店铺资料已加载'}${time ? ` · 更新于 ${time}` : ''}`
+    : publishState.accountContextError ? '店铺资料暂不可用，可点击更新重试' : '首次读取后自动保存到本地';
+  button.disabled = publishState.sourceRefreshing || publishState.accountContextLoading || publishState.businessOptionsLoading ||
+    publishState.creationLoading || publishState.creationReferenceImagesLoading ||
+    publishState.products.some(product => product.schemaLoading || isPublishProductBusy(product));
+  button.textContent = publishState.sourceRefreshing ? '正在更新…' : '更新店铺资料';
+  button.onclick = refreshPublishSourceData;
 }
 
 /**
@@ -1664,7 +1997,7 @@ function initProductPublish() {
   loadPublishBusinessOptions();
   loadPublishUploadCapability();
   // 先从当前账号商品读取类目，再使用内部 categoryId 加载字段和固定选项。
-  // 这是发品编辑器的初始化主链路，不再以写死的智能手表类目作为真实依据。
+  // 这是发品编辑器的初始化主链路，不再以写死的特定产品类目作为真实依据。
   loadPublishAccountContext();
   refreshPublishQueue({ silent: true, announce: false }).then(() => {
     if (publishState.queue.some(job => ['queued', 'running'].includes(job.status))) {
@@ -1682,6 +2015,7 @@ function initProductPublish() {
  * @throws {Error} 页面关键容器缺失时可能抛出 DOM 访问异常。
  */
 function renderProductPublish() {
+  renderPublishCacheStatus();
   renderPublishStatus();
   renderPublishCreatePanel();
   renderPublishTable();
@@ -1720,6 +2054,7 @@ function renderPublishStatus() {
  * @throws {Error} 不主动抛出异常。
  */
 function openPublishCreation(mode = '') {
+  hidePublishRemovalNotice();
   publishState.creationOpen = true;
   publishState.creationMode = mode;
   publishState.creationTitle = '';
@@ -1775,9 +2110,13 @@ function visiblePublishReferenceProducts() {
  */
 function renderPublishCreatePanel() {
   const panel = $('#publishCreatePanel');
+  const header = $('#publishCreateHeader');
   const tableWorkspace = $('#publishTableWorkspace');
   if (!panel || !tableWorkspace) return;
 
+  // 标题固定在左卡片顶部，参考商品与旧图共用下方滚动区域。
+  header.hidden = !publishState.creationOpen;
+  const scrollTop = panel.scrollTop;
   const showWelcome = !publishState.products.length && !publishState.creationOpen;
   if (!showWelcome && !publishState.creationOpen) {
     panel.hidden = true;
@@ -1801,19 +2140,11 @@ function renderPublishCreatePanel() {
   const categoryOptions = publishState.accountCategories.map(category =>
     `<option value="${esc(category.categoryId)}" ${String(category.categoryId) === String(publishState.creationCategoryId) ? 'selected' : ''}>${esc(category.name)}${Number(category.productCount) > 0 ? ` · 店铺已有 ${esc(category.productCount)} 件` : ''}</option>`).join('');
   const referenceProducts = visiblePublishReferenceProducts();
-  const imageLibrary = normalizePublishImageLibraryStatus(publishState.imageLibrary);
-  const imageLibraryStatus = imageLibrary.status === 'ready'
-    ? `<p class="publish-library-status is-ready"><i class="ri-database-2-line" aria-hidden="true"></i><span><b>全店历史图库已缓存</b>${esc(imageLibrary.availableProducts)} 件商品 · ${esc(imageLibrary.imageCount)} 张图片</span></p>`
-    : imageLibrary.status === 'partial'
-      ? `<p class="publish-library-status is-warning"><i class="ri-error-warning-line" aria-hidden="true"></i><span><b>历史图库已缓存 ${esc(imageLibrary.availableProducts)} 件</b>${esc(imageLibrary.failedProducts)} 件暂未更新，可先使用已有图片</span></p>`
-      : imageLibrary.status === 'failed'
-        ? `<p class="publish-library-status is-warning"><i class="ri-error-warning-line" aria-hidden="true"></i><span><b>历史图库后台同步暂不可用</b>${esc(imageLibrary.message || '仍可使用商品列表中的缩略图')}</span></p>`
-        : `<div class="publish-library-status is-syncing"><i class="ri-loader-4-line" aria-hidden="true"></i><span><b>正在缓存全店历史图库 ${esc(imageLibrary.processedProducts)}/${esc(imageLibrary.totalProducts || publishState.accountProducts.length)}</b>${esc(imageLibrary.imageCount)} 张图片已可选择</span><em><i style="width:${esc(imageLibrary.progress)}%"></i></em></div>`;
   const referenceImageCandidates = publishReferenceImageCandidates();
   const selectedReferenceImages = new Set(publishState.creationSelectedImages);
   const referenceImagePicker = publishState.creationReferenceKey
     ? `<section class="publish-reference-image-picker">
-        <div class="publish-reference-image-head"><span><b>选择这次要复用的旧图</b><small>最多选择 10 张，第一张将作为封面</small></span><em>${esc(selectedReferenceImages.size)}/10</em></div>
+        <div class="publish-reference-image-head"><span><b>选择这次要复用的旧图</b><small>最多选择 ${PUBLISH_IMAGE_LIMIT} 张，第一张将作为封面</small></span><em>${esc(selectedReferenceImages.size)}/${PUBLISH_IMAGE_LIMIT}</em></div>
         ${publishState.creationReferenceImagesLoading
           ? '<div class="publish-reference-image-empty"><i class="ri-loader-4-line" aria-hidden="true"></i>正在读取这件商品的完整图库…</div>'
           : publishState.creationReferenceImagesError
@@ -1824,6 +2155,7 @@ function renderPublishCreatePanel() {
                   return `<button type="button" class="${selected ? 'selected' : ''}" data-publish-reference-image="${index}" aria-pressed="${selected}" aria-label="${selected ? '取消选择' : '选择'}${esc(item.label)}"><img src="${esc(item.url)}" alt="" referrerpolicy="no-referrer"><span>${esc(item.label)}</span><i class="${selected ? 'ri-checkbox-circle-fill' : 'ri-add-circle-line'}" aria-hidden="true"></i></button>`;
                 }).join('')}</div>`
               : '<div class="publish-reference-image-empty"><i class="ri-image-line" aria-hidden="true"></i>这件商品没有返回可复用的历史图片</div>'}
+        <div class="publish-create-actions"><button type="button" class="primary" id="publishCreateReferenceConfirm" ${publishState.creationLoading || publishState.creationReferenceImagesLoading ? 'disabled' : ''}>${publishState.creationLoading ? '正在读取参考商品…' : '使用所选商品创建'}</button></div>
       </section>`
     : '';
   const accountStatus = publishState.accountContextLoading
@@ -1833,34 +2165,32 @@ function renderPublishCreatePanel() {
       : '';
   const modeBody = publishState.creationMode === 'blank'
     ? `<div class="publish-create-form">
-        <label><span>商品标题 <small>可以先留空，进入右侧后继续填写</small></span><input id="publishCreateTitle" type="text" maxlength="128" value="${esc(publishState.creationTitle)}" placeholder="例如：户外运动智能手表"></label>
+        <label><span>商品标题 <small>可以先留空，进入右侧后继续填写</small></span><input id="publishCreateTitle" type="text" maxlength="128" value="${esc(publishState.creationTitle)}" placeholder="输入当前产品名称"></label>
         <label><span>商品类目 <small>只显示业务名称，系统自动处理类目编号</small></span><select id="publishCreateCategory" ${publishState.accountContextLoaded ? '' : 'disabled'}>${categoryOptions || '<option>正在读取店铺类目…</option>'}</select></label>
         <div class="publish-create-actions"><button type="button" id="publishCreateBack">返回选择方式</button><button type="button" class="primary" id="publishCreateBlankConfirm" ${publishState.accountContextLoaded && !publishState.creationLoading ? '' : 'disabled'}>${publishState.creationLoading ? '正在创建…' : '创建并填写资料'}</button></div>
       </div>`
     : publishState.creationMode === 'reference'
       ? `<div class="publish-reference-library">
-          ${imageLibraryStatus}
           <label class="publish-reference-search"><i class="ri-search-line" aria-hidden="true"></i><input id="publishReferenceSearch" type="search" value="${esc(publishState.creationReferenceQuery)}" placeholder="搜索店铺已有商品标题或类目" aria-label="搜索店铺已有商品"></label>
-          <div class="publish-reference-results" role="listbox" aria-label="店铺已有商品">
+          <div class="publish-reference-results" role="group" aria-label="店铺已有商品">
             ${referenceProducts.length ? referenceProducts.map(product => {
               const selected = product.referenceKey === publishState.creationReferenceKey;
-              return `<button type="button" class="publish-reference-row ${selected ? 'selected' : ''}" data-publish-reference-key="${esc(product.referenceKey || '')}" role="option" aria-selected="${selected}" ${product.referenceKey ? '' : 'disabled'}>
+              return `<button type="button" class="publish-reference-row ${selected ? 'selected' : ''}" data-publish-reference-key="${esc(product.referenceKey || '')}" aria-pressed="${selected}" ${product.referenceKey ? '' : 'disabled'}>
                 ${product.image ? `<img src="${esc(product.image)}" alt="" referrerpolicy="no-referrer">` : '<span class="publish-reference-placeholder"><i class="ri-image-line" aria-hidden="true"></i></span>'}
                 <span><b>${esc(product.title || '店铺已有商品')}</b><small>${esc(product.categoryPath || product.categoryName || '店铺类目')}${Number(product.imageCount) > 1 ? ` · ${esc(product.imageCount)} 张历史图` : ''}</small></span>
                 <i class="${selected ? 'ri-checkbox-circle-fill' : 'ri-arrow-right-s-line'}" aria-hidden="true"></i>
-              </button>`;
+              </button>${selected ? referenceImagePicker : ''}`;
             }).join('') : `<div class="publish-reference-empty">${publishState.accountContextLoading ? '正在读取店铺商品…' : '没有找到匹配的店铺商品'}</div>`}
           </div>
-          ${referenceImagePicker}
           <p class="publish-reference-note"><i class="ri-information-line" aria-hidden="true"></i>选择后会带入标题、所选旧图、类目、参数、价格与履约资料；过期选项会按当前店铺的最新规则过滤。</p>
-          <div class="publish-create-actions"><button type="button" id="publishCreateBack">返回选择方式</button><button type="button" class="primary" id="publishCreateReferenceConfirm" ${publishState.creationReferenceKey && !publishState.creationLoading ? '' : 'disabled'}>${publishState.creationLoading ? '正在读取参考商品…' : '使用所选商品创建'}</button></div>
+          <div class="publish-create-actions"><button type="button" id="publishCreateBack">返回选择方式</button></div>
         </div>`
       : `<div class="publish-create-mode-list">
           <button type="button" class="is-recommended" data-publish-create-mode="reference" ${publishState.accountContextLoaded ? '' : 'disabled'}><span class="publish-create-mode-badge">推荐</span><span class="publish-create-mode-icon"><i class="ri-file-copy-2-line" aria-hidden="true"></i></span><span class="publish-create-mode-copy"><b>参考店铺已有商品</b><small>自动带入标题、图片、类目、参数、价格与履约资料，再按店铺最新规则校对。</small><em>填写更快 · 不会修改原商品</em></span><i class="ri-arrow-right-line" aria-hidden="true"></i></button>
           <button type="button" data-publish-create-mode="blank"><span class="publish-create-mode-icon"><i class="ri-file-add-line" aria-hidden="true"></i></span><span class="publish-create-mode-copy"><b>从零创建</b><small>选择类目后，从标题、图片、属性和交易信息开始完整填写。</small><em>适合店铺里没有相似商品时使用</em></span><i class="ri-arrow-right-line" aria-hidden="true"></i></button>
         </div>`;
+  header.innerHTML = `<div><small>发布新产品</small><h2>${publishState.creationMode === 'blank' ? '从零创建商品' : publishState.creationMode === 'reference' ? '选择一个参考商品' : '这次准备怎么开始？'}</h2><p>${publishState.creationMode ? '创建完成后，商品才会进入待发布列表。' : '先选择来源，系统再生成对应类目的填写表单。'}</p></div>${publishState.products.length ? '<button type="button" id="publishCreateClose"><i class="ri-close-line" aria-hidden="true"></i>返回待发布列表</button>' : ''}`;
   panel.innerHTML = `<div class="publish-create-shell">
-    <div class="publish-create-head"><div><small>发布新产品</small><h2>${publishState.creationMode === 'blank' ? '从零创建商品' : publishState.creationMode === 'reference' ? '选择一个参考商品' : '这次准备怎么开始？'}</h2><p>${publishState.creationMode ? '创建完成后，商品才会进入待发布列表。' : '先选择来源，系统再生成对应类目的填写表单。'}</p></div>${publishState.products.length ? '<button type="button" id="publishCreateClose"><i class="ri-close-line" aria-hidden="true"></i>返回待发布列表</button>' : ''}</div>
     ${accountStatus}
     ${modeBody}
     ${publishState.creationError ? `<p class="publish-create-error" role="alert">${esc(publishState.creationError)}</p>` : ''}
@@ -1892,6 +2222,7 @@ function renderPublishCreatePanel() {
     publishState.creationReferenceKey = '';
     publishState.creationReferenceImages = { primary: [], sku: [], detail: [] };
     publishState.creationReferenceImagesError = '';
+    publishState.creationReferenceImagesLoading = false;
     publishState.creationSelectedImages = [];
     renderPublishCreatePanel();
     const input = $('#publishReferenceSearch');
@@ -1904,6 +2235,8 @@ function renderPublishCreatePanel() {
       publishState.creationError = '';
       renderPublishCreatePanel();
       loadPublishReferenceImages(publishState.creationReferenceKey);
+      const selectedRow = $('.publish-reference-row.selected');
+      if (selectedRow) panel.scrollTop += selectedRow.getBoundingClientRect().top - panel.getBoundingClientRect().top - 8;
     };
   });
   $$('[data-publish-reference-image]').forEach(button => {
@@ -1913,8 +2246,8 @@ function renderPublishCreatePanel() {
       const selected = publishState.creationSelectedImages.includes(candidate.url);
       if (selected) {
         publishState.creationSelectedImages = publishState.creationSelectedImages.filter(url => url !== candidate.url);
-      } else if (publishState.creationSelectedImages.length >= 10) {
-        toast('一件商品最多选择 10 张历史图片', true);
+      } else if (publishState.creationSelectedImages.length >= PUBLISH_IMAGE_LIMIT) {
+        toast(`商品主图最多选择 ${PUBLISH_IMAGE_LIMIT} 张`, true);
         return;
       } else {
         publishState.creationSelectedImages.push(candidate.url);
@@ -1923,6 +2256,7 @@ function renderPublishCreatePanel() {
     };
   });
   if ($('#publishCreateReferenceConfirm')) $('#publishCreateReferenceConfirm').onclick = createReferencedPublishDraft;
+  panel.scrollTop = scrollTop;
 }
 
 /**
@@ -2058,6 +2392,74 @@ function duplicatePublishProduct(productId) {
 }
 
 /**
+ * 判断本地商品是否仍有在途操作，避免移除后让用户误以为发布已取消。
+ * @param {object} product - 待发布商品。
+ * @returns {boolean} 正在排队、提交或上传图片时为 true。
+ * @throws {Error} 不主动抛出异常。
+ */
+function isPublishProductBusy(product) {
+  return publishState.queue.some(job => job.localId === product.id && ['queued', 'running'].includes(job.status)) ||
+    (product.uploads || []).some(upload => ['reading', 'uploading'].includes(upload.status));
+}
+
+/**
+ * 从本地待发布列表移除商品，并保留原对象和位置用于撤销。
+ * 不撤销发布队列、不删除店铺商品，也不释放可能由副本共享的图片预览。
+ * @param {string} productId - 页面中的本地商品标识。
+ * @returns {void} 同步列表、编辑器与已选数量；在途商品只显示提示。
+ * @throws {Error} 不主动抛出异常。
+ */
+function removePublishProduct(productId) {
+  const index = publishState.products.findIndex(product => product.id === productId);
+  if (index < 0) return;
+  const product = publishState.products[index];
+  if (isPublishProductBusy(product)) {
+    toast('该商品正在上传或提交，请处理完成后再删除', true);
+    return;
+  }
+  publishState.removedProducts.push({ product, index });
+  publishState.products.splice(index, 1);
+  if (publishState.activeId === productId) {
+    const visible = visiblePublishProducts();
+    publishState.activeId = visible[Math.min(index, visible.length - 1)]?.id || '';
+  }
+  // 提示只属于刚刚发生的删除操作；保留撤销栈，但不让提示永久占据工作区。
+  hidePublishRemovalNotice();
+  publishState.removalNoticeTimer = setTimeout(hidePublishRemovalNotice, 8000);
+  renderProductPublish();
+  $('#publishUndoRemove').focus();
+}
+
+/**
+ * 收起临时删除提示，不清除本页的撤销数据。
+ * @returns {void} 取消计时器并隐藏提示条。
+ * @throws {Error} 不主动抛出异常。
+ */
+function hidePublishRemovalNotice() {
+  clearTimeout(publishState.removalNoticeTimer);
+  publishState.removalNoticeTimer = null;
+  const notice = $('#publishRemovalNotice');
+  if (notice) notice.hidden = true;
+}
+
+/**
+ * 恢复最近一次删除的本地商品，包括规格、图片、已选状态与编辑内容。
+ * @returns {void} 恢复原位置并清除筛选，使恢复的商品可见。
+ * @throws {Error} 不主动抛出异常。
+ */
+function undoRemovePublishProduct() {
+  const removed = publishState.removedProducts.pop();
+  if (!removed) return;
+  if (!publishState.removedProducts.length) hidePublishRemovalNotice();
+  publishState.products.splice(Math.min(removed.index, publishState.products.length), 0, removed.product);
+  publishState.activeId = removed.product.id;
+  publishState.creationOpen = false;
+  publishState.query = ''; publishState.statusFilter = 'all';
+  $('#publishSearch').value = ''; $('#publishStatusFilter').value = 'all';
+  renderProductPublish();
+}
+
+/**
  * 渲染批量商品矩阵。文本始终转义，用户上传文件名不会作为 HTML 执行。
  *
  * @returns {void} 更新表格行、选择计数和全选状态。
@@ -2065,6 +2467,10 @@ function duplicatePublishProduct(productId) {
  */
 function renderPublishTable() {
   const rows = visiblePublishProducts();
+  const removedCount = publishState.removedProducts.length;
+  $('#publishRemovalNotice').hidden = removedCount === 0 || !publishState.removalNoticeTimer;
+  $('#publishRemovedCount').textContent = `已从待发布列表删除 ${removedCount} 件商品`;
+  $('#publishUndoRemove').onclick = undoRemovePublishProduct;
   const statusLabel = { ready: '可发布', needs_attention: '待补全', recognizing: '识别中' };
   $('#publishProductRows').innerHTML = rows.length ? rows.map(product => {
     publishProductStatus(product);
@@ -2075,12 +2481,12 @@ function renderPublishTable() {
       <td><input type="checkbox" data-publish-select="${esc(product.id)}" ${product.selected ? 'checked' : ''} aria-label="选择 ${esc(displayTitle)}"></td>
       <td>${product.image ? `<img class="publish-product-image" src="${esc(product.image)}" alt="${esc(displayTitle)}" loading="lazy" referrerpolicy="no-referrer">` : '<span class="publish-product-image-placeholder"><i class="ri-image-add-line" aria-hidden="true"></i></span>'}</td>
       <td><b class="publish-product-title ${product.title ? '' : 'is-empty'}">${esc(displayTitle)}</b><span class="publish-product-category">${esc(product.category)}</span></td>
-      <td class="${product.imageCount >= 5 ? 'publish-cell-ok' : 'publish-cell-warn'}">${Math.min(product.imageCount, 5)}/5</td>
+      <td class="${product.imageCount >= 5 && product.imageCount <= PUBLISH_IMAGE_LIMIT ? 'publish-cell-ok' : 'publish-cell-warn'}">${product.imageCount}/${PUBLISH_IMAGE_LIMIT}</td>
       <td class="${product.requiredCompleted >= product.requiredTotal ? 'publish-cell-ok' : 'publish-cell-warn'}">${product.requiredCompleted}/${product.requiredTotal}</td>
       <td class="${tradeClass}">${product.tradeReady ? '已填写' : '待填写'}</td>
       <td class="${logisticsClass}">${product.logisticsReady ? '已填写' : '待填写'}</td>
       <td><span class="publish-row-status ${product.status}">${statusLabel[product.status]}</span></td>
-      <td><button type="button" class="publish-copy-similar" data-publish-duplicate="${esc(product.id)}"><i class="ri-file-copy-2-line" aria-hidden="true"></i>复制同类</button></td>
+      <td><div class="publish-row-actions"><button type="button" class="publish-copy-similar" data-publish-duplicate="${esc(product.id)}"><i class="ri-file-copy-2-line" aria-hidden="true"></i>复制同类</button><button type="button" class="publish-remove-product" data-publish-remove="${esc(product.id)}" aria-label="删除 ${esc(displayTitle)}" title="${isPublishProductBusy(product) ? '上传或提交完成后可以删除' : '从待发布列表删除，可撤销'}" ${isPublishProductBusy(product) ? 'disabled' : ''}><i class="ri-delete-bin-line" aria-hidden="true"></i>删除</button></div></td>
     </tr>`;
   }).join('') : '<tr><td colspan="9"><div class="empty">没有符合筛选条件的商品</div></td></tr>';
   const selected = publishState.products.filter(product => product.selected).length;
@@ -2089,7 +2495,7 @@ function renderPublishTable() {
 
   $$('#publishProductRows tr[data-publish-id]').forEach(row => {
     row.onclick = event => {
-      if (event.target.matches('input[type="checkbox"]') || event.target.closest('[data-publish-duplicate]')) return;
+      if (event.target.matches('input[type="checkbox"]') || event.target.closest('[data-publish-duplicate], [data-publish-remove]')) return;
       publishState.activeId = row.dataset.publishId;
       renderPublishTable();
       renderPublishEditor();
@@ -2112,6 +2518,12 @@ function renderPublishTable() {
     button.onclick = event => {
       event.stopPropagation();
       duplicatePublishProduct(button.dataset.publishDuplicate);
+    };
+  });
+  $$('[data-publish-remove]').forEach(button => {
+    button.onclick = event => {
+      event.stopPropagation();
+      removePublishProduct(button.dataset.publishRemove);
     };
   });
 }
@@ -2272,6 +2684,29 @@ function renderPublishPriceTiers(product) {
 }
 
 /**
+ * 渲染可逐条核对的商品规格，参考商品的属性、商家编码与独立报价原样供编辑。
+ * @param {object} product - 当前本地商品草稿。
+ * @returns {string} 已转义的规格编辑区域 HTML。
+ * @throws {Error} 不主动抛出异常。
+ */
+function renderPublishSkus(product) {
+  const skus = Array.isArray(product.skus) ? product.skus : [];
+  return `<div class="publish-structured-field"><div class="publish-structure-head"><div><b><em>*</em> 商品规格</b><span>每个规格至少填写一项名称和值，例如颜色、型号。参考商品的规格可在这里核对修改。</span></div><button type="button" id="publishAddSku" ${skus.length >= 100 ? 'disabled' : ''}>添加规格</button></div>
+    ${!skus.length ? '<p class="publish-group-note">尚无规格资料。请添加规格，或重新读取参考商品。</p>' : ''}
+    ${skus.map((sku, index) => `<div class="publish-structured-field"><div class="publish-structure-head"><b>规格 ${index + 1}</b><button type="button" data-publish-sku-remove="${index}">删除规格</button></div>
+      ${(sku.skuAttributes || []).map((attr, attrIndex) => `<div class="publish-form-grid">
+        <label class="publish-field"><span><b>规格名称</b></span><input data-publish-sku="${index}" data-publish-sku-attribute="${attrIndex}" data-publish-sku-field="attrName" value="${esc(attr.attrName)}" maxlength="120" placeholder="例如：颜色" aria-label="规格 ${index + 1} 属性 ${attrIndex + 1} 名称"></label>
+        <label class="publish-field"><span><b>规格值</b></span><input data-publish-sku="${index}" data-publish-sku-attribute="${attrIndex}" data-publish-sku-field="attrValue" value="${esc(attr.attrValue)}" maxlength="160" placeholder="填写真实规格" aria-label="规格 ${index + 1} 属性 ${attrIndex + 1} 值"></label>
+        <button type="button" data-sku-index="${index}" data-publish-sku-attribute-remove="${attrIndex}" ${sku.skuAttributes.length === 1 ? 'disabled' : ''}>删除属性 ${attrIndex + 1}</button>
+      </div>`).join('')}
+      <button type="button" data-publish-sku-attribute-add="${index}" ${sku.skuAttributes?.length >= 20 ? 'disabled' : ''}>添加规格属性</button>
+      <div class="publish-form-grid"><label class="publish-field"><span><b>商家规格编码</b><small>选填</small></span><input data-publish-sku="${index}" data-publish-sku-field="skuCode" value="${esc(sku.skuCode || '')}" maxlength="120" aria-label="规格 ${index + 1} 编码"></label>
+      <label class="publish-field"><span><b>规格单价</b><small>留空沿用首档价格</small></span><input type="number" min="0.01" step="any" data-publish-sku="${index}" data-publish-sku-field="unitPrice" value="${esc(sku.unitPrice ?? '')}" aria-label="规格 ${index + 1} 单价"></label>
+      <label class="publish-field"><span><b>规格库存</b><small>${skus.length === 1 ? '留空沿用可售库存' : '逐个规格填写'}</small></span><input type="number" min="0" step="1" data-publish-sku="${index}" data-publish-sku-field="stock" value="${esc(sku.stock ?? '')}" aria-label="规格 ${index + 1} 库存"></label></div>
+    </div>`).join('')}</div>`;
+}
+
+/**
  * 渲染阶梯发货期数组。每一行同时收集数量上限和承诺发货天数。
  *
  * @param {object} product - 当前商品草稿。
@@ -2310,7 +2745,7 @@ function publishFailureFieldLabels(fields) {
   const labels = {
     images: '商品图片', title: '标题', keywords: '关键词', attributes: '类目属性',
     price: '阶梯价格', moq: '最小起订量', package: '包装信息', fulfillment: '发货与物流',
-    sellingPoints: '卖点和详情',
+    sellingPoints: '卖点和详情', sku: '商品规格',
   };
   return [...new Set((Array.isArray(fields) ? fields : []).map(field => labels[field]).filter(Boolean))];
 }
@@ -2332,11 +2767,11 @@ function renderPublishOutcomeInsight(product) {
       : '请根据平台提示调整商品资料后重新检查。';
     return `<section class="publish-outcome-card is-failure" aria-live="polite">
       <div class="publish-outcome-icon"><i class="ri-error-warning-line" aria-hidden="true"></i></div>
-      <div><b>这次没有发布成功</b><p>${esc(guidance)}</p><small>${esc(job.message || '平台没有接受当前商品资料')}</small></div>
+      <div><b>${job.action === 'draft' ? '这次没有保存成功' : '这次没有发布成功'}</b><p>${esc(guidance)}</p><small>${esc(window.LsouPublishUtils.publishResultDetail(job))}</small></div>
       <button type="button" id="publishFixAndRetry">修改后重新检查</button>
     </section>`;
   }
-  const hasScore = Number.isFinite(Number(job.finalScore));
+  const hasScore = window.LsouPublishUtils.finiteNumberOrNull(job.finalScore) !== null;
   const reasons = (Array.isArray(job.deductReasons) ? job.deductReasons : []).slice(0, 3);
   const scoreCopy = hasScore ? `商品质量分 ${Number(job.finalScore)}` : (job.qualityScoreMessage || '质量分暂未返回');
   return `<section class="publish-outcome-card is-success" aria-live="polite">
@@ -2358,13 +2793,13 @@ function renderPublishUploadSummary(product) {
   const failed = uploads.filter(item => item.status === 'failed');
   const uploaded = uploads.filter(item => item.status === 'uploaded');
   if (!uploads.length && publishState.uploadCapability.configured) {
-    return '<p class="publish-image-helper"><i class="ri-cloud-line" aria-hidden="true"></i>新选择的图片会自动上传，成功后才能进入发布。</p>';
+    return '<p class="publish-image-helper"><i class="ri-cloud-line" aria-hidden="true"></i>新选择的图片会通过 Accio 自动上传，成功后即可用于发布。</p>';
   }
   if (!publishState.uploadCapability.loaded) {
     return '<p class="publish-image-helper"><i class="ri-loader-4-line" aria-hidden="true"></i>正在检查图片上传服务…</p>';
   }
   if (!publishState.uploadCapability.configured && !uploads.length) {
-    return '<p class="publish-image-helper"><i class="ri-information-line" aria-hidden="true"></i>管理员尚未开启电脑本地图片上传；当前参考图片可以直接使用。</p>';
+    return `<p class="publish-image-helper"><i class="ri-information-line" aria-hidden="true"></i>${esc(publishState.uploadCapability.error || '图片上传尚未连接 Accio Work，请登录后重新打开工作台')}；当前参考图片可以直接使用。</p>`;
   }
   return `<div class="publish-upload-summary">
     ${active.map(item => `<span class="is-uploading"><i class="ri-loader-4-line" aria-hidden="true"></i>${esc(item.filename)} ${Math.max(1, Number(item.progress || 0))}%</span>`).join('')}
@@ -2374,12 +2809,18 @@ function renderPublishUploadSummary(product) {
 }
 
 /**
- * 渲染当前商品快速编辑器，字段来自真实 WorkCTL 发品 Schema 和智能手表类目属性。
+ * 渲染当前商品快速编辑器，字段来自真实 WorkCTL 发品 Schema 和特定产品类目属性。
  *
  * @returns {void} 直接更新编辑器内容与图片入口。
  * @throws {Error} 不主动抛出异常。
  */
 function renderPublishEditor() {
+  // 重绘会替换整个类目控件，取消旧输入的防抖与请求，避免响应落到另一件商品。
+  clearTimeout(publishState.categorySearchTimer);
+  publishState.categorySearchRequestId += 1;
+  publishState.categorySearchLoading = false;
+  publishState.categorySearchError = '';
+  publishState.categoryMatches = [];
   const product = publishState.products.find(item => item.id === publishState.activeId) || publishState.products[0];
   if (!product) {
     $('#publishEditor').innerHTML = `<div class="publish-editor-empty">
@@ -2391,7 +2832,7 @@ function renderPublishEditor() {
   }
   publishState.activeId = product.id;
   // 账号类目上下文未完成前不渲染任何演示类目字段，避免网络较慢时让用户误以为
-  // 智能手表参数适用于自己的商品。失败状态也停在这里，保存与发布按钮不会出现。
+  // 特定产品参数适用于自己的商品。失败状态也停在这里，保存与发布按钮不会出现。
   if (!publishState.accountContextLoaded) {
     const failed = Boolean(publishState.accountContextError);
     $('#publishEditor').innerHTML = `<div class="publish-context-gate ${failed ? 'is-error' : ''}">
@@ -2401,7 +2842,7 @@ function renderPublishEditor() {
     </div>`;
     return;
   }
-  const categoryConfig = PUBLISH_CATEGORY_CONFIG[product.categoryKey] || PUBLISH_CATEGORY_CONFIG.watch;
+  const categoryConfig = PUBLISH_CATEGORY_CONFIG[product.categoryKey] || PUBLISH_CATEGORY_CONFIG.unselected;
   const requiredAttributeCount = categoryConfig.fields.filter(isRequiredPublishField).length;
   const schemaIsLive = categoryConfig.source === 'workctl-live';
   const accountContextReady = schemaIsLive && publishState.accountContextLoaded;
@@ -2422,7 +2863,7 @@ function renderPublishEditor() {
     : accountContextFailed
       ? '为避免套用其他店铺的参数，保存和发布已暂停；请刷新数据后重试。'
       : '系统正在自动读取类目并生成对应参数，无需填写任何编号。';
-  const gallery = [...new Set([product.image, ...(product.gallery || [])].filter(Boolean))].slice(0, 10);
+  const gallery = [...new Set([product.image, ...(product.gallery || [])].filter(Boolean))];
   const uploads = Array.isArray(product.uploads) ? product.uploads : [];
   const referenceImporter = publishState.referenceImportOpen ? `<div class="publish-reference-importer">
     <label for="publishReferenceInput"><span>参考商品链接</span><input id="publishReferenceInput" type="url" value="${esc(publishState.referenceImportValue)}" placeholder="粘贴 Alibaba.com 商品链接" autocomplete="off"></label>
@@ -2448,6 +2889,7 @@ function renderPublishEditor() {
   $('#publishEditor').innerHTML = `<div class="publish-editor">
     <div class="publish-editor-head"><h2>${esc(product.title)}</h2><div class="publish-editor-actions"><button type="button" id="publishReferenceToggle" aria-expanded="${publishState.referenceImportOpen}"><i class="ri-file-copy-2-line" aria-hidden="true"></i>导入参考商品</button><button type="button" id="publishRecognize"><i class="ri-refresh-line" aria-hidden="true"></i>重新识别</button></div></div>
     ${referenceImporter}
+    <p class="publish-image-limit ${gallery.length > PUBLISH_IMAGE_LIMIT ? 'is-error' : ''}" role="status">商品主图 ${gallery.length}/${PUBLISH_IMAGE_LIMIT}${gallery.length > PUBLISH_IMAGE_LIMIT ? ` · 请移除 ${gallery.length - PUBLISH_IMAGE_LIMIT} 张后再保存或发布` : ' · 第一张为封面'}</p>
     <div class="publish-image-strip" aria-label="商品图片，可拖拽调整顺序">${gallery.map((image, index) => {
       const upload = uploads.find(item => item.previewUrl === image || item.remoteUrl === image);
       const status = upload?.status || '';
@@ -2461,17 +2903,17 @@ function renderPublishEditor() {
           <button type="button" class="is-remove" data-publish-image-remove="${index}" aria-label="移除商品图 ${index + 1}"><i class="ri-delete-bin-line" aria-hidden="true"></i></button>
         </div>
       </div>`;
-    }).join('')}<button type="button" class="publish-add-image" id="publishAddImages" aria-label="继续添加图片" ${publishState.uploadCapability.loaded && !publishState.uploadCapability.configured ? 'disabled' : ''}><i class="ri-add-line" aria-hidden="true"></i><span>上传</span></button></div>
-    ${gallery.length ? '<p class="publish-image-order-help"><i class="ri-drag-move-2-line" aria-hidden="true"></i>拖动左上角手柄调整顺序；第一张自动作为封面，悬停图片可以前移、后移或删除。</p>' : ''}
+    }).join('')}<button type="button" class="publish-add-image" id="publishAddImages" aria-label="继续添加图片" ${gallery.length >= PUBLISH_IMAGE_LIMIT ? 'hidden' : ''} ${gallery.length >= PUBLISH_IMAGE_LIMIT || (publishState.uploadCapability.loaded && !publishState.uploadCapability.configured) ? 'disabled' : ''}><i class="ri-add-line" aria-hidden="true"></i><span>${gallery.length >= PUBLISH_IMAGE_LIMIT ? '已达上限' : '上传'}</span></button><i class="publish-image-insertion" aria-hidden="true" hidden></i></div>
+    ${gallery.length ? '<p class="publish-image-order-help"><i class="ri-drag-move-2-line" aria-hidden="true"></i>拖动图片或左上角手柄，橙色竖线表示插入位置；第一张自动作为封面。</p>' : ''}
     ${renderPublishUploadSummary(product)}
     <div class="publish-schema-banner ${accountContextReady ? '' : 'is-loading'}"><i class="${accountContextReady ? 'ri-shield-check-line' : accountContextFailed ? 'ri-error-warning-line' : 'ri-loader-4-line'}" aria-hidden="true"></i><div><b>${esc(schemaBannerTitle)}</b><span>${esc(schemaBannerText)}</span></div></div>
     ${renderPublishOutcomeInsight(product)}
     <section class="publish-form-section"><h3>基础信息</h3>
       <label class="publish-field"><span><b><em>*</em> 标题</b><small>${product.title.length}/128</small></span><input data-publish-field="title" value="${esc(product.title)}" maxlength="128"></label>
-      <div class="publish-field"><span><b>关键词</b><small>${product.keywords.length}/5 · 可直接修改</small></span><div class="publish-chip-list">${product.keywords.map((keyword, index) => `<span class="publish-keyword-chip"><input data-publish-keyword="${index}" value="${esc(keyword)}" maxlength="40" size="${Math.max(6, Math.min(18, keyword.length))}" aria-label="关键词 ${index + 1}"><button type="button" data-publish-keyword-remove="${index}" aria-label="删除关键词 ${esc(keyword)}"><i class="ri-close-line" aria-hidden="true"></i></button></span>`).join('')}${product.keywords.length < 5 ? `<span class="publish-keyword-add"><input id="publishKeywordAdd" maxlength="40" placeholder="输入关键词" aria-label="新增关键词"><button id="publishKeywordAddButton" type="button">添加</button></span>` : ''}</div></div>
-      <div class="publish-field"><span><b><em>*</em> 叶子类目</b><small class="publish-control-tag">系统自动匹配</small></span><div class="publish-category-picker"><label><i class="ri-search-line" aria-hidden="true"></i><input id="publishCategorySearch" type="search" placeholder="输入类目名称搜索" autocomplete="off" ${product.schemaLoading || !publishState.accountContextLoaded ? 'disabled' : ''}></label><select id="publishCategoryResults" data-publish-category ${product.schemaLoading || !publishState.accountContextLoaded ? 'disabled' : ''}><option value="${esc(product.categoryId)}" selected>${esc(product.category)}</option></select></div><small class="publish-schema-note">系统先读取当前账号商品所属类目，再自动加载对应参数；无需填写编号</small></div>
+      <div class="publish-field"><span><b>关键词</b><small>${product.keywords.length}/5 · 可直接修改</small></span><div class="publish-chip-list">${product.keywords.map((keyword, index) => `<span class="publish-keyword-chip"><input data-publish-keyword="${index}" value="${esc(keyword)}" maxlength="40" size="${Math.max(6, Math.min(18, keyword.length))}" aria-label="关键词 ${index + 1}"><button type="button" data-publish-keyword-remove="${index}" aria-label="删除关键词 ${esc(keyword)}"><i class="ri-close-line" aria-hidden="true"></i></button></span>`).join('')}${product.keywords.length < 5 ? `<span class="publish-keyword-add"><input id="publishKeywordAdd" maxlength="40" placeholder="输入关键词" aria-label="新增关键词"><button id="publishKeywordAddButton" type="button">添加</button></span>` : ''}</div>${product.keywordSource === 'reference' && product.referenceKeywordsEmpty && !product.keywords.length ? '<small class="publish-schema-note publish-keyword-source">参考商品未返回关键词，可在此补充</small>' : ''}</div>
+      <div class="publish-field"><span><b><em>*</em> 叶子类目</b><small class="publish-control-tag">系统自动匹配</small></span><details class="publish-category-picker"><summary aria-label="选择商品类目" ${product.schemaLoading || !publishState.accountContextLoaded ? 'aria-disabled="true"' : ''}><span>${esc(product.category)}</span><i class="ri-arrow-down-s-line" aria-hidden="true"></i></summary><div class="publish-category-popover"><label class="publish-category-search"><i class="ri-search-line" aria-hidden="true"></i><input id="publishCategorySearch" type="search" placeholder="搜索并选择类目" aria-label="搜索类目" autocomplete="off"></label><div id="publishCategorySearchStatus" role="status"></div><div id="publishCategoryResults" role="listbox" aria-label="类目搜索结果"></div></div></details><small class="publish-schema-note">已自动带入类目；需要更换时点击上方搜索选择</small></div>
     </section>
-    <section class="publish-form-section"><h3>类目属性 <small>${requiredAttributeCount} 项必填 · 共 ${categoryConfig.fields.length} 项</small></h3><div class="publish-form-grid">${categoryConfig.fields.map(field => `<div class="publish-field"><span><b>${isRequiredPublishField(field) ? '<em>*</em> ' : ''}${esc(field.label)}</b><small class="publish-control-tag">${field.control === 'multi' ? '平台多选' : field.control === 'region' ? '平台国家' : field.control === 'text' ? '允许输入' : field.control === 'combo' ? '平台选项 / 可自定义' : '平台单选'}</small></span>${renderPublishAttributeControl(field, product.attributes[field.key])}<small class="publish-schema-note">${esc(field.schemaName)}${field.control === 'region' ? ' · Alibaba 发品页选项' : field.optionSource === 'workctl-live' ? ' · WorkCTL 实时选项' : ''}</small></div>`).join('')}</div></section>
+    <section class="publish-form-section"><h3>类目属性 <small>${requiredAttributeCount} 项必填 · 共 ${categoryConfig.fields.length} 项</small></h3><div class="publish-form-grid">${categoryConfig.fields.map(field => `<div class="publish-field"><span><b>${isRequiredPublishField(field) ? '<em>*</em> ' : ''}${esc(field.label)}</b><small class="publish-control-tag">${field.control === 'multi' ? '平台多选' : field.control === 'region' ? '平台国家' : field.control === 'text' ? '允许输入' : field.control === 'combo' ? '平台选项 / 可自定义' : '平台单选'}</small></span>${renderPublishAttributeControl(field, product.attributes[field.key])}<small class="publish-schema-note">${esc(field.schemaName)}${field.control === 'region' ? ' · Alibaba 发品页选项' : field.optionSource === 'workctl-live' ? ' · 平台数据选项' : ''}</small></div>`).join('')}</div></section>
     <section class="publish-form-section"><div class="publish-section-heading"><h3>交易信息</h3><span>填写销售方式、起订量、库存与价格</span></div><div class="publish-form-grid">
       <label class="publish-field"><span><b><em>*</em> 销售方式</b><small class="publish-control-tag">平台选项</small></span><select data-publish-field="saleType"><option value="normal" ${product.saleType === 'normal' ? 'selected' : ''}>按件售卖</option><option value="batch" ${product.saleType === 'batch' ? 'selected' : ''}>按批售卖</option></select></label>
       ${product.saleType === 'batch' ? `<label class="publish-field"><span><b><em>*</em> 每批数量</b><small>整数 ≥ 1</small></span><input type="number" min="1" step="1" inputmode="numeric" data-publish-field="batchNum" value="${esc(product.batchNum)}"></label>` : ''}
@@ -2480,6 +2922,7 @@ function renderPublishEditor() {
       <label class="publish-field"><span><b><em>*</em> 计价单位</b><small class="publish-control-tag">系统自动匹配</small></span>${priceUnitControl}<small class="publish-schema-note">来自当前店铺与国际站官方单位，提交时自动携带平台编码</small></label>
     </div>
       <div class="publish-structured-field"><div class="publish-structure-head"><div><b><em>*</em> 阶梯价格</b><span>Schema 只接受 ladderPrices 数组，不接受“US$ 8.90–12.50”文本</span></div><button type="button" id="publishAddPriceTier"><i class="ri-add-line" aria-hidden="true"></i>添加阶梯</button></div><div class="publish-tier-list">${renderPublishPriceTiers(product)}</div></div>
+      ${renderPublishSkus(product)}
     </section>
     <section class="publish-form-section"><div class="publish-section-heading"><h3>履约与包装</h3><span>填写承诺发货期与单件包装信息</span></div>
       <div class="publish-structured-field"><div class="publish-structure-head"><div><b><em>*</em> 阶梯发货期</b><span>数量上限与承诺天数必须成对填写</span></div><button type="button" id="publishAddPeriodTier"><i class="ri-add-line" aria-hidden="true"></i>添加阶梯</button></div><div class="publish-tier-list">${renderPublishLeadTimeTiers(product)}</div></div>
@@ -2500,20 +2943,59 @@ function renderPublishEditor() {
     </section>
   </div>`;
   updatePublishCategoryResultSelect();
+  $('#publishAddSku').onclick = () => {
+    product.skus = [...(product.skus || []), window.LsouPublishUtils.createEmptyPublishSku()];
+    renderProductPublish();
+  };
+  $$('[data-publish-sku-remove]').forEach(button => { button.onclick = () => {
+    product.skus.splice(Number(button.dataset.publishSkuRemove), 1);
+    renderProductPublish();
+  }; });
+  $$('[data-publish-sku-attribute-add]').forEach(button => { button.onclick = () => {
+    product.skus[Number(button.dataset.publishSkuAttributeAdd)].skuAttributes.push(window.LsouPublishUtils.createEmptyPublishSku().skuAttributes[0]);
+    renderProductPublish();
+  }; });
+  $$('[data-publish-sku-attribute-remove]').forEach(button => { button.onclick = () => {
+    product.skus[Number(button.dataset.skuIndex)].skuAttributes.splice(Number(button.dataset.publishSkuAttributeRemove), 1);
+    renderProductPublish();
+  }; });
   const categorySearch = $('#publishCategorySearch');
-  if (categorySearch) {
-    categorySearch.oninput = () => {
-      if (publishState.categorySearchTimer) clearTimeout(publishState.categorySearchTimer);
-      publishState.categorySearchTimer = setTimeout(() => searchPublishCategories(categorySearch.value), 260);
-    };
-    categorySearch.onkeydown = event => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        if (publishState.categorySearchTimer) clearTimeout(publishState.categorySearchTimer);
-        searchPublishCategories(categorySearch.value);
-      }
-    };
-  }
+  const categoryPicker = $('.publish-category-picker');
+  categoryPicker.querySelector('summary').onclick = event => {
+    if (product.schemaLoading || !publishState.accountContextLoaded) event.preventDefault();
+  };
+  categoryPicker.ontoggle = () => {
+    if (!categoryPicker.isConnected) return;
+    if (categoryPicker.open) {
+      updatePublishCategoryResultSelect();
+      categorySearch.focus();
+    }
+    else {
+      clearTimeout(publishState.categorySearchTimer);
+      publishState.categorySearchRequestId += 1;
+      publishState.categorySearchLoading = false;
+    }
+  };
+  categorySearch.oninput = () => {
+    clearTimeout(publishState.categorySearchTimer);
+    // 输入一变就使旧响应失效，避免慢搜索覆盖新搜索。
+    publishState.categorySearchRequestId += 1;
+    publishState.categorySearchTimer = setTimeout(() => searchPublishCategories(categorySearch.value), 260);
+  };
+  categoryPicker.onkeydown = event => {
+    const options = $$('[data-publish-category-option]');
+    if (event.key === 'Escape') {
+      event.preventDefault(); categoryPicker.open = false; categoryPicker.querySelector('summary').focus();
+    } else if (categoryPicker.open && ['ArrowDown', 'ArrowUp'].includes(event.key)) {
+      event.preventDefault();
+      const index = options.indexOf(document.activeElement);
+      const next = index < 0 ? (event.key === 'ArrowDown' ? 0 : options.length - 1)
+        : (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
+      options[next]?.focus();
+    } else if (event.key === 'Enter' && event.target === categorySearch) {
+      event.preventDefault(); clearTimeout(publishState.categorySearchTimer); searchPublishCategories(categorySearch.value);
+    }
+  };
   $('#publishReferenceToggle').onclick = () => {
     publishState.referenceImportOpen = !publishState.referenceImportOpen;
     publishState.referenceImportError = '';
@@ -2564,129 +3046,7 @@ function renderPublishEditor() {
       toast('图片已移除，剩余图片顺序已保存');
     };
   });
-  $$('[data-publish-image-tile]').forEach(tile => {
-    tile.ondragstart = event => {
-      const index = Number(tile.dataset.publishImageTile);
-      publishState.imageDragIndex = Number.isInteger(index) ? index : null;
-      publishState.imageDragTargetIndex = null;
-      tile.classList.add('is-dragging');
-      if (event.dataTransfer) {
-        event.dataTransfer.effectAllowed = 'move';
-        // Safari 需要存在一条文本数据，才会真正启动元素拖拽。
-        event.dataTransfer.setData('text/plain', String(index));
-      }
-    };
-    tile.ondragover = event => {
-      event.preventDefault();
-      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
-      tile.classList.add('is-drop-target');
-    };
-    tile.ondragleave = event => {
-      if (!tile.contains(event.relatedTarget)) tile.classList.remove('is-drop-target');
-    };
-    tile.ondrop = event => {
-      event.preventDefault();
-      const transferredValue = event.dataTransfer?.getData('text/plain') || '';
-      const transferredIndex = transferredValue === '' ? Number.NaN : Number(transferredValue);
-      const fromIndex = Number.isInteger(transferredIndex) ? transferredIndex : publishState.imageDragIndex;
-      const toIndex = Number(tile.dataset.publishImageTile);
-      publishState.imageDragIndex = null;
-      publishState.imageDragTargetIndex = null;
-      clearPublishImageDragStyles();
-      if (movePublishProductImage(product, fromIndex, toIndex)) renderProductPublish();
-    };
-    tile.ondragend = () => {
-      publishState.imageDragIndex = null;
-      publishState.imageDragTargetIndex = null;
-      clearPublishImageDragStyles();
-    };
-  });
-  $$('.publish-image-drag-handle').forEach(handle => {
-    /**
-     * 根据当前指针坐标标记准备放入的位置。
-     *
-     * @param {number} clientX - 相对浏览器视口的横坐标。
-     * @param {number} clientY - 相对浏览器视口的纵坐标。
-     * @returns {void} 指针未落在图片上时保持上一次有效目标。
-     * @throws {Error} 不主动抛出异常。
-     */
-    const updatePointerSortTarget = (clientX, clientY) => {
-      const target = document.elementFromPoint(clientX, clientY)?.closest?.('[data-publish-image-tile]');
-      const targetIndex = Number(target?.dataset.publishImageTile);
-      if (!target || !Number.isInteger(targetIndex)) return;
-      publishState.imageDragTargetIndex = targetIndex;
-      $$('[data-publish-image-tile]').forEach(tile => tile.classList.remove('is-drop-target'));
-      target.classList.add('is-drop-target');
-    };
-
-    /**
-     * 结束一轮基于鼠标或触屏指针的排序。
-     *
-     * @param {PointerEvent|MouseEvent} event - pointerup、pointercancel 或 mouseup 事件。
-     * @returns {void} 有效跨位置拖拽会重新渲染图库。
-     * @throws {Error} 不主动抛出异常。
-     */
-    const finishPointerSort = event => {
-      event.preventDefault();
-      event.stopPropagation();
-      const fromIndex = publishState.imageDragIndex;
-      const toIndex = publishState.imageDragTargetIndex;
-      publishState.imageDragIndex = null;
-      publishState.imageDragTargetIndex = null;
-      if (Number.isInteger(event.pointerId) && handle.hasPointerCapture?.(event.pointerId)) {
-        handle.releasePointerCapture(event.pointerId);
-      }
-      clearPublishImageDragStyles();
-      if (movePublishProductImage(product, fromIndex, toIndex)) renderProductPublish();
-    };
-    handle.onpointerdown = event => {
-      // 鼠标使用兼容性更稳定的 mousedown/mousemove；触屏和触控笔才走 PointerEvent。
-      if (event.pointerType === 'mouse') return;
-      event.preventDefault();
-      event.stopPropagation();
-      const tile = handle.closest('[data-publish-image-tile]');
-      const index = Number(tile?.dataset.publishImageTile);
-      if (!tile || !Number.isInteger(index)) return;
-      publishState.imageDragIndex = index;
-      publishState.imageDragTargetIndex = index;
-      tile.classList.add('is-dragging');
-      handle.setPointerCapture?.(event.pointerId);
-    };
-    handle.onpointermove = event => {
-      if (!Number.isInteger(publishState.imageDragIndex)) return;
-      event.preventDefault();
-      updatePointerSortTarget(event.clientX, event.clientY);
-    };
-    handle.onpointerup = finishPointerSort;
-    handle.onpointercancel = event => {
-      // 系统取消触摸手势时恢复原顺序，不能把最后经过的位置误当作用户确认。
-      publishState.imageDragTargetIndex = publishState.imageDragIndex;
-      finishPointerSort(event);
-    };
-    handle.onmousedown = event => {
-      if (event.button !== 0) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const tile = handle.closest('[data-publish-image-tile]');
-      const index = Number(tile?.dataset.publishImageTile);
-      if (!tile || !Number.isInteger(index)) return;
-      publishState.imageDragIndex = index;
-      publishState.imageDragTargetIndex = index;
-      tile.classList.add('is-dragging');
-
-      const handleMouseMove = moveEvent => {
-        moveEvent.preventDefault();
-        updatePointerSortTarget(moveEvent.clientX, moveEvent.clientY);
-      };
-      const handleMouseUp = upEvent => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        finishPointerSort(upEvent);
-      };
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    };
-  });
+  bindPublishImageSorting(product);
   $$('[data-publish-keyword-remove]').forEach(button => {
     button.onclick = () => {
       const index = Number(button.dataset.publishKeywordRemove);
@@ -2858,8 +3218,8 @@ function isRemotePublishImage(value) {
  * @throws {Error} 不主动抛出异常；缺失字段会由服务端返回明确校验错误。
  */
 function serializePublishProduct(product) {
-  const categoryConfig = PUBLISH_CATEGORY_CONFIG[product.categoryKey] || PUBLISH_CATEGORY_CONFIG.watch;
-  const images = [...new Set([product.image, ...(product.gallery || [])])].filter(isRemotePublishImage).slice(0, 10);
+  const categoryConfig = PUBLISH_CATEGORY_CONFIG[product.categoryKey] || PUBLISH_CATEGORY_CONFIG.unselected;
+  const images = [...new Set([product.image, ...(product.gallery || [])])].filter(isRemotePublishImage);
   return {
     localId: product.id,
     title: product.title,
@@ -2871,8 +3231,8 @@ function serializePublishProduct(product) {
       attrNameId: field.attrId,
       attrName: field.schemaName,
       attrValue: product.attributes?.[field.key],
-      // 单选枚举携带 WorkCTL 实时返回的正整数 ID；多选按平台完整素材约定
-      // 以分号合并且使用 -1，自定义文本和产地快照也使用 -1。
+      // 单选携带官方ID；多选保持数组交给后端，逐个匹配官方ID并展开为独立属性记录。
+      // -1只是页面多选/自定义值的占位，不会把整组选项拼成一个字符串。
       attrValueId: field.multiSelect
         ? -1
         : Number.isSafeInteger(Number(field.choiceIds?.[String(product.attributes?.[field.key] || '')]))
@@ -2888,6 +3248,7 @@ function serializePublishProduct(product) {
       priceUnitId: product.priceUnitId,
       priceUnitLabel: product.priceUnit,
       ladderPrices: product.priceTiers,
+      sku: product.skus || [],
     },
     fulfillment: {
       ladderPeriod: product.leadTimeTiers.map(tier => ({ quantity: tier.maxQuantity, period: tier.days })),
@@ -2912,10 +3273,18 @@ function serializePublishProduct(product) {
  */
 function publishActionIssues(product, action) {
   const issues = [];
-  const remoteImages = [...new Set([product.image, ...(product.gallery || [])])].filter(isRemotePublishImage);
+  const gallery = [...new Set([product.image, ...(product.gallery || [])].filter(Boolean))];
+  const remoteImages = gallery.filter(isRemotePublishImage);
+  if (gallery.length > PUBLISH_IMAGE_LIMIT) issues.push(`商品主图最多 ${PUBLISH_IMAGE_LIMIT} 张，当前 ${gallery.length} 张，请先移除多余图片`);
   if (!String(product.title || '').trim()) issues.push('标题不能为空');
   if (!remoteImages.length) issues.push('本地图片尚未上传到可供 WorkCTL 读取的远程地址');
-  const categoryConfig = PUBLISH_CATEGORY_CONFIG[product.categoryKey] || PUBLISH_CATEGORY_CONFIG.watch;
+  if (!Array.isArray(product.skus) || !product.skus.length) issues.push('请添加商品规格，或重新读取参考商品的规格资料');
+  (product.skus || []).forEach((sku, index) => {
+    if (!sku.skuAttributes?.length || sku.skuAttributes.some(attr => !attr.attrName?.trim() || !attr.attrValue?.trim())) {
+      issues.push(`第 ${index + 1} 个规格需要填写规格名称和值`);
+    }
+  });
+  const categoryConfig = PUBLISH_CATEGORY_CONFIG[product.categoryKey] || PUBLISH_CATEGORY_CONFIG.unselected;
   if (!publishState.accountContextLoaded || categoryConfig.source !== 'workctl-live') {
     issues.push('当前账号商品类目与实时发品规则尚未加载');
   }
@@ -2947,22 +3316,25 @@ function publishActionIssues(product, action) {
  */
 function renderPublishQueue() {
   const panel = $('.publish-queue-panel');
+  // 一个批次尚未结束时保留该批次的全部行；全部结束后只在发布历史中查看。
+  const activeOperations = new Set(publishState.queue
+    .filter(job => ['queued', 'running'].includes(job.status)).map(publishOperationId));
+  const jobs = publishState.queue.filter(job => activeOperations.has(publishOperationId(job)));
+  panel.hidden = jobs.length === 0;
+  const historyCount = completedPublishOperations().length;
+  $('#publishHistory').textContent = historyCount ? `发布历史（${historyCount}）` : '发布历史';
   panel.classList.toggle('collapsed', publishState.queueCollapsed);
   $('#publishQueueToggle').setAttribute('aria-expanded', String(!publishState.queueCollapsed));
   $('#publishQueueToggle').innerHTML = `${publishState.queueCollapsed ? '展开' : '收起'} <i class="ri-arrow-${publishState.queueCollapsed ? 'up' : 'down'}-s-line" aria-hidden="true"></i>`;
-  $('#publishQueueCount').textContent = `${publishState.queue.length} 个任务`;
-  if (!publishState.queue.length) {
-    $('#publishQueueList').innerHTML = '<div class="publish-queue-empty">确认后，任务会在服务端逐条调用真实 WorkCTL。</div>';
+  $('#publishQueueCount').textContent = `${jobs.length} 个任务`;
+  if (!jobs.length) {
+    $('#publishQueueList').innerHTML = '';
     return;
   }
   const stateLabel = { queued: '等待中', running: '执行中', saved_draft: '草稿已保存', submitted: '已提交发布', failed: '失败' };
-  $('#publishQueueList').innerHTML = publishState.queue.map(job => {
+  $('#publishQueueList').innerHTML = jobs.map(job => {
     const failureLabels = publishFailureFieldLabels(job.failureFields);
-    const resultDetail = job.status === 'failed' && failureLabels.length
-      ? `检查：${failureLabels.join('、')}`
-      : Number.isFinite(Number(job.finalScore))
-        ? `质量分 ${Number(job.finalScore)}`
-        : job.message || '';
+    const resultDetail = window.LsouPublishUtils.publishResultDetail(job, failureLabels);
     return `<article class="publish-queue-item">
       <img src="${esc(job.image)}" alt="" referrerpolicy="no-referrer"><div class="publish-queue-copy"><b>${esc(job.title)}</b><span>${job.action === 'draft' ? '保存草稿' : '正式发布'} · ${esc(resultDetail)}</span></div>
       <div class="publish-job-state ${job.status}">${job.status === 'running' ? `<span>${stateLabel[job.status]}</span><span class="publish-queue-progress"><i style="width:${job.progress}%"></i></span>` : job.status === 'failed' ? `<span>${stateLabel[job.status]}</span>${job.canFixAndRetry ? `<button class="publish-retry" type="button" data-publish-fix="${esc(job.localId)}">去补全</button>` : job.retryable ? `<button class="publish-retry" type="button" data-publish-retry="${esc(job.id)}">重试</button>` : ''}` : `<span>${stateLabel[job.status] || esc(job.status)}</span>`}</div>
@@ -3010,22 +3382,57 @@ function publishOperationJobs(operationId) {
 }
 
 /**
+ * 按批次归集已结束的发布记录，保持服务端的新到旧顺序。
+ * @returns {{id:string,jobs:object[]}[]} 成功和失败都已取得最终结果的历史批次。
+ * @throws {Error} 不主动抛出异常。
+ */
+function completedPublishOperations() {
+  return [...new Set(publishState.queue.map(publishOperationId))]
+    .map(id => ({ id, jobs: publishOperationJobs(id) }))
+    .filter(operation => operation.jobs.every(job => PUBLISH_TERMINAL_STATES.has(job.status)));
+}
+
+/**
+ * 打开发布历史，按保存草稿/正式发布批次查看时间、成功失败数量和完整明细。
+ * @returns {void} 渲染历史弹窗；仅读取已取得的队列快照，不再次提交任何商品。
+ * @throws {Error} 不主动抛出异常。
+ */
+function showPublishHistory() {
+  const operations = completedPublishOperations();
+  $('#modalBody').innerHTML = `<section class="publish-history">
+    <h2>发布历史</h2><p>查看已完成的草稿保存与发布任务。</p>
+    <div class="publish-history-list">${operations.length ? operations.map(({ id, jobs }) => {
+      const first = jobs[0];
+      const failed = jobs.filter(job => job.status === 'failed').length;
+      const timestamp = new Date(first.createdAt);
+      const time = Number.isFinite(timestamp.getTime()) ? timestamp.toLocaleString('zh-CN', { hour12: false }) : '时间未记录';
+      return `<article><div><b>${first.action === 'draft' ? '保存草稿' : '提交发布'} · ${jobs.length} 件商品</b><time>${esc(time)}</time><span>${jobs.length - failed} 个成功 · <em class="${failed ? 'has-failure' : ''}">${failed} 个失败</em></span></div><button type="button" data-publish-history-operation="${esc(id)}">查看明细</button></article>`;
+    }).join('') : '<div class="publish-queue-empty">还没有已完成的发布任务</div>'}</div>
+    <div class="publish-result-actions"><button id="publishHistoryClose" type="button">关闭</button></div>
+  </section>`;
+  $('#modal').classList.add('on');
+  $('#publishHistoryClose').onclick = () => $('#modal').classList.remove('on');
+  $$('[data-publish-history-operation]').forEach(button => {
+    button.onclick = () => showPublishOperationResult(button.dataset.publishHistoryOperation, false, true);
+  });
+}
+
+/**
  * 决定页面顶部应该展示哪一次操作。
  *
- * 优先保留用户刚发起的操作；刷新页面后则优先找仍在执行的操作，最后回退到
- * 服务端返回的最新一组历史任务。队列接口按新到旧排序，因此首项就是最近记录。
+ * 优先显示用户刚发起且尚未结束的操作，否则寻找其他正在执行的批次。
+ * 完成记录不会回退到顶部；activeOperationId 仍保留供完成通知使用。
  *
  * @returns {string} 当前可见操作标识；没有任务时返回空字符串。
  * @throws {Error} 不主动抛出异常。
  */
 function resolveVisiblePublishOperationId() {
-  if (publishState.activeOperationId && publishOperationJobs(publishState.activeOperationId).length) {
+  if (publishState.activeOperationId && publishOperationJobs(publishState.activeOperationId)
+    .some(job => ['queued', 'running'].includes(job.status))) {
     return publishState.activeOperationId;
   }
   const activeJob = publishState.queue.find(job => ['queued', 'running'].includes(job.status));
-  const operationId = publishOperationId(activeJob || publishState.queue[0]);
-  publishState.activeOperationId = operationId || null;
-  return operationId;
+  return publishOperationId(activeJob);
 }
 
 /**
@@ -3089,14 +3496,15 @@ function renderPublishOperationProgress() {
  * 打开某次操作的最终结果弹窗。
  *
  * 成功与失败都必须显式呈现；正式发布的 submitted 只表示平台已经接收流程，
- * 文案不会把它误写成“已审核上线”。列表最多展示前 12 条，避免大批量撑满弹层。
+ * 文案不会把它误写成“已审核上线”。列表完整展示并在弹窗内滚动。
  *
  * @param {string} operationId - 需要展示结果的操作标识。
  * @param {boolean} [automatic=false] - 是否由轮询完成后自动弹出。
+ * @param {boolean} [fromHistory=false] - 是否提供返回发布历史入口。
  * @returns {boolean} 已成功打开弹窗返回 true；任务未结束或弹窗被占用时返回 false。
  * @throws {Error} 不主动抛出异常。
  */
-function showPublishOperationResult(operationId, automatic = false) {
+function showPublishOperationResult(operationId, automatic = false, fromHistory = false) {
   const jobs = publishOperationJobs(operationId);
   if (!jobs.length || !jobs.every(job => PUBLISH_TERMINAL_STATES.has(job.status))) return false;
   if (automatic && $('#modal').classList.contains('on')) return false;
@@ -3110,23 +3518,20 @@ function showPublishOperationResult(operationId, automatic = false) {
   if (allSucceeded && first.action === 'draft') title = total === 1 ? '草稿保存成功' : `${total} 个草稿保存完成`;
   if (allSucceeded && first.action === 'publish') title = total === 1 ? '商品已提交发布' : `${total} 个商品已提交发布`;
 
-  const visibleJobs = jobs.slice(0, 12);
+  const visibleJobs = jobs;
   $('#modalBody').innerHTML = `<section class="publish-result ${allSucceeded ? 'success' : 'failure'}">
-    <div class="publish-result-hero"><i class="${allSucceeded ? 'ri-checkbox-circle-fill' : 'ri-error-warning-fill'}" aria-hidden="true"></i><div><span>本次任务 ${total}/${total}</span><h2>${esc(title)}</h2><p>${first.action === 'publish' ? '已提交的商品仍需以国际站平台审核状态为准。' : '每条任务均已得到国际站返回结果。'}</p></div></div>
+    <div class="publish-result-hero"><i class="${allSucceeded ? 'ri-checkbox-circle-fill' : 'ri-error-warning-fill'}" aria-hidden="true"></i><div><span>本次任务 ${total}/${total}</span><h2>${esc(title)}</h2><p>${failed.length ? '失败原因见下方明细，请修改资料后重新提交。' : first.action === 'publish' ? '已提交的商品仍需以国际站平台审核状态为准。' : '商品已保存到国际站草稿箱。'}</p></div></div>
     <div class="publish-result-metrics"><article><span>处理总数</span><strong>${total}</strong></article><article><span>成功</span><strong>${succeeded.length}</strong></article><article><span>失败</span><strong>${failed.length}</strong></article></div>
     <div class="publish-result-list">${visibleJobs.map((job, index) => {
       const failureLabels = publishFailureFieldLabels(job.failureFields);
-      const detail = job.status === 'failed' && failureLabels.length
-        ? `请检查：${failureLabels.join('、')}`
-        : Number.isFinite(Number(job.finalScore))
-          ? `质量分 ${Number(job.finalScore)}${job.deductReasons?.length ? ` · ${job.deductReasons.slice(0, 2).join('；')}` : ''}`
-          : job.qualityScoreMessage || job.message || '';
+      const detail = window.LsouPublishUtils.publishResultDetail(job, failureLabels);
       return `<article><b>${Number(job.position || index + 1)}</b><img src="${esc(job.image)}" alt="" referrerpolicy="no-referrer"><div><strong>${esc(job.title)}</strong><span>${esc(detail)}</span></div><em class="${esc(job.status)}">${job.status === 'saved_draft' ? '草稿已保存' : job.status === 'submitted' ? '已提交' : '失败'}</em></article>`;
-    }).join('')}${total > visibleJobs.length ? `<p>另有 ${total - visibleJobs.length} 条结果，可在右侧发布队列查看。</p>` : ''}</div>
-    <div class="publish-result-actions"><button id="publishResultClose" class="primary" type="button">完成</button></div>
+    }).join('')}</div>
+    <div class="publish-result-actions">${fromHistory ? '<button id="publishResultHistory" type="button">返回发布历史</button>' : ''}<button id="publishResultClose" class="primary" type="button">完成</button></div>
   </section>`;
   $('#modal').classList.add('on');
   $('#publishResultClose').onclick = () => $('#modal').classList.remove('on');
+  if ($('#publishResultHistory')) $('#publishResultHistory').onclick = showPublishHistory;
   publishState.pendingResultOperationIds.delete(operationId);
   publishState.announcedResultOperationIds.add(operationId);
   return true;
@@ -3195,6 +3600,21 @@ function handlePublishEditorInput(event) {
   const shippingTemplateChanged = event.target.hasAttribute('data-publish-shipping-template');
   const keywordIndex = event.target.dataset.publishKeyword;
   const sellingPointIndex = event.target.dataset.publishSellingPoint;
+  const skuIndex = event.target.dataset.publishSku;
+  if (skuIndex !== undefined) {
+    const sku = product.skus?.[Number(skuIndex)];
+    if (!sku) return;
+    const attrIndex = event.target.dataset.publishSkuAttribute;
+    const skuField = event.target.dataset.publishSkuField;
+    if (attrIndex !== undefined && ['attrName', 'attrValue'].includes(skuField)) {
+      const attr = sku.skuAttributes[Number(attrIndex)];
+      attr[skuField] = event.target.value;
+      // 修改文字后旧平台枚举 ID/图片不再对应新值，交给平台按自定义属性处理。
+      attr.attrNameId = null; attr.attrValueId = null; attr.imageUrl = null;
+    } else if (['stock', 'unitPrice'].includes(skuField)) {
+      sku[skuField] = event.target.value === '' ? null : Number(event.target.value);
+    } else if (skuField === 'skuCode') sku.skuCode = event.target.value;
+  }
 
   if (categoryChanged) {
     const categoryId = Number(event.target.value);
@@ -3290,7 +3710,7 @@ function syncPublishRemoteImageCount(product) {
 }
 
 /**
- * 将商品图库统一写回为一个有序、去重且最多十张的数组。
+ * 将商品图库统一写回为有序、去重的数组；旧超量草稿保留全部图片供用户删除。
  *
  * `product.gallery[0]` 与 `product.image` 始终指向同一张封面图。拖拽排序、点击设为
  * 封面和移除图片都必须经过这个入口，才能保证页面顺序与最终发品 payload 一致。
@@ -3301,7 +3721,7 @@ function syncPublishRemoteImageCount(product) {
  * @throws {Error} 不主动抛出异常，空值和重复地址会被忽略。
  */
 function applyPublishProductGallery(product, images) {
-  const normalized = [...new Set((Array.isArray(images) ? images : []).filter(Boolean))].slice(0, 10);
+  const normalized = [...new Set((Array.isArray(images) ? images : []).filter(Boolean))];
   product.gallery = normalized;
   product.image = normalized[0] || '';
   syncPublishRemoteImageCount(product);
@@ -3318,7 +3738,7 @@ function applyPublishProductGallery(product, images) {
  * @throws {Error} 不主动抛出异常，无效或相同下标返回 false。
  */
 function movePublishProductImage(product, fromIndex, toIndex) {
-  const gallery = [...new Set([product.image, ...(product.gallery || [])].filter(Boolean))].slice(0, 10);
+  const gallery = [...new Set([product.image, ...(product.gallery || [])].filter(Boolean))];
   if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex) ||
       fromIndex < 0 || fromIndex >= gallery.length || toIndex < 0 || toIndex >= gallery.length ||
       fromIndex === toIndex) return false;
@@ -3340,7 +3760,7 @@ function movePublishProductImage(product, fromIndex, toIndex) {
  * @throws {Error} 不主动抛出异常。
  */
 function removePublishProductImage(product, index) {
-  const gallery = [...new Set([product.image, ...(product.gallery || [])].filter(Boolean))].slice(0, 10);
+  const gallery = [...new Set([product.image, ...(product.gallery || [])].filter(Boolean))];
   if (!Number.isInteger(index) || index < 0 || index >= gallery.length) return '';
   const [removedUrl] = gallery.splice(index, 1);
   const removedUploads = (product.uploads || []).filter(record =>
@@ -3360,8 +3780,145 @@ function removePublishProductImage(product, index) {
  * @throws {Error} 不主动抛出异常。
  */
 function clearPublishImageDragStyles() {
+  const marker = $('.publish-image-insertion');
+  if (marker) marker.hidden = true;
   $$('[data-publish-image-tile]').forEach(tile => {
     tile.classList.remove('is-dragging', 'is-drop-target');
+  });
+}
+
+/**
+ * 按指针所在图片的左/右半区确定插入缝隙，并绘制同位置的橙色竖线。
+ * @param {number} clientX 视口横坐标。
+ * @param {number} clientY 视口纵坐标。
+ * @returns {number|null} 删除源图之前的插入边界（0至图片数）；图库外返回null。
+ * @throws {Error} 不主动抛出异常。
+ */
+function updatePublishImageInsertion(clientX, clientY) {
+  const strip = $('.publish-image-strip');
+  const marker = $('.publish-image-insertion');
+  const tiles = $$('[data-publish-image-tile]');
+  if (!strip || !marker || !tiles.length || !Number.isInteger(publishState.imageDragIndex)) return null;
+  const bounds = strip.getBoundingClientRect();
+  if (clientX < bounds.left - 8 || clientX > bounds.right + 8 || clientY < bounds.top - 8 || clientY > bounds.bottom + 8) {
+    marker.hidden = true;
+    publishState.imageDragTargetIndex = null;
+    return null;
+  }
+  // 多行图库先选距离指针最近的一行，再选该行最近的图片；缝隙也有明确目标。
+  const positions = tiles.map(tile => ({ tile, rect: tile.getBoundingClientRect() }));
+  const distanceY = rect => Math.max(rect.top - clientY, clientY - rect.bottom, 0);
+  const nearestY = Math.min(...positions.map(({ rect }) => distanceY(rect)));
+  const row = positions.filter(({ rect }) => distanceY(rect) === nearestY);
+  const target = row.reduce((best, item) => Math.abs(clientX - (item.rect.left + item.rect.width / 2)) <
+    Math.abs(clientX - (best.rect.left + best.rect.width / 2)) ? item : best);
+  const after = clientX >= target.rect.left + target.rect.width / 2;
+  const slot = Number(target.tile.dataset.publishImageTile) + (after ? 1 : 0);
+  publishState.imageDragTargetIndex = slot;
+  // 源图紧邻的两个边界都不改变顺序，不显示误导性的插入提示。
+  marker.hidden = slot === publishState.imageDragIndex || slot === publishState.imageDragIndex + 1;
+  const gap = Number.parseFloat(getComputedStyle(strip).columnGap) || 6;
+  marker.style.left = `${(after ? target.rect.right + gap / 2 : target.rect.left - gap / 2) - bounds.left - 1.5}px`;
+  marker.style.top = `${target.rect.top - bounds.top}px`;
+  marker.style.height = `${target.rect.height}px`;
+  return slot;
+}
+
+/**
+ * 绑定原生拖拽、鼠标手柄和触屏手柄；三种方式共用同一插入位置算法。
+ * @param {object} product 当前正在编辑的商品，排序只修改本地图片顺序。
+ * @returns {void} 完成绑定，松手后同步封面；取消或移出图库不改变顺序。
+ * @throws {Error} 不主动抛出异常。
+ */
+function bindPublishImageSorting(product) {
+  const strip = $('.publish-image-strip');
+  if (!strip) return;
+  /** @param {HTMLElement} tile 源图。@returns {void} 初始化排序。@throws {Error} 不主动抛错。 */
+  const start = tile => {
+    clearPublishImageDragStyles();
+    publishState.imageDragIndex = Number(tile.dataset.publishImageTile);
+    publishState.imageDragTargetIndex = null;
+    tile.classList.add('is-dragging');
+  };
+  /** @returns {void} 清除拖拽状态。@throws {Error} 不主动抛错。 */
+  const reset = () => {
+    publishState.imageDragIndex = null;
+    publishState.imageDragTargetIndex = null;
+    clearPublishImageDragStyles();
+  };
+  /** @param {Event} event 松手事件。@param {boolean} cancelled 是否取消。@returns {void} 应用插入。@throws {Error} 不主动抛错。 */
+  const finish = (event, cancelled = false) => {
+    event.preventDefault(); event.stopPropagation();
+    if (!cancelled) updatePublishImageInsertion(event.clientX, event.clientY);
+    const from = publishState.imageDragIndex;
+    const slot = publishState.imageDragTargetIndex;
+    reset();
+    // 插入边界按原数组计数；先移除源图后，右侧边界要左移一位。
+    if (!cancelled && Number.isInteger(from) && Number.isInteger(slot) &&
+      movePublishProductImage(product, from, slot > from ? slot - 1 : slot)) renderProductPublish();
+  };
+  $$('[data-publish-image-tile]').forEach(tile => {
+    tile.ondragstart = event => {
+      start(tile);
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', String(publishState.imageDragIndex));
+      }
+    };
+    tile.ondragend = reset;
+  });
+  strip.ondragover = event => {
+    if (!Number.isInteger(publishState.imageDragIndex)) return;
+    event.preventDefault(); event.stopPropagation();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    updatePublishImageInsertion(event.clientX, event.clientY);
+  };
+  strip.ondragleave = event => {
+    if (!strip.contains(event.relatedTarget)) {
+      publishState.imageDragTargetIndex = null;
+      const marker = $('.publish-image-insertion');
+      if (marker) marker.hidden = true;
+    }
+  };
+  strip.ondrop = event => {
+    if (Number.isInteger(publishState.imageDragIndex)) finish(event);
+  };
+  $$('.publish-image-drag-handle').forEach(handle => {
+    handle.onpointerdown = event => {
+      if (event.pointerType === 'mouse') return;
+      event.preventDefault(); event.stopPropagation();
+      start(handle.closest('[data-publish-image-tile]'));
+      handle.setPointerCapture?.(event.pointerId);
+    };
+    handle.onpointermove = event => {
+      if (!Number.isInteger(publishState.imageDragIndex)) return;
+      event.preventDefault();
+      updatePublishImageInsertion(event.clientX, event.clientY);
+    };
+    handle.onpointerup = event => {
+      if (event.pointerType !== 'mouse') finish(event);
+    };
+    handle.onpointercancel = event => finish(event, true);
+    handle.onmousedown = event => {
+      if (event.button !== 0) return;
+      event.preventDefault(); event.stopPropagation();
+      start(handle.closest('[data-publish-image-tile]'));
+      const move = event => { event.preventDefault(); updatePublishImageInsertion(event.clientX, event.clientY); };
+      // 每次松手/取消都移除文档监听，避免重绘编辑器后旧拖拽继续生效。
+      const cleanup = () => {
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', up);
+        document.removeEventListener('keydown', cancel);
+        window.removeEventListener('blur', blur);
+      };
+      const up = event => { cleanup(); finish(event); };
+      const cancel = event => { if (event.key === 'Escape') { cleanup(); finish(event, true); } };
+      const blur = () => { cleanup(); reset(); };
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+      document.addEventListener('keydown', cancel);
+      window.addEventListener('blur', blur);
+    };
   });
 }
 
@@ -3378,7 +3935,7 @@ async function uploadPublishImageRecord(product, record) {
   if (!publishState.uploadCapability.configured) {
     record.status = 'failed';
     record.progress = 0;
-    record.error = '图片上传服务尚未配置';
+    record.error = publishState.uploadCapability.error || '图片上传尚未连接 Accio Work，请登录后重新打开工作台';
     renderProductPublish();
     return false;
   }
@@ -3463,10 +4020,17 @@ async function retryPublishImageUpload(product, uploadId) {
  */
 async function handlePublishProductImages(files) {
   const product = publishState.products.find(item => item.id === publishState.activeId);
-  const capacity = Math.max(0, 10 - new Set(product?.gallery || []).size);
-  const images = [...files].filter(file => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)).slice(0, capacity);
-  if (!product || !images.length) {
-    if (files.length) toast(capacity ? '图片格式仅支持 JPG、PNG 或 WEBP' : '每个商品最多保留 10 张图片', true);
+  if (!product) return;
+  const gallery = [...new Set([product.image, ...(product.gallery || [])].filter(Boolean))];
+  const capacity = Math.max(0, PUBLISH_IMAGE_LIMIT - gallery.length);
+  const images = [...files].filter(file => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type));
+  // 一次选超剩余名额时整批不上传，让用户自行选择，不悄悄丢弃后面的文件。
+  if (images.length > capacity) {
+    toast(`商品主图最多 ${PUBLISH_IMAGE_LIMIT} 张，还可添加 ${capacity} 张；本次选择 ${images.length} 张，请重新选择`, true);
+    return;
+  }
+  if (!images.length) {
+    if (files.length) toast('图片格式仅支持 JPG、PNG 或 WEBP', true);
     return;
   }
   const records = images.map(file => ({
@@ -3480,7 +4044,7 @@ async function handlePublishProductImages(files) {
     error: '',
   }));
   product.uploads = [...(product.uploads || []), ...records];
-  product.gallery = [...records.map(record => record.previewUrl), ...(product.gallery || [])].slice(0, 10);
+  product.gallery = [...records.map(record => record.previewUrl), ...gallery];
   product.image = product.gallery[0];
   syncPublishRemoteImageCount(product);
   renderProductPublish();
@@ -3502,7 +4066,7 @@ async function handlePublishProductImages(files) {
  * @throws {Error} 浏览器无法创建 Object URL 时可能抛出异常。
  */
 async function handlePublishFolderFiles(files) {
-  const imageFiles = [...files].filter(file => file.type.startsWith('image/'));
+  const imageFiles = [...files].filter(file => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type));
   if (!imageFiles.length) {
     toast('没有识别到 JPG、PNG 或 WEBP 图片', true);
     return;
@@ -3514,10 +4078,14 @@ async function handlePublishFolderFiles(files) {
     if (!groups.has(groupName)) groups.set(groupName, []);
     groups.get(groupName).push(file);
   });
+  const oversized = [...groups].filter(([, groupFiles]) => groupFiles.length > PUBLISH_IMAGE_LIMIT);
+  if (oversized.length) {
+    toast(`每个商品最多 ${PUBLISH_IMAGE_LIMIT} 张主图；${oversized.length} 个文件夹超量（如“${oversized[0][0]}”有 ${oversized[0][1].length} 张），请整理后重新导入`, true);
+    return;
+  }
   const created = [];
   groups.forEach((groupFiles, groupName) => {
-    const acceptedFiles = groupFiles.slice(0, 10);
-    const records = acceptedFiles.map(file => ({
+    const records = groupFiles.map(file => ({
       id: `upload-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       file,
       filename: file.name,
@@ -3531,7 +4099,7 @@ async function handlePublishFolderFiles(files) {
     const cleanTitle = groupName === '新上传商品' ? groupFiles[0].name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ') : groupName.replace(/[_-]+/g, ' ');
     const product = createPublishProduct({
       blank: true,
-      categoryKey: publishState.defaultCategoryKey || publishState.products[0]?.categoryKey || 'watch',
+      categoryKey: publishState.defaultCategoryKey || publishState.products[0]?.categoryKey || 'unselected',
       title: cleanTitle,
       image: urls[0],
       gallery: urls,
@@ -3636,6 +4204,7 @@ function openPublishConfirmation(options) {
       return `<article><img src="${esc(product.image)}" alt="" referrerpolicy="no-referrer"><div><b>${esc(product.title)}</b><span>${esc(product.category)} · ${imageCount} 张远程图 · 属性 ${progress.completed}/${progress.total}</span></div></article>`;
     }).join('')}</div>
     <div class="publish-confirm-warning"><i class="${action === 'draft' ? 'ri-draft-line' : 'ri-error-warning-line'}" aria-hidden="true"></i><div><b>即将调用真实 WorkCTL 发布流水线</b><p>${action === 'draft' ? '每个商品会经过发布前校验，并保存到国际站草稿箱。' : '每个商品会经过发布前校验后提交平台；提交成功不等于审核通过或已经在线。'} 单条失败不会阻塞后续商品，成功后会返回质量分。</p></div></div>
+    <p id="publishPreflightError" class="publish-create-error" role="alert" hidden></p>
     <label class="publish-confirm-check"><input type="checkbox" id="publishConfirmAcknowledge"><span>我已核对商品信息、价格和目标操作，并确认执行真实写入</span></label>
     <div class="publish-confirm-actions"><button type="button" id="publishConfirmCancel">返回修改</button><button type="button" class="primary" id="publishConfirmStart" disabled>确认${scope === 'batch' ? '批量' : ''}${action === 'draft' ? '保存草稿' : '加入发布队列'}</button></div></section>`;
   $('#modal').classList.add('on');
@@ -3644,10 +4213,17 @@ function openPublishConfirmation(options) {
     $('#publishConfirmStart').disabled = !event.target.checked;
   };
   $('#publishConfirmStart').onclick = async event => {
-    event.currentTarget.disabled = true;
+    // currentTarget 会在事件回调让出后清空，先保存节点才能在请求失败后恢复按钮。
+    const button = event.currentTarget;
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = '正在校验并提交…';
     const queued = await startPublishQueue(products, action, scope);
     if (queued) $('#modal').classList.remove('on');
-    else event.currentTarget.disabled = false;
+    else {
+      button.textContent = originalLabel;
+      button.disabled = !$('#publishConfirmAcknowledge')?.checked;
+    }
   };
 }
 
@@ -3672,6 +4248,8 @@ function createPublishIdempotencyKey() {
  * @throws {Error} 网络和解析异常会被转换成页面提示，不向外抛出。
  */
 async function startPublishQueue(products, action, scope) {
+  const errorPanel = $('#publishPreflightError');
+  if (errorPanel) { errorPanel.hidden = true; errorPanel.textContent = ''; }
   busy(true);
   try {
     const response = await fetch('/api/publish/enqueue', {
@@ -3688,7 +4266,9 @@ async function startPublishQueue(products, action, scope) {
     });
     const payload = await response.json();
     if (!response.ok || !payload.ok) {
-      toast(`加入真实队列失败：${String(payload.error || response.status).slice(0, 180)}`, true);
+      const message = String(payload.error || response.status).slice(0, 600);
+      if (errorPanel) { errorPanel.textContent = message; errorPanel.hidden = false; }
+      toast(`加入真实队列失败：${message.slice(0, 180)}`, true);
       return false;
     }
     const returnedJobs = Array.isArray(payload.jobs) ? payload.jobs : [];
@@ -3712,6 +4292,7 @@ async function startPublishQueue(products, action, scope) {
     toast(`${products.length} 个商品已加入真实 WorkCTL ${action === 'draft' ? '草稿' : '发布'}队列`);
     return true;
   } catch (error) {
+    if (errorPanel) { errorPanel.textContent = `连接中断，尚未取得提交结果：${error.message}`; errorPanel.hidden = false; }
     toast(`发布队列网络错误：${error.message}`, true);
     return false;
   } finally {
@@ -3734,6 +4315,7 @@ async function refreshPublishQueue(options = {}) {
     if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
     publishState.queue = Array.isArray(payload.jobs) ? payload.jobs : [];
     renderPublishStatus();
+    renderPublishTable();
     renderPublishQueue();
     renderPublishOperationProgress();
     renderPublishBottomBar();
@@ -3802,9 +4384,11 @@ function retryPublishJob(jobId) {
 // ============================ 地域分布 ============================
 let regionRows = [];
 async function loadRegion() {
+  const timeRequest=JSON.stringify(timeStates['flow']);
   const j = await api('shop-region', {
-    ...dates(), statisticsType: 'month',
+    ...dates('flow'), statisticsType: 'day',
     dimensionType: $('#regionDim').value, terminalType: $('#regionTerm').value });
+  if(timeRequest!==JSON.stringify(timeStates['flow']))return;
   if (!j) return;
   // data: [ { "2026-07-01": [ {countryName, countryUv, countryUvRate} ] } ]
   const agg = new Map();
@@ -3824,17 +4408,17 @@ function renderRegion(rows) {
   const box = $('#regionChart'); box.innerHTML = '';
   if (!rows.length) { box.innerHTML = '<div class="empty">该维度无数据</div>'; return; }
   const total = rows.reduce((a, r) => a + r.v, 0);
-  const W = Math.max(box.clientWidth - 10, 620), rowH = 25, H = rows.length * rowH + 12;
-  const L = 152, iw = W - L - 132, max = Math.max(...rows.map(r => r.v), 1);
-  const svg = el('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}` });
+  const W = Math.max(box.clientWidth - 10, 340), rowH = 25, H = rows.length * rowH + 12;
+  const L = 100, iw = W - L - 132, max = Math.max(...rows.map(r => r.v), 1);
+  const svg = el('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, style: 'max-width:100%;height:auto' });
   rows.forEach((r, i) => {
     const y = i * rowH + 5, w = Math.max(r.v / max * iw, 2);
     svg.appendChild(el('text', { x: L - 9, y: y + 14, class: 'gt', 'text-anchor': 'end' },
-      r.n.length > 20 ? r.n.slice(0, 19) + '…' : r.n));
+      businessCountry(r.n)));
     const b = el('rect', { x: L, y, width: w, height: 17, rx: 3,
       fill: `hsl(${24 + i * 1.2},84%,${58 - Math.min(i * .65, 13)}%)`, class: 'bar' });
     b.addEventListener('mousemove', ev => showTip(ev,
-      `${r.n}\n数值: ${fmt(r.v)}\n占比: ${(r.v / total * 100).toFixed(2)}%\n\n点击 → 下钻该国访客明细`));
+      `${r.n}\n数值: ${fmt(r.v)}\n所示国家占比: ${(r.v / total * 100).toFixed(2)}%\n\n点击 → 下钻该国访客明细`));
     b.addEventListener('mouseleave', hideTip);
     b.addEventListener('click', () => drillCountry(r.n));
     svg.appendChild(b);
@@ -3854,6 +4438,9 @@ function drillCountry(name) {
 
 // ============================ 流量渠道 ============================
 let flowRaw = [];
+// 仅保存当前图表视图和下钻来源；切换视图复用已返回数据，不重复请求接口。
+let flowInsightView = 'rates';
+let flowSelectedSource = '';
 
 /**
  * 读取流量来源、国家、买家画像、搜索词和行业市场机会，并在一个页面汇总。
@@ -3862,20 +4449,25 @@ let flowRaw = [];
  * @throws {Error} 单个接口失败由 api() 隔离，其余数据仍可展示。
  */
 async function loadFlow() {
-  const terminalType = $('#flowTerm').value;
-  const [flow, channel, region, summary, identity, keyword, source, marketCountry, marketCategory, marketScenes] = await Promise.all([
-    api('shop-flow', { ...dates(), terminalType }),
-    api('shop-channel', { ...dates(), statisticsType: 'day', terminalType }),
-    api('shop-region', { ...dates(), statisticsType: 'month', dimensionType: $('#regionDim').value, terminalType: $('#regionTerm').value }),
-    api('shop-summary', { ...dates(), statisticsType: 'day' }),
-    api('customer-profile', { dimensionType: 'byr_identity', terminalType }),
-    api('customer-profile', { dimensionType: 'shop_keyword', terminalType }),
-    api('customer-profile', { dimensionType: 'source', terminalType }),
-    api('market-country', { cateId: '127734059', rankType: 'blueOcean', orderBy: 'supplyDemandRate', orderModel: 'ASC' }),
-    api('market-categories', { cateId: '127734059', rankType: 'opportunity', orderBy: 'abCnt', orderModel: 'DESC' }),
-    api('market-opportunities', { cateId: '127734059', currentPage: 1, pageSize: 10, statCycle: 90, terminalType: 'TOTAL' }),
+  const timeRequest=JSON.stringify(timeStates['flow']);
+  installFlowInsights();
+  // 本店与行业同时呈现；行业独立加载，不阻塞本店查询和渲染。
+  void loadFlowMarket();
+  // 页面统一查询全端；国家图仍使用自身的终端选择。
+  const terminalType = 'TOTAL';
+  const [flow, channel, region, summary, identity, keyword, source] = await Promise.all([
+    api('shop-flow', { ...dates('flow'), terminalType }),
+    api('shop-channel', { ...dates('flow'), statisticsType: 'day', terminalType }),
+    api('shop-region', { ...dates('flow'), statisticsType: 'day', dimensionType: $('#regionDim').value, terminalType: $('#regionTerm').value }),
+    api('shop-summary', { ...dates('flow'), statisticsType: 'day' }),
+    api('customer-profile', { nd: '30d', dimensionType: 'byr_identity', terminalType }),
+    api('customer-profile', { nd: '30d', dimensionType: 'shop_keyword', terminalType }),
+    api('customer-profile', { nd: '30d', dimensionType: 'source', terminalType }),
   ]);
-  flowRaw = Array.isArray(flow?.data) ? flow.data : [];
+  if(timeRequest!==JSON.stringify(timeStates['flow']))return;
+  const flowSnapshot=TimePolicy.latestFlow(Array.isArray(flow?.data)?flow.data:[]);
+  flowRaw=flowSnapshot.rows;
+  $('#flowSnapshotScope').textContent=flowSnapshot.date?`${flowSnapshot.type==='30d'?'近30天':flowSnapshot.type==='7d'?'近7天':flowSnapshot.type || '周期未返回'} · 截至 ${flowSnapshot.date} · 全端`:'平台未返回来源统计';
   renderFlow();
   regionRows = extractRegionRows(region);
   renderRegion(regionRows);
@@ -3883,12 +4475,10 @@ async function loadFlow() {
   renderRankList('#trafficIdentity', profileRows(identity, 'byr_identity').map(row => ({
     name: buyerIdentityName(row.byrIdentity), value: num(row.visitorRate), detail: pct(row.visitorRate), ratio: num(row.visitorRate),
   })));
-  renderRankList('#trafficKeywords', profileRows(keyword, 'shop_keyword').slice(0, 8).map(row => ({
-    name: row.query || row.queryRaw || '未知搜索词', value: num(row.pv),
-    detail: `${fmt(row.pv)} 热度 · ${fmt(row.shopUv)} 访客 · ${num(row.pvCrc) >= 0 ? '↑' : '↓'}${Math.abs(num(row.pvCrc) * 100).toFixed(1)}%`,
-  })));
+  const keywords = profileRows(keyword, 'shop_keyword').sort((a, b) => num(b.shopUv) - num(a.shopUv));
+  $('#trafficKeywords').innerHTML = keywords.length ? `<table><thead><tr><th>搜索词</th><th>本店访客</th><th>平台热度</th><th>热度变化</th></tr></thead><tbody>${keywords.map(row => `<tr><td>${esc(row.query || row.queryRaw || '未知搜索词')}</td><td>${row.shopUv == null ? '—' : fmt(row.shopUv)}</td><td>${row.pv == null ? '—' : fmt(row.pv)}</td><td>${row.pvCrc == null ? '—' : pct(row.pvCrc)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">当前没有搜索词记录</div>';
   renderChannelProfile(channel, source);
-  renderMarketOpportunity(marketCountry, marketCategory, marketScenes);
+
 }
 
 /**
@@ -3944,16 +4534,15 @@ function extractRegionRows(response) {
 function renderTrafficMetrics(response) {
   const rows = Array.isArray(response?.data) ? response.data : [];
   const total = key => rows.reduce((sumValue, row) => sumValue + num(row?.[key]), 0);
-  const exposure = total('totalImpsCnt');
-  const clicks = total('totalClkCnt');
-  const visitors = total('uvCnt') || total('visitorCnt') || total('pvCnt');
-  const inquiries = total('fbCnt') + total('fbTmUv');
+  // 明确使用原字段，禁止用UV/访问量相互兜底；缺失与零值分别显示。
+  const display = key => rows.some(row => row?.[key] != null) ? fmt(total(key)) : '—';
   const metrics = [
-    ['全站曝光', fmt(exposure), `点击率 ${exposure ? (clicks / exposure * 100).toFixed(2) : '0.00'}%`],
-    ['全站点击', fmt(clicks), '承接到店铺访问'],
-    ['店铺访问', fmt(visitors), '渠道与国家合并观察'],
-    ['询盘 + TM', fmt(inquiries), `访问承接率 ${visitors ? (inquiries / visitors * 100).toFixed(2) : '0.00'}%`],
+    ['店铺访问量', display('pvCnt'), '经营汇总 · 每日访问量累加'],
+    ['询盘数', display('fbCnt'), '经营汇总 · 每日询盘数累加'],
+    ['TM 咨询', display('fbTmUv'), '经营汇总 · 每日人数累加，跨日不去重'],
+    ['全站点击', display('totalClkCnt'), `全站曝光 ${display('totalImpsCnt')}`],
   ];
+  $('#flowScope').textContent = `经营汇总：${dates('flow').startDate} 至 ${dates('flow').endDate} · 全端。渠道与国家：同日期 · 全端；国家访客为每日人数累加。画像：近30天；行业需求：近90天。`;
   $('#trafficMetrics').innerHTML = metrics.map(([label, value, detail]) =>
     `<article class="analysis-kpi"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(detail)}</small></article>`).join('');
 }
@@ -3981,21 +4570,77 @@ function renderRankList(selector, rows) {
  * @returns {void} 更新渠道结构排行。
  * @throws {Error} 不主动抛出异常。
  */
+let flowChannelData = [];
+let flowSelectedChannel = '';
+/** 聚合渠道日记录并安装排序与趋势联动。@param {object|null} channelResponse 渠道响应。@param {object|null} sourceResponse 画像响应，保留调用兼容。@returns {void}。@throws DOM缺失时抛错。 */
 function renderChannelProfile(channelResponse, sourceResponse) {
-  const aggregate = new Map();
+  flowChannelData = [];
   (Array.isArray(channelResponse?.data) ? channelResponse.data : []).forEach(block => {
-    Object.values(block || {}).forEach(list => (Array.isArray(list) ? list : []).forEach(row => {
-      const item = aggregate.get(row.channelType) || { name: row.channelType, uv: 0, tm: 0, inquiry: 0 };
-      item.uv += num(row.detailUv); item.tm += num(row.tmUv); item.inquiry += num(row.fbUv);
-      aggregate.set(row.channelType, item);
+    Object.entries(block || {}).forEach(([date, list]) => (Array.isArray(list) ? list : []).forEach(row => {
+      if (!row.channelType || row.channelType === 'TOTAL') return;
+      flowChannelData.push({date, name: row.channelType, uv: row.detailUv, tm: row.tmUv, inquiry: row.fbUv});
     }));
   });
-  let rows = [...aggregate.values()].sort((a, b) => b.uv - a.uv).slice(0, 8)
-    .map(row => ({ name: row.name, value: row.uv, detail: `${fmt(row.uv)} 访客 · ${fmt(row.tm)} TM · ${fmt(row.inquiry)} 询盘` }));
-  if (!rows.length) {
-    rows = profileRows(sourceResponse, 'source').map(row => ({ name: row.source, value: num(row.visitorRate), detail: pct(row.visitorRate), ratio: num(row.visitorRate) }));
-  }
-  renderRankList('#trafficSourceProfile', rows);
+  $('#flowChannelSort').onchange = renderChannelTable;
+  $('#flowTrendMetric').onchange = renderLinkedFlowTrend;
+  renderChannelTable();
+}
+/** 按所选字段排序渠道，保留缺失值与有效零值。@returns {void} 更新渠道表。@throws DOM缺失时抛错。 */
+function renderChannelTable() {
+  const groups = new Map();
+  flowChannelData.forEach(row => {
+    const item = groups.get(row.name) || {name: row.name, uv: null, inquiry: null, tm: null};
+    ['uv', 'inquiry', 'tm'].forEach(key => { if (row[key] != null) item[key] = (item[key] ?? 0) + num(row[key]); });
+    groups.set(row.name, item);
+  });
+  const key = $('#flowChannelSort').value;
+  const rows = [...groups.values()].sort((a,b) => (b[key] ?? -1) - (a[key] ?? -1));
+  if (!rows.some(row => row.name === flowSelectedChannel)) flowSelectedChannel = rows[0]?.name || '';
+  const total = rows.reduce((value,row) => value + (row.uv || 0), 0);
+  $('#trafficSourceProfile').innerHTML = rows.length ? `<table><thead><tr><th>渠道</th><th>访客累计</th><th>渠道累计占比</th><th>询盘</th><th>TM</th></tr></thead><tbody>${rows.map(row => `<tr class="${row.name === flowSelectedChannel ? 'flow-selected' : ''}"><td><button type="button" class="flow-channel-button" data-flow-channel="${esc(row.name)}" aria-pressed="${row.name === flowSelectedChannel}">${esc(row.name)}</button></td><td>${row.uv == null ? '—' : fmt(row.uv)}</td><td>${row.uv == null || !total ? '—' : pct(row.uv / total)}</td><td>${row.inquiry == null ? '—' : fmt(row.inquiry)}</td><td>${row.tm == null ? '—' : fmt(row.tm)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">当前周期无渠道记录；可调整日期后重新查询</div>';
+  $$('[data-flow-channel]').forEach(button => { button.onclick = () => {flowSelectedChannel = button.dataset.flowChannel; renderChannelTable(); setFlowInsightView('trend');}; });
+  renderLinkedFlowTrend();
+}
+/** 绘制已选渠道的日趋势；缺失日期不补零，图表悬停显示日期与数值。@returns {void}。@throws DOM缺失时抛错。 */
+function renderLinkedFlowTrend() {
+  const key = $('#flowTrendMetric').value;
+  const label = $('#flowTrendMetric').selectedOptions[0].textContent;
+  $('#flowTrendTitle').textContent = flowSelectedChannel ? `${flowSelectedChannel} · ${label}趋势` : '渠道每日变化';
+  const period = dates('flow');
+  $('#flowTrendScope').textContent = `${period.startDate} — ${period.endDate} · 按日统计，与左表一致`;
+  const days = new Map();
+  flowChannelData.filter(row => row.name === flowSelectedChannel).forEach(row => { if (row[key] != null) days.set(row.date, (days.get(row.date) || 0) + num(row[key])); });
+  const rows = [...days].sort(([a],[b]) => a.localeCompare(b));
+  const box = $('#flowLinkedTrend');
+  if (!rows.length) {box.innerHTML = '<div class="empty">该渠道暂无此指标的日记录</div>'; return;}
+  const max = Math.max(...rows.map(([,v]) => v), 1);
+  const points = rows.map(([date,value], index) => ({date,value,x:48 + index * 420 / Math.max(rows.length-1,1),y:180-value/max*140}));
+  box.innerHTML = `<svg viewBox="0 0 500 220" role="img" aria-label="${esc(flowSelectedChannel)}${esc(label)}每日趋势"><line x1="48" y1="180" x2="475" y2="180" stroke="#dce1e8"/><text x="8" y="44">${esc(fmt(max))}</text><text x="24" y="184">0</text><polyline points="${points.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="#e77b32" stroke-width="3"/>${points.map(p => `<circle cx="${p.x}" cy="${p.y}" r="3" fill="#e77b32"><title>${esc(p.date)}：${esc(fmt(p.value))}</title></circle>`).join('')}<text x="48" y="207">${esc(rows[0][0])}</text><text x="475" y="207" text-anchor="end">${esc(rows[rows.length-1][0])}</text></svg><p class="flow-scope">${rows.length} 个有记录的日期 · 仅连接已返回记录，缺失日期不视为零</p>`;
+}
+let flowMarketLoading = false;
+/** 独立读取行业市场，避免行业接口拖慢本店流量。@returns {Promise<void>}。@throws 错误由api提示，finally恢复查询状态。 */
+async function loadFlowMarket() {
+  if (flowMarketLoading) return;
+  flowMarketLoading = true;
+  ['#trafficMarketCountry', '#trafficMarketCategory', '#trafficMarketScenes'].forEach(selector => {$(selector).innerHTML = '<div class="empty">正在读取行业数据…</div>';});
+  try {
+    let categoryRow = summaryRows.find(row => row.cateId);
+    if (!categoryRow) {
+      const summary = await api('shop-summary', { ...dates(), statisticsType: 'day' });
+      categoryRow = (Array.isArray(summary?.data) ? summary.data : []).find(row => row.cateId);
+    }
+    const cateId = categoryRow?.cateId;
+    if (!cateId) {
+      ['#trafficMarketCountry', '#trafficMarketCategory', '#trafficMarketScenes'].forEach(selector => { $(selector).innerHTML = '<div class="empty">未取得当前店铺类目，暂不查询行业数据。</div>'; });
+      return;
+    }
+    const results = await Promise.all([
+      api('market-country', {cateId, rankType: 'blueOcean', orderBy: 'supplyDemandRate', orderModel: 'ASC'}),
+      api('market-categories', {cateId, rankType: 'opportunity', orderBy: 'abCnt', orderModel: 'DESC'}),
+      api('market-opportunities', {cateId, currentPage: 1, pageSize: 10, statCycle: '90d', terminalType: 'TOTAL'}),
+    ]);
+    renderMarketOpportunity(...results);
+  } finally {flowMarketLoading = false;}
 }
 
 /**
@@ -4017,68 +4662,146 @@ function renderMarketOpportunity(countries, categories, scenes) {
     ? `<table><thead><tr>${headers.map(item => `<th>${esc(item)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`
     : '<div class="empty">当前维度无数据</div>';
   $('#trafficMarketCountry').innerHTML = table(['国家', '商机', '同比', '直达率', '供需比'], countryRows.map(row =>
-    `<tr><td>${esc(row.countryId)}</td><td>${fmt(row.abCnt)}</td><td class="${num(row.abCntYoy) >= 0 ? 'positive' : 'negative'}">${num(row.abCntYoy) >= 0 ? '+' : ''}${pct(row.abCntYoy)}</td><td>${pct(row.dAbRate)}</td><td>${num(row.supplyDemandRate).toFixed(2)}</td></tr>`));
+    `<tr><td>${esc(businessCountry(row.countryId))}</td><td>${fmt(row.abCnt)}</td><td class="${num(row.abCntYoy) >= 0 ? 'positive' : 'negative'}">${num(row.abCntYoy) >= 0 ? '+' : ''}${pct(row.abCntYoy)}</td><td>${pct(row.dAbRate)}</td><td>${num(row.supplyDemandRate).toFixed(2)}</td></tr>`));
   $('#trafficMarketCategory').innerHTML = table(['细分类目', '商机', '同比', '供需比'], categoryRows.map(row =>
     `<tr><td>${esc(row.cateCnName || row.cateName || row.cateId)}</td><td>${fmt(row.abCnt)}</td><td class="${num(row.abCntYoy) >= 0 ? 'positive' : 'negative'}">${num(row.abCntYoy) >= 0 ? '+' : ''}${pct(row.abCntYoy)}</td><td>${num(row.supplyDemandRate).toFixed(2)}</td></tr>`));
   $('#trafficMarketScenes').innerHTML = table(['需求场景', '需求指数', '环比', '店铺商品占比'], sceneRows.map(row =>
     `<tr><td><b>${esc(row.sceneNameCn || row.sceneName)}</b><small>${esc(String(row.top3HotKw || '').split('|').join(' · '))}</small></td><td>${num(row.needsIndex).toFixed(1)}</td><td class="${num(row.needsIndexQoq) >= 0 ? 'positive' : 'negative'}">${num(row.needsIndexQoq) >= 0 ? '+' : ''}${pct(row.needsIndexQoq)}</td><td>${pct(row.busProdRate)}</td></tr>`));
 }
 
-function renderFlow() {
-  const box = $('#flowChart'); box.innerHTML = ''; $('#flowSub').innerHTML = '';
-  const tops = new Map();
-  flowRaw.forEach(r => {
-    if (r.subSourceType !== 'TOTAL') return;
-    const k = r.sourceType;
-    const o = tops.get(k) || { n: k, uv: 0, ab: 0, cateUv: 0, cnt: 0, abRate: 0, cateAb: 0 };
-    o.uv += num(r.uv); o.cateUv += num(r.cateTopUvDetail);
-    o.abRate += num(r.abRate); o.cateAb += num(r.cateTopAbRate); o.cnt++;
-    tops.set(k, o);
-  });
-  const rows = [...tops.values()].filter(r => r.n !== 'TOTAL')
-    .map(r => ({ ...r, abRate: r.abRate / (r.cnt || 1), cateAb: r.cateAb / (r.cnt || 1) }))
-    .sort((a, b) => b.uv - a.uv);
-  if (!rows.length) { box.innerHTML = '<div class="empty">无渠道数据</div>'; return; }
-
-  const W = Math.max(box.clientWidth - 10, 620), rowH = 46, H = rows.length * rowH + 28;
-  const L = 104, iw = W - L - 210, max = Math.max(...rows.map(r => r.uv), 1);
-  const svg = el('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}` });
-  svg.appendChild(el('text', { x: L, y: 10, class: 'gt' }, '访客数(uv) · 右侧为商机率 abRate,灰色为类目 TOP'));
-  rows.forEach((r, i) => {
-    const y = 22 + i * rowH, w = Math.max(r.uv / max * iw, 2);
-    svg.appendChild(el('text', { x: L - 9, y: y + 17, class: 'gt', 'text-anchor': 'end' }, r.n));
-    const b = el('rect', { x: L, y, width: w, height: 22, rx: 3, fill: '#ff6600', opacity: .84, class: 'bar' });
-    b.addEventListener('mousemove', ev => showTip(ev,
-      `${r.n}\n访客: ${fmt(r.uv)}\n商机率: ${(r.abRate * 100).toFixed(2)}%\n类目TOP: ${(r.cateAb * 100).toFixed(2)}%\n\n点击查看子渠道`));
-    b.addEventListener('mouseleave', hideTip);
-    b.addEventListener('click', () => renderFlowSub(r.n));
-    svg.appendChild(b);
-    svg.appendChild(el('text', { x: L + iw + 8, y: y + 15, class: 'gt', fill: '#4c4e53' }, fmt(r.uv)));
-    // 商机率对比小条
-    const bx = L + iw + 74, bw = 110;
-    svg.appendChild(el('rect', { x: bx, y: y + 3, width: bw, height: 7, rx: 3, fill: '#f2eeeb' }));
-    svg.appendChild(el('rect', { x: bx, y: y + 3, width: Math.min(r.abRate, 1) * bw, height: 7, rx: 3, fill: '#289b69' }));
-    svg.appendChild(el('rect', { x: bx, y: y + 13, width: bw, height: 7, rx: 3, fill: '#f2eeeb' }));
-    svg.appendChild(el('rect', { x: bx, y: y + 13, width: Math.min(r.cateAb, 1) * bw, height: 7, rx: 3, fill: '#a7a8ad' }));
-    svg.appendChild(el('text', { x: bx, y: y + 33, class: 'gt' }, `${(r.abRate * 100).toFixed(1)}% vs ${(r.cateAb * 100).toFixed(1)}%`));
-  });
-  box.appendChild(svg);
+/**
+ * 安装渠道洞察交互；三个视图和来源下钻都复用当前数据，不发起查询。
+ * @returns {void} 更新按钮处理器和面板可见状态。
+ * @throws {Error} 模板缺少对应容器时抛出 DOM 异常。
+ */
+function installFlowInsights() {
+  $('#flowInsightTabs').onclick = event => {
+    const button = event.target.closest('[data-flow-view]');
+    if (button) setFlowInsightView(button.dataset.flowView);
+  };
+  $('#flowChart').onclick = event => {
+    const button = event.target.closest('[data-flow-source]');
+    if (!button) return;
+    flowSelectedSource = button.dataset.flowSource;
+    renderFlow();
+    // 原来的来源按钮被替换后，键盘焦点交给同卡片内的返回入口。
+    $('#flowSourceBack').focus({preventScroll:true});
+  };
+  $('#flowSourceBack').onclick = () => {
+    const previousSource = flowSelectedSource;
+    flowSelectedSource = '';
+    renderFlow();
+    [...$$('#flowChart [data-flow-source]')].find(button => button.dataset.flowSource === previousSource)?.focus({preventScroll:true});
+  };
+  setFlowInsightView(flowInsightView);
 }
 
-function renderFlowSub(source) {
-  const subs = flowRaw.filter(r => r.sourceType === source && r.subSourceType !== 'TOTAL');
-  const box = $('#flowSub');
-  if (!subs.length) { box.innerHTML = `<div class="empty">「${esc(source)}」无子渠道拆解</div>`; return; }
-  const agg = new Map();
-  subs.forEach(r => {
-    const o = agg.get(r.subSourceType) || { n: r.subSourceType, uv: 0, ab: 0, cnt: 0 };
-    o.uv += num(r.uv); o.ab += num(r.abRate); o.cnt++; agg.set(r.subSourceType, o);
+/**
+ * 切换日趋势、来源访客规模或来源商机率；左侧选渠道时也进入日趋势。
+ * @param {'trend'|'visitors'|'rates'} view - 目标视图，不接受其他值。
+ * @returns {void} 同步按钮状态和可见图表。
+ * @throws {Error} 视图值不合法时直接忽略；DOM 缺失时抛错。
+ */
+function setFlowInsightView(view) {
+  if (!['trend','visitors','rates'].includes(view)) return;
+  flowInsightView = view;
+  $$('#flowInsightTabs [data-flow-view]').forEach(button => button.setAttribute('aria-pressed',String(button.dataset.flowView === view)));
+  $('#flowTrendPanel').hidden = view !== 'trend';
+  $('#flowSourcePanel').hidden = view === 'trend';
+  if (view !== 'trend') renderFlow();
+}
+
+/**
+ * 解析来源图数值；缺失值、非数值和越界比例不伪装成真实零。
+ * @param {unknown} value - 平台数值或数字字符串。
+ * @param {number} maximum - 上限；商机率传 1，访客默认无限制。
+ * @returns {number|null} 有效非负数，否则 null。
+ * @throws {Error} 无主动异常。
+ */
+function flowChartNumber(value, maximum = Infinity) {
+  if (!['number','string'].includes(typeof value) || String(value).trim() === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 && number <= maximum ? number : null;
+}
+
+/**
+ * 从同日期、同周期的来源快照提取总类或具体入口，保留平台返回的访客与商机率。
+ * @param {object[]} records - 已经由 TimePolicy.latestFlow 筛选的唯一周期快照。
+ * @param {string} source - 空字符串取大类；指定名称取该类的具体入口。
+ * @returns {Array<{name:string,uv:number|null,rate:number|null,topRate:number|null,entries:string[]}>} 按访客排序的独立行。
+ * @throws {Error} 无主动异常；不累加可能重叠的访客，不平均不同记录的商机率。
+ */
+function flowSourceRows(records, source = '') {
+  const groups = new Map();
+  for (const record of records) {
+    if (!record || typeof record.sourceType !== 'string' || typeof record.subSourceType !== 'string') continue;
+    const include = source ? record.sourceType === source && record.subSourceType !== 'TOTAL'
+      : record.sourceType !== 'TOTAL' && record.subSourceType === 'TOTAL';
+    if (!include) continue;
+    const name = source ? record.subSourceType : record.sourceType;
+    const next = {name,uv:flowChartNumber(record.uv),rate:flowChartNumber(record.abRate,1),topRate:flowChartNumber(record.cateTopAbRate,1),entries:[]};
+    const existing = groups.get(name);
+    if (existing) {
+      // 正常快照每个入口只有一行。重复且相互矛盾时显示缺项，避免把它们求和或挑成更好看的数。
+      ['uv','rate','topRate'].forEach(key => {if (existing[key] !== next[key]) existing[key] = null;});
+    } else groups.set(name,next);
+  }
+  if (!source) groups.forEach(row => {
+    row.entries = [...new Set(records.filter(record => record?.sourceType === row.name && typeof record.subSourceType === 'string' && record.subSourceType !== 'TOTAL').map(record => record.subSourceType))];
   });
-  const rows = [...agg.values()].sort((a, b) => b.uv - a.uv);
-  box.innerHTML = `<div class="hint pad">「${esc(source)}」子渠道拆解</div>
-    <div class="tablewrap"><table><thead><tr><th>子渠道</th><th>访客</th><th>商机率</th></tr></thead>
-    <tbody>${rows.map(r => `<tr><td>${esc(r.n)}</td><td>${fmt(r.uv)}</td>
-      <td>${(r.ab / r.cnt * 100).toFixed(2)}%</td></tr>`).join('')}</tbody></table></div>`;
+  return [...groups.values()].sort((a,b) => (b.uv ?? -1) - (a.uv ?? -1));
+}
+
+/**
+ * 生成同一图内共用刻度的一条横向数据条，数值同时用文字呈现。
+ * @param {number|null} value - 已校验的访客数或商机率；null 不画数据条。
+ * @param {number} scale - 当前整张图的正数上限，不为每行单独缩放。
+ * @param {boolean} rate - 是否按百分比显示。
+ * @param {boolean} peer - 是否为类目 TOP 参考条。
+ * @returns {string} 安全文本与有限宽度组成的 HTML。
+ * @throws {Error} 无主动异常。
+ */
+function flowSourceBar(value, scale, rate, peer = false) {
+  const text = value === null ? '—' : rate ? pct(value) : fmt(value);
+  const width = value === null ? 0 : Math.min(value / scale * 100,100);
+  return `<div class="flow-source-track${peer?' is-peer':''}${rate?'':' is-visitors'}">${rate?`<span>${peer?'TOP':'本店'}</span>`:''}<div class="flow-source-rail"><i style="width:${width.toFixed(3)}%"></i></div><b${value===null?' aria-label="未返回"':''}>${esc(text)}</b></div>`;
+}
+
+/**
+ * 将当前来源快照绘成可下钻横条图：访客看规模，商机率与类目 TOP 共用刻度比较。
+ * @returns {void} 替换来源图，保持日趋势数据与周期独立。
+ * @throws {Error} DOM 缺失时抛错。
+ */
+function renderFlow() {
+  const totals = flowSourceRows(flowRaw);
+  if (!totals.some(row => row.name === flowSelectedSource)) flowSelectedSource = '';
+  const rows = flowSelectedSource ? flowSourceRows(flowRaw,flowSelectedSource) : totals;
+  const rate = flowInsightView !== 'visitors';
+  $('#flowSourceTitle').textContent = `${flowSelectedSource || '流量来源'} · ${rate?'商机率对比':'访客规模'}`;
+  $('#flowSourceBack').hidden = !flowSelectedSource;
+  $('#flowSourceNote').textContent = rows.length ? '来源图按平台周期统计，日趋势按所选日期统计；访客可能跨入口重叠。' : '';
+  const box = $('#flowChart');
+  if (!rows.length) {box.innerHTML = '<div class="empty">当前没有来源记录，可切换每日趋势或调整日期。</div>';return;}
+
+  // 各行共用从零开始的刻度。比例和人数不能用饼图解释为互斥份额。
+  const values = rows.flatMap(row => rate ? [row.rate,row.topRate] : [row.uv]).filter(value => value !== null);
+  const peak = Math.max(...values,rate ? 0.01 : 1);
+  const step = 10 ** Math.floor(Math.log10(peak));
+  const scale = Math.ceil(peak / step) * step;
+  const tick = value => rate ? `${Number((value*100).toFixed(2))}%` : fmt(value);
+  box.classList.toggle('is-rate',rate);
+  box.innerHTML = `<div class="flow-source-legend">${rate?'<span><i></i>本店商机率</span><span><i class="is-peer"></i>类目 TOP 商机率</span>':'<span><i></i>本店访客</span>'}<small>${flowSelectedSource?'具体入口':'点击来源，查看具体入口'}</small></div>
+    <div class="flow-source-axis" aria-hidden="true"><span>${esc(tick(0))}</span><span>${esc(tick(scale/2))}</span><span>${esc(tick(scale))}</span></div>
+    <div class="flow-source-rows">${rows.map(row => {
+      const drill = !flowSelectedSource && row.entries.length > 0;
+      const delta = row.rate === null || row.topRate === null ? null : Math.round((row.rate-row.topRate)*10000)/100;
+      const gap = delta === null ? '' : delta === 0 ? '与 TOP 持平' : `${delta<0?'低于':'高于'} TOP ${Math.abs(delta).toFixed(2)} 个百分点`;
+      const heading = drill ? `<button type="button" data-flow-source="${esc(row.name)}" aria-label="查看${esc(row.name)}的具体入口">${esc(row.name)}<i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>` : `<b>${esc(row.name)}</b>`;
+      return `<article class="flow-source-row"><div class="flow-source-meta"><div class="flow-source-row-head">${heading}</div>
+        ${!flowSelectedSource?`<p class="flow-source-entries">${row.entries.length?row.entries.map(entry=>`<span>${esc(entry)}</span>`).join(' · '):'平台未提供入口拆解'}</p>`:''}</div>
+        <div class="flow-source-measures"><div class="flow-source-bars">${flowSourceBar(rate?row.rate:row.uv,scale,rate)}${rate?flowSourceBar(row.topRate,scale,true,true):''}</div>
+        ${rate&&gap?`<span class="flow-source-gap${delta>0?' is-ahead':delta===0?' is-equal':''}">${esc(gap)}</span>`:''}</div></article>`;
+    }).join('')}</div>`;
 }
 
 // ============================ 访客明细 ============================
@@ -4094,16 +4817,17 @@ let customerContextPromise = null;
 async function loadCustomerContext() {
   const range = visitorRange();
   const [summary, visitors, identity, countries, keywords] = await Promise.all([
-    api('shop-summary', { ...dates(), statisticsType: 'day' }),
+    api('shop-summary', { ...dates('visitor'), statisticsType: 'day' }),
     api('visitor-detail', { ...range, pageNO: 1, pageSize: 100 }),
-    api('customer-profile', { dimensionType: 'byr_identity' }),
-    api('customer-profile', { dimensionType: 'country' }),
-    api('customer-profile', { dimensionType: 'shop_keyword' }),
+    api('customer-profile', { nd: '30d', dimensionType: 'byr_identity' }),
+    api('customer-profile', { nd: '30d', dimensionType: 'country' }),
+    api('customer-profile', { nd: '30d', dimensionType: 'shop_keyword' }),
   ]);
   return { summary, visitors, identity, countries, keywords };
 }
 
 async function loadVisitor() {
+  const timeRequest=JSON.stringify(timeStates['visitor']);
   if (!customerContextPromise) customerContextPromise = loadCustomerContext();
   const [j, context] = await Promise.all([
     api('visitor-detail', {
@@ -4115,6 +4839,7 @@ async function loadVisitor() {
     }),
     customerContextPromise,
   ]);
+  if(timeRequest!==JSON.stringify(timeStates['visitor']))return;
   if (!j) return;
   const d = j.data?.data || {};
   const rows = d.data || [];
@@ -4149,7 +4874,7 @@ function customerIntentScore(row) {
  */
 function renderCustomerDashboard(context) {
   const summaryRowsLocal = Array.isArray(context?.summary?.data) ? context.summary.data.filter(row => row?.statDate) : [];
-  const latestRow = summaryRowsLocal.slice().sort((a, b) => String(a.statDate).localeCompare(String(b.statDate))).at(-1) || {};
+  const latestRow = summaryRowsLocal.slice().sort((a, b) => String(a.statDate).localeCompare(String(b.statDate))).slice(-1)[0] || {};
   const visitorData = context?.visitors?.data?.data || {};
   const visitorRows = Array.isArray(visitorData.data) ? visitorData.data : [];
   const metrics = [
@@ -4171,7 +4896,7 @@ function renderCustomerDashboard(context) {
       num(row.totalAtmFbCnt) > 0 && `累计TM ${fmt(row.totalAtmFbCnt)}`].filter(Boolean);
     const visitor = String(row.visitorId || `访客 ${index + 1}`);
     const masked = visitor.length > 6 ? `${visitor.slice(0, 6)}***` : visitor;
-    return `<article class="priority-row"><span class="priority-score">${item.score.toFixed(1)}</span><div><div><b>${esc(masked)} · ${esc(row.buyerCountryId || '未知国家')}</b><span>${esc(row.levelTag || '未分层')}</span></div><p>${esc(row.searchKeyword || '直接访问')} · 本次 ${fmt(row.visitPv)} 页 / ${fmt(row.staySecond)} 秒</p><div class="behavior-tags">${behaviors.map(text => `<em>${esc(text)}</em>`).join('') || '<em>深度浏览</em>'}</div></div></article>`;
+    return `<article class="priority-row"><span class="priority-score">${item.score.toFixed(1)}</span><div><div><b>${esc(masked)} · ${esc(businessCountry(row.buyerCountryId))}</b><span>${esc(row.levelTag || '未分层')}</span></div><p>${esc(row.searchKeyword || '直接访问')} · 本次 ${fmt(row.visitPv)} 页 / ${fmt(row.staySecond)} 秒</p><div class="behavior-tags">${behaviors.map(text => `<em>${esc(text)}</em>`).join('') || '<em>暂无可识别行为</em>'}</div></div></article>`;
   }).join('') : '<div class="empty">100 位访客样本中没有高意向行为</div>';
 
 
@@ -4281,124 +5006,276 @@ function effectRecordCount(response) {
   return num(response?.data?.totalCount ?? response?.data?.data?.totalCount ?? response?.data?.count ?? response?.data?.data?.count);
 }
 
-/**
- * 读取实时可售资源与次月资源，并拼接最近一次广告词库和效果链路实跑快照。
- *
- * @returns {Promise<void>} 所有查询与页面渲染结束后返回。
- * @throws {Error} 单个 WorkCTL 接口失败不会阻断其他区域。
- */
-async function loadAds() {
-  const demo = await fetch('/api/demo').then(response => response.json()).catch(() => null);
-  const snapshot = demo?.pages?.ads || {};
-  const auditedDate = String(demo?.pages?.ads?.latestPlatformDataDate || '').replaceAll('-', '');
-  const range = adsDateRange(auditedDate);
-  const pageParam = JSON.stringify({ pageIndex: 1, pageSize: 100 });
-  const [keywords, resources] = await Promise.all([
-    api('ads-keywords', { productId: ADS_PRODUCT_IDS[0], sellStatus: 0, requestPage: pageParam }),
-    api('ads-next-resources', { productId: ADS_PRODUCT_IDS[0], sellNode: 'nextFirstAuctionWord' }),
-  ]);
-  const keywordProfile = snapshot.shopKeywordProfile || {};
-  const toRows = words => (Array.isArray(words) ? words : []).map(keyword => ({ keyword, channel: '全端', productId: 0 }));
-  const profile = { data: {
-    highInquiryWords: toRows(keywordProfile.highInquiryKeywordSample),
-    highTrafficWords: toRows(keywordProfile.highTrafficKeywordSample),
-    highP4pWords: toRows(keywordProfile.highP4pKeywordSample),
-  } };
-  renderAdsDashboard({ range, profile, keywords, resources, effectSnapshot: snapshot });
-}
+// 对照按源分别更新：慢画像不会挡住年度指数与行业场景。
+let keywordCompareState = { profile: null, profileKind: 'loading', profileDate: '', keywords: null, industry: null, category: '', loading: false, search: '', sort: 'click', channel: 'APP', selected: '' };
+
+/** 归一化词文本用于精确匹配，不合并同义词、单复数或不同语言。@param {*} value 原始词。@returns {string} 标准键。@throws 不主动抛错。 */
+function normalizeCompareKeyword(value) { return String(value || '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase(); }
+
+/** 读取有效指数，保留真实0和未知。@param {*} value 原始指数。@returns {number|null} 0–1000指数或null。@throws 不主动抛错。 */
+function keywordIndex(value) { return value == null || String(value).trim() === '' || !Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 1000 ? null : Number(value); }
 
 /**
- * 将高询盘、高引流与高 P4P 词合并为去重核心词列表。
- *
- * @param {object} profile - 已由服务端脱敏的店铺广告画像。
- * @returns {object[]} 带信号、渠道与关联商品数的核心词。
+ * 合并店铺核心信号、推荐词指数与行业场景热门词，保留渠道及来源边界。
+ * @param {object|null} profile 店铺画像。
+ * @param {object[]} resources 推荐池原始词，指数仅来自这些记录。
+ * @param {object[]} scenes 行业场景；只使用全地区all，避免区域重复造成假热度。
+ * @returns {object[]} 同词同渠道的对照行，未知渠道只做词级匹配。
  * @throws {Error} 不主动抛出异常。
  */
-function mergeAdsCoreWords(profile) {
-  const merged = new Map();
-  const groups = [
-    ['高询盘', profile?.highInquiryWords],
-    ['高引流', profile?.highTrafficWords],
-    ['高P4P', profile?.highP4pWords],
-  ];
-  groups.forEach(([signal, rows]) => (Array.isArray(rows) ? rows : []).forEach(row => {
-    const key = `${String(row.keyword).toLowerCase()}|${row.channel || '全端'}`;
-    const item = merged.get(key) || { keyword: row.keyword, channel: row.channel || '全端', signals: new Set(), products: new Set() };
-    item.signals.add(signal);
-    if (row.productId) item.products.add(row.productId);
-    merged.set(key, item);
+function buildKeywordComparison(profile, resources, scenes) {
+  const shop = new Map();
+  [['高询盘', 'highInquiryWords'], ['高引流', 'highTrafficWords'], ['高P4P', 'highP4pWords']].forEach(([label, field]) => {
+    (Array.isArray(profile?.[field]) ? profile[field] : []).forEach(word => {
+      const key = normalizeCompareKeyword(word.keyword);
+      if (!key) return;
+      const entries = shop.get(key) || [];
+      entries.push({ signal: label, channel: String(word.channel || '未知').toUpperCase() });
+      shop.set(key, entries);
+    });
+  });
+  const hot = new Map();
+  scenes.filter(scene => scene.countryId === 'all').forEach(scene => {
+    String(scene.top3HotKw || '').split('|').forEach(word => {
+      const key = normalizeCompareKeyword(word);
+      if (!key) return;
+      const labels = hot.get(key) || new Set();
+      labels.add(scene.sceneNameCn || scene.sceneName || '行业场景');
+      hot.set(key, labels);
+    });
+  });
+  const rows = new Map();
+  resources.forEach(raw => {
+    const keyword = normalizeCompareKeyword(raw['关键词'] || raw.keyword);
+    if (!keyword) return;
+    const channel = String(raw['关键词渠道'] || raw.channel || '未知').toUpperCase();
+    const key = `${keyword}|${channel}`;
+    if (rows.has(key)) return; // 同一来源重复记录不累加指数。
+    const labels = String(raw['关键词标签列表'] || '').split(/[,，|]/).map(x => x.trim()).filter(Boolean);
+    rows.set(key, { keyword, channel, labels, exposure: keywordIndex(raw['全站搜索曝光指数']), click: keywordIndex(raw['全站搜索点击指数']), ctr: raw['全站搜索点击率'] ?? null, conversion: raw['全站商机转化率'] ?? null, products: raw['关联优爆品数量'] ?? null, resource: true, hot: labels.includes('行业热词') || hot.has(keyword) });
+  });
+  // 没有年度指数的行业词也保留，不能拿场景需求指数冒充词指数。
+  hot.forEach((_, keyword) => {
+    if (![...rows.values()].some(row => row.keyword === keyword)) rows.set(`${keyword}|未知`, { keyword, channel: '未知', labels: [], exposure: null, click: null, resource: false, hot: true });
+  });
+  // 店铺特定渠道信号未匹配到推荐行时，另保留该渠道，不借用另一渠道指数。
+  shop.forEach((entries, keyword) => entries.forEach(entry => {
+    const unknown = !['APP', 'PC'].includes(entry.channel);
+    if (![...rows.values()].some(row => row.keyword === keyword && (unknown || row.channel === entry.channel))) {
+      rows.set(`${keyword}|${entry.channel}`, { keyword, channel: entry.channel, labels: [], exposure: null, click: null, resource: false, hot: hot.has(keyword) });
+    }
   }));
-  return [...merged.values()].sort((a, b) => b.signals.size - a.signals.size || b.products.size - a.products.size);
+  return [...rows.values()].map(row => {
+    const entries = (shop.get(row.keyword) || []).filter(entry => entry.channel === row.channel || !['APP', 'PC'].includes(entry.channel) || !['APP', 'PC'].includes(row.channel));
+    const signals = [...new Set(entries.map(entry => entry.signal))];
+    return { ...row, signals, wordMatch: entries.length > 0 && entries.some(entry => entry.channel !== row.channel || !['APP', 'PC'].includes(entry.channel)), scenes: [...(hot.get(row.keyword) || [])], overlap: row.hot && signals.length > 0, opportunity: row.hot && signals.length === 0, advantage: !row.hot && signals.some(signal => signal === '高询盘' || signal === '高引流') };
+  });
+}
+
+/** 按筛选、搜索和指数排序展示，不对缺失指数补零。@param {object[]} rows 对照行。@param {object} state 筛选状态。@returns {object[]} 新数组。@throws 不主动抛错。 */
+function filterKeywordComparison(rows, state) {
+  const search = normalizeCompareKeyword(state.search);
+  return rows.filter(row => (state.filter === 'all' || row[state.filter]) && row.keyword.includes(search)).sort((a, b) => state.sort === 'keyword' ? a.keyword.localeCompare(b.keyword) : (b[state.sort] ?? -1) - (a[state.sort] ?? -1) || a.keyword.localeCompare(b.keyword));
 }
 
 /**
- * 渲染广告单页，明确区分店铺词库、可售资源和投放效果三种口径。
- *
- * @param {object} data - loadAds 聚合的广告数据。
- * @returns {void} 直接更新关键词与广告页面。
- * @throws {Error} 页面容器缺失时可能抛出 DOM 访问异常。
+ * 合并同词的展示信息，同时保留各渠道原始指数，供双端图与词群计数使用。
+ * @param {object[]} rows 已规范化的渠道记录。@returns {object[]} 去重词及APP/PC记录。
+ * @throws 不主动抛错。未知渠道仅合并标签，不移植指数；两端标签并集只表示词级入选。
  */
-function renderAdsDashboard(data) {
-  const profile = data.profile?.data || {};
-  const coreWords = mergeAdsCoreWords(profile);
-  const keywordPage = pagedRows(data.keywords);
-  const resourcePage = pagedRows(data.resources);
-  const snapshotCounts = [
-    num(data.effectSnapshot?.companyEffectRows),
-    num(data.effectSnapshot?.keywordEffectRows),
-    num(data.effectSnapshot?.searchTermEffectRows),
-    num(data.effectSnapshot?.productEffectRows),
-    num(data.effectSnapshot?.achieveRateRows),
-  ];
-  // 审计快照记录的是两条产品线核验后的合计状态；复制为两行只用于说明均为 0。
-  const effectCounts = [...snapshotCounts, ...snapshotCounts];
-  const totalEffects = effectCounts.reduce((total, value) => total + value, 0);
-  const highInquiryCount = num(data.effectSnapshot?.shopKeywordProfile?.highInquiryRows) || (Array.isArray(profile.highInquiryWords) ? profile.highInquiryWords.length : 0);
-  const highTrafficCount = num(data.effectSnapshot?.shopKeywordProfile?.highTrafficRows) || (Array.isArray(profile.highTrafficWords) ? profile.highTrafficWords.length : 0);
-  const highP4pCount = num(data.effectSnapshot?.shopKeywordProfile?.highP4pRows) || (Array.isArray(profile.highP4pWords) ? profile.highP4pWords.length : 0);
-  $('#adsDataDate').textContent = `平台最新产出 · ${data.range.readable}`;
-  $('#adsMetrics').innerHTML = [
-    ['店铺核心词', fmt(coreWords.length), `${highInquiryCount} 高询盘 · ${highTrafficCount} 高引流 · ${highP4pCount} 高 P4P`],
-    ['可售关键词', fmt(keywordPage.total), '资源机会，不等于正在投放'],
-    ['次月释放资源', fmt(resourcePage.total), '可预约与受限资源合计'],
-    ['效果明细记录', fmt(totalEffects), `两条产品线 · ${data.range.startReadable} 至 ${data.range.readable}`],
-  ].map(([label, value, note]) => `<article class="analysis-kpi"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(note)}</small></article>`).join('');
+function groupKeywordVisualRows(rows) {
+  const groups = new Map();
+  rows.forEach(row => {
+    const item = groups.get(row.keyword) || { keyword: row.keyword, signals: [], hot: false, channels: {} };
+    item.signals = [...new Set([...item.signals, ...row.signals])];
+    item.hot ||= row.hot;
+    if (['APP', 'PC'].includes(row.channel)) item.channels[row.channel] = row;
+    groups.set(row.keyword, item);
+  });
+  return [...groups.values()].filter(item => item.hot || item.signals.length).map(item => ({ ...item, overlap: item.hot && item.signals.length > 0, opportunity: item.hot && !item.signals.length, advantage: !item.hot && item.signals.some(signal => signal === '高询盘' || signal === '高引流') }));
+}
 
-  const lineNames = ['问鼎', '顶展'];
-  const effectNames = ['公司', '关键词', '搜索词', '商品', '达标率'];
-  const checkedText = lineNames.map((line, lineIndex) => `${line}：${effectNames.map((name, typeIndex) => `${name}${effectCounts[lineIndex * 5 + typeIndex] || 0}`).join(' / ')}`).join('；');
-  $('#adsStatusNotice').className = `notice-card ${totalEffects ? 'has-data' : 'is-empty'}`;
-  $('#adsStatusNotice').innerHTML = `<i class="${totalEffects ? 'ri-checkbox-circle-line' : 'ri-information-line'}" aria-hidden="true"></i><div><b>${totalEffects ? '广告效果已读取' : '不是接口没接：最新周期确实没有投放效果记录'}</b><p>平台最新产出日 ${esc(data.range.readable)}；本轮实跑快照已核验问鼎（110102001）与顶展（110102004）五层效果。${esc(checkedText)}</p></div>`;
+/**
+ * 将画像列表标签映射成有证据的店铺表现；无标签不等于无效果，P4P消耗不算正向贡献。
+ * @param {string[]} signals 店铺词标签。@returns {object} 定性引流、询盘及投放信号。
+ * @throws 不主动抛错。不会从行业曝光/点击指数推算店铺收益或增量。
+ */
+function keywordShopEvidence(signals) {
+  return { traffic: signals.includes('高引流'), inquiry: signals.includes('高询盘'), paid: signals.includes('高P4P'), positive: signals.includes('高引流') || signals.includes('高询盘') };
+}
 
-  $('#adsCoreWords').innerHTML = coreWords.length ? `<table><thead><tr><th>关键词</th><th>渠道</th><th>经营信号</th><th>关联商品</th></tr></thead><tbody>${coreWords.slice(0, 14).map(row =>
-    `<tr><td><b>${esc(row.keyword)}</b></td><td>${esc(row.channel)}</td><td>${[...row.signals].map(signal => `<span class="signal-tag">${esc(signal)}</span>`).join('')}</td><td>${fmt(row.products.size)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">店铺 90 天词库暂无数据</div>';
-  const allSignals = coreWords.filter(row => row.signals.size === 3);
-  const inquiryWithoutP4p = coreWords.filter(row => row.signals.has('高询盘') && !row.signals.has('高P4P'));
-  const trafficWithoutInquiry = coreWords.filter(row => row.signals.has('高引流') && !row.signals.has('高询盘'));
-  $('#adsInsights').innerHTML = [
-    [allSignals.length, '三类信号重合', '既能引流又能产询盘且已有 P4P 信号，优先保护核心词资源。'],
-    [inquiryWithoutP4p.length, '高询盘但非高 P4P', '先核对可售资源和商品利润，再决定是否扩投。'],
-    [trafficWithoutInquiry.length, '高引流但非高询盘', '不要只追流量，检查落地商品、价格与询盘承接。'],
-    [resourcePage.total, '次月资源机会', '预定属于写操作，本页面只显示，不自动执行。'],
-  ].map(([value, label, note]) => `<article><span class="diag-count">${fmt(value)}</span><div><b>${esc(label)}</b><p>${esc(note)}</p></div></article>`).join('');
+/** 只读读取一个关键词来源；错误交给页内源状态展示。@param {string} ep 白名单端点。@param {object} params 查询参数。@returns {Promise<object>} 成功或失败响应。@throws 网络异常转换为失败对象。 */
+async function readKeywordSource(ep, params = {}) {
+  const advisorRead=window.LsouAdvisor?.beginRead('/api/q/'+ep,params);
+  try {
+    const response = await fetch(`/api/q/${ep}?${new URLSearchParams(params)}`, { signal: AbortSignal.timeout(45000) });
+    const result=await response.json();
+    window.LsouAdvisor?.finishRead(advisorRead,result,!response.ok||!result.ok);
+    return result;
+  } catch { window.LsouAdvisor?.finishRead(advisorRead,null,true);return { ok: false, error: '查询超时或网络异常' }; }
+}
 
-  $('#adsKeywordCount').textContent = `共 ${fmt(keywordPage.total)} 个 · 展示前 ${Math.min(keywordPage.rows.length, 15)}`;
-  $('#adsKeywordTable').innerHTML = keywordPage.rows.length ? `<table><thead><tr><th>关键词</th><th>渠道</th><th>搜索曝光指数</th><th>搜索点击率</th><th>商机转化率</th><th>关联优爆品</th><th>售卖状态</th></tr></thead><tbody>${keywordPage.rows.slice(0, 15).map(row =>
-    `<tr><td><b>${esc(row['关键词'] || row.keyword || '—')}</b></td><td>${esc(row['关键词渠道'] || row.channel || '—')}</td><td>${esc(row['全站搜索曝光指数'] ?? '—')}</td><td>${esc(row['全站搜索点击率'] ?? '—')}</td><td>${esc(row['全站商机转化率'] ?? '—')}</td><td>${fmt(row['关联优爆品数量'])}</td><td><span class="action-tag">${esc(row['关键词售卖状态'] || row.sellStatus || '可查询')}</span></td></tr>`).join('')}</tbody></table>` : '<div class="empty">当前没有可售关键词资源</div>';
+/**
+ * 并行读取三个只读来源，各自完成即刷新。实时空画像覆盖历史样本；失败保留带日期参考。
+ * @param {boolean} force true时绕过5分钟查询缓存；默认使用缓存。
+ * @returns {Promise<void>} 本轮来源读取完成。
+ * @throws {Error} 外部读取失败转换为页内状态，不触发模型或广告写操作。
+ */
+async function loadAds(force = false) {
+  if (keywordCompareState.loading) return;
+  const state = keywordCompareState;
+  state.loading = true;
+  $('#adsCompareRefresh').onclick = () => loadAds(true);
+  $('#keywordCompareSearch').oninput = event => { state.search = event.target.value; renderAdsDashboard(); };
+  renderAdsDashboard();
+  try {
+    // 只读取当前账号；查询失败不使用开发账号的历史样本。
+    const fresh = force ? { __nocache: '1' } : {};
+    const profileTask = readKeywordSource('ads-shop-profile', fresh).then(result => {
+      if (result.ok && result.data?.profileComplete) {
+        state.profile = result.data; state.profileKind = result.stale ? 'saved' : 'live'; state.profileDate = result.fetchedAt; state.profileError = result.refreshError || '';
+      } else { state.profileError = '实时画像暂不可用'; if (!state.profile) state.profileKind = 'error'; }
+      renderAdsDashboard();
+    });
+    // 两侧共享同一次当前类目读取，年度词池也传类目限制；不跨类目推断机会。
+    const categoryTask = (async () => {
+      let categoryRow = summaryRows.find(row => row.cateId);
+      if (!categoryRow) {
+        const summary = await readKeywordSource('shop-summary', { ...dates(), statisticsType: 'day' });
+        categoryRow = (Array.isArray(summary.data) ? summary.data : []).find(row => row.cateId);
+      }
+      state.category = categoryRow?.zhDisplay || '';
+      return categoryRow;
+    })();
+    const wordsTask = (async () => {
+      const categoryRow = await categoryTask;
+      state.keywords = categoryRow ? await readKeywordSource('ads-keywords', { productId: ADS_PRODUCT_IDS[0], cateIdList: JSON.stringify([Number(categoryRow.cateId)]), requestPage: JSON.stringify({ pageIndex: 1, pageSize: 100 }), requestOrderProperty: JSON.stringify({ orderProperty: 'yearImps', orderDirection: 'desc' }), ...fresh }) : { ok: false, error: '未获取到当前店铺类目' };
+      renderAdsDashboard();
+    })();
+    const industryTask = (async () => {
+      const categoryRow = await categoryTask;
+      state.industry = categoryRow ? await readKeywordSource('market-opportunities', { cateId: categoryRow.cateId, currentPage: 1, pageSize: 100, statCycle: '90d', terminalType: 'TOTAL', ...fresh }) : { ok: false, error: '未获取到当前店铺类目' };
+      renderAdsDashboard();
+    })();
+    await Promise.allSettled([profileTask, wordsTask, industryTask]);
+  } finally { state.loading = false; renderAdsDashboard(); }
+}
 
-  $('#adsEffectState').textContent = totalEffects ? `${fmt(totalEffects)} 条记录` : '已核验 · 真实为空';
-  $('#adsEffectState').className = `data-state ${totalEffects ? 'is-live' : ''}`;
-  $('#adsEffectBody').innerHTML = totalEffects ? `<div class="effect-chain">${effectNames.map((name, index) => `<article><span>${esc(name)}</span><strong>${fmt(effectCounts[index] + effectCounts[index + 5])}</strong><small>两条产品线合计</small></article>`).join('')}</div>` : `<div class="designed-empty ads-empty"><i class="ri-bar-chart-grouped-line" aria-hidden="true"></i><b>当前窗口没有广告效果明细</b><span>店铺 90 天词库有数据、可售关键词有 ${fmt(keywordPage.total)} 个；空的是问鼎与顶展的投放效果，不应拿资源词库冒充广告表现。</span></div>`;
+/** 将读取时间显示为本地日期时间，历史日期原样保留。@param {string} value 日期。@returns {string} 可读文本。@throws 不主动抛错。 */
+function keywordReadDate(value) { if (/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return value; return value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '日期未提供'; }
+
+/**
+ * 绘制左右词图和选词详情。店铺标签使用矩阵，避免把定性信号虚构成流量；行业指数保持统一刻度。
+ * @param {object[]} rows 完整词/渠道记录，用于点击后的来源核对。
+ * @param {object[]} shown 已筛选记录，仅控制两栏词集合。
+ * @param {object} state 渠道、指标及选词状态。
+ * @param {string} profileLabel 店铺数据真实性标记。
+ * @returns {void} 更新两栏并绑定原生按钮交互。
+ * @throws {Error} 缺少页面容器时抛出DOM错误。
+ */
+function renderKeywordVisuals(rows, shown, state, profileLabel) {
+  const allowed = new Set(shown.map(row => row.keyword));
+  const wordGroups = groupKeywordVisualRows(rows);
+  const shop = new Map();
+  rows.filter(row => row.signals.length && allowed.has(row.keyword)).forEach(row => {
+    const item = shop.get(row.keyword) || { keyword: row.keyword, signals: new Set(), overlap: false };
+    row.signals.forEach(signal => item.signals.add(signal));
+    shop.set(row.keyword, item);
+  });
+  const shopWords = [...shop.values()].sort((a, b) => b.signals.size - a.signals.size || a.keyword.localeCompare(b.keyword));
+  // 同词双端并排，排序依据所选终端；缺少该终端仍保留词和缺项标记。
+  const industryWords = wordGroups.filter(word => word.hot && allowed.has(word.keyword)).sort((a,b) => (b.channels[state.channel]?.[state.sort] ?? -1) - (a.channels[state.channel]?.[state.sort] ?? -1) || a.keyword.localeCompare(b.keyword));
+  const visible = new Set([...shopWords, ...industryWords].map(row => row.keyword));
+  if (!visible.has(state.selected)) state.selected = '';
+  const selected = word => state.selected === word;
+  const empty = text => `<div class="keyword-chart-empty"><i class="ri-search-line" aria-hidden="true"></i><span>${text}</span></div>`;
+  $('#adsCoreWords').innerHTML = `<section class="keyword-pane keyword-shop" aria-label="店铺核心词信号图">
+    <header><div class="keyword-pane-title"><i class="ri-store-2-line" aria-hidden="true"></i><h3>店铺核心词</h3><span>${shopWords.length}</span></div><p>${esc(profileLabel)} · ${esc(String(state.profileDate || '').slice(0,10) || '日期待获取')}</p></header>
+    <div class="keyword-matrix-head"><span>关键词</span><span>高询盘</span><span>高引流</span><span>高P4P</span></div>
+    <div class="keyword-chart-list">${shopWords.length ? shopWords.map(word => `<button type="button" class="keyword-shop-row ${selected(word.keyword) ? 'is-selected' : ''}" data-word="${esc(word.keyword)}" aria-pressed="${selected(word.keyword)}" aria-label="店铺词 ${esc(word.keyword)}：${esc([...word.signals].join('、'))}"><span class="keyword-word">${esc(word.keyword)}</span>${['高询盘','高引流','高P4P'].map((signal,index) => `<span class="keyword-signal-cell"><i class="keyword-dot signal-${index} ${word.signals.has(signal) ? 'is-on' : ''}" aria-hidden="true"></i></span>`).join('')}</button>`).join('') : empty(state.loading ? '店铺词读取中…' : '当前筛选未匹配到店铺词')}</div>
+    <footer><span class="keyword-dot is-on signal-0"></span> 已进入相应词列表 <span class="keyword-dot"></span> 未见该信号</footer>
+  </section>
+  <section class="keyword-pane keyword-market" aria-label="行业热门词指数图">
+    <header><div class="keyword-pane-title"><i class="ri-bar-chart-horizontal-line" aria-hidden="true"></i><h3>行业热门词</h3><span>${industryWords.length}</span><div class="keyword-terminal" role="group" aria-label="排序与详情终端">${['APP','PC'].map(channel => `<button type="button" data-channel="${channel}" aria-pressed="${state.channel === channel}">${channel}</button>`).join('')}</div></div><p>推荐池 / 场景热词 · 需核查类目相关性 · 终端切换用于排序与详情</p></header>
+    <div class="keyword-chart-axis"><select id="keywordCompareSort" aria-label="行业指数指标"><option value="exposure" ${state.sort === 'exposure' ? 'selected' : ''}>搜索曝光指数</option><option value="click" ${state.sort === 'click' ? 'selected' : ''}>搜索点击指数</option></select><span>近一年 · 0–1000</span></div>
+    <div class="keyword-chart-list">${industryWords.length ? industryWords.map(word => `<button type="button" class="keyword-market-row ${selected(word.keyword) ? 'is-selected' : ''}" data-word="${esc(word.keyword)}" aria-pressed="${selected(word.keyword)}" aria-label="行业词 ${esc(word.keyword)}：APP ${word.channels.APP?.[state.sort] ?? '未提供'}，PC ${word.channels.PC?.[state.sort] ?? '未提供'}"><span class="keyword-word">${esc(word.keyword)}</span><span class="keyword-paired-bars">${['APP','PC'].map(channel => { const value = word.channels[channel]?.[state.sort]; return `<span class="keyword-paired-line ${channel.toLowerCase()}"><small>${channel}</small><span class="keyword-paired-track">${value == null ? '<em>未提供</em>' : `<i style="width:${value/10}%"></i>`}</span><b>${value ?? '—'}</b></span>`; }).join('')}</span></button>`).join('') : empty(state.loading ? '行业词读取中…' : '当前筛选下暂无行业热词')}</div>
+    <footer><span class="keyword-key app"></span> APP <span class="keyword-key pc"></span> PC <span>同刻度 · 指数非实际搜索量</span></footer>
+  </section>`;
+  const selectedRows = rows.filter(row => row.keyword === state.selected);
+  const shopSignals = [...new Set(selectedRows.flatMap(row => row.signals))];
+  const market = selectedRows.find(row => row.channel === state.channel && row.resource);
+  const evidence = keywordShopEvidence(shopSignals);
+  $('#keywordSelection').innerHTML = state.selected ? `<div class="keyword-selected-title"><i class="ri-focus-3-line" aria-hidden="true"></i><strong>${esc(state.selected)}</strong><span>${state.profileKind === 'sample' ? '历史样本信号' : esc(profileLabel)}</span></div><div class="keyword-impact-grid"><div><span>店铺曝光</span><b class="unknown">逐词数据未接入</b></div><div><span>店铺点击</span><b class="unknown">逐词数据未接入</b></div><div class="${evidence.traffic ? 'positive' : ''}"><span>店铺引流</span><b>${evidence.traffic ? '✓ 高引流词' : '未见高引流标签'}</b></div><div class="${evidence.inquiry ? 'positive' : ''}"><span>店铺询盘</span><b>${evidence.inquiry ? '✓ 高询盘词' : '未见高询盘标签'}</b></div></div><small>标签来自店铺画像，尚不能量化带来的次数或增量。${evidence.paid ? '另有高P4P消耗信号，不代表投放有效。' : ''}${selectedRows.some(row => row.wordMatch) ? '渠道未核实。' : ''}</small><details class="keyword-market-reference"><summary>行业参考 · ${state.channel} · 非店铺表现</summary><span>曝光指数 <b>${market?.exposure ?? '—'}</b></span><span>点击指数 <b>${market?.click ?? '—'}</b></span><span>全站点击率 <b>${esc(market?.ctr ?? '—')}</b></span><span>全站商机转化率 <b>${esc(market?.conversion ?? '—')}</b></span></details>` : '<div class="keyword-selection-hint"><i class="ri-cursor-line" aria-hidden="true"></i> 点击任一词，查看它在店铺的引流、询盘信号，以及曝光、点击数据是否齐全</div>';
+  $$('#adsCoreWords [data-word]').forEach(button => button.onclick = () => {
+    // 只替换可视区，保持搜索焦点；保留滚动位置，避免长列表选词后跳回顶端。
+    const positions = $$('#adsCoreWords .keyword-chart-list').map(list => list.scrollTop);
+    state.selected = button.dataset.word;
+    renderKeywordVisuals(rows, shown, state, profileLabel);
+    $$('#adsCoreWords .keyword-chart-list').forEach((list,index) => { list.scrollTop = positions[index]; });
+    const origin = button.closest('.keyword-pane').classList.contains('keyword-shop') ? '.keyword-shop' : '.keyword-market';
+    const focusButton = [...document.querySelectorAll(`${origin} [data-word]`)].find(item => item.dataset.word === state.selected);
+    focusButton?.focus({ preventScroll: true });
+    const peer = document.querySelector(`${origin === '.keyword-shop' ? '.keyword-market' : '.keyword-shop'} .is-selected`);
+    if (peer) { const list = peer.closest('.keyword-chart-list'); list.scrollTop = peer.offsetTop - list.offsetTop - list.clientHeight / 2 + peer.clientHeight / 2; }
+  });
+  $$('#adsCoreWords [data-channel]').forEach(button => button.onclick = () => { state.channel = button.dataset.channel; renderAdsDashboard(); document.querySelector(`[data-channel="${state.channel}"]`)?.focus({ preventScroll: true }); });
+  $('#keywordCompareSort').onchange = event => { state.sort = event.target.value; renderAdsDashboard(); $('#keywordCompareSort').focus({ preventScroll: true }); };
+}
+
+/**
+ * 展示行业需求场景、指数和热门词，保持中性色，不推断店铺是否使用这些词。
+ * @param {object[]} scenes 行业场景。@param {object} state 页面搜索和选词状态。
+ * @returns {void} 更新场景卡并绑定选词联动。@throws 缺少DOM容器时抛错。
+ */
+function renderKeywordScenes(scenes, state) {
+  const chip = keyword => `<button type="button" class="keyword-scene-chip" data-scene-word="${esc(keyword)}" title="查看 ${esc(keyword)} 的数据">${esc(keyword)}</button>`;
+  const sceneRows = scenes.map(scene => ({ ...scene, value: scene.needsIndex == null || String(scene.needsIndex).trim() === '' ? null : Number(scene.needsIndex) })).sort((a,b) => (b.value ?? -1)-(a.value ?? -1));
+  const ceiling = Math.max(1,...sceneRows.map(scene => Number.isFinite(scene.value) ? scene.value : 0));
+  $('#keywordSceneSpotlight').innerHTML = `<header><h3>行业需求场景与热门词</h3><span>近90天 · 全地区 · ${esc([...new Set(scenes.map(scene=>scene.statDate).filter(Boolean))].join(' / ') || '日期待获取')}</span></header><div class="keyword-scene-grid">${sceneRows.length ? sceneRows.map(scene => `<section><div class="keyword-scene-title"><h4>${esc(scene.sceneNameCn || scene.sceneName)}</h4><strong>${Number.isFinite(scene.value) ? scene.value.toLocaleString('zh-CN',{maximumFractionDigits:0}) : '—'}</strong></div><div class="keyword-scene-bar"><i style="width:${Number.isFinite(scene.value) && scene.value >= 0 ? scene.value/ceiling*100 : 0}%"></i></div><div class="keyword-scene-meta"><span>需求指数</span><span>环比 ${scene.needsIndexQoq == null ? '—' : (Number(scene.needsIndexQoq)>=0 ? '+' : '')+(Number(scene.needsIndexQoq)*100).toFixed(1)+'%'}</span></div><div class="keyword-scene-words">${String(scene.top3HotKw || '').split('|').filter(Boolean).map(keyword => chip(normalizeCompareKeyword(keyword))).join('')}</div></section>`).join('') : '<div class="keyword-mini-empty">行业场景读取中或暂不可用</div>'}</div>`;
+  $$('[data-scene-word]').forEach(button => button.onclick = () => {
+    state.selected = button.dataset.sceneWord; state.search = '';
+    $('#keywordCompareSearch').value = '';
+    renderAdsDashboard();
+    [...document.querySelectorAll('[data-scene-word]')].find(item => item.dataset.sceneWord === state.selected)?.focus({preventScroll:true});
+    $('#keywordSelection').scrollIntoView({ behavior: 'auto', block: 'nearest' });
+  });
+}
+
+/**
+ * 渲染词级对照及分源日期。所有匹配是确定性计算；不会生成AI诊断或花费token。
+ * @returns {void} 更新对照表、筛选数及来源状态。
+ * @throws {Error} 页面容器缺失时抛出DOM错误。
+ */
+function renderAdsDashboard() {
+  const state = keywordCompareState;
+  const resources = state.keywords?.ok ? pagedRows(state.keywords).rows : [];
+  const scenes = state.industry?.ok && Array.isArray(state.industry.data) ? state.industry.data.filter(row => row.countryId === 'all') : [];
+  const rows = buildKeywordComparison(state.profile, resources, scenes);
+  const groups = groupKeywordVisualRows(rows);
+  $('#adsCompareRefresh').disabled = state.loading;
+  $('#adsCompareRefresh').textContent = state.loading ? '正在更新…' : '更新词数据';
+  const allowedWords = new Set(groups.filter(word => word.keyword.includes(normalizeCompareKeyword(state.search))).map(word => word.keyword));
+  const shown = rows.filter(row => allowedWords.has(row.keyword));
+  const profileLabel = state.profileKind === 'live' ? '本账号画像' : state.profileKind === 'saved' ? '本账号保存快照' : state.profileKind === 'sample' ? '历史样本 · 非当前账号核验' : '店铺画像';
+  const sceneDates = [...new Set(scenes.map(row => row.statDate).filter(Boolean))].join(' / ');
+  $('#adsDataDate').textContent = state.loading ? '分来源更新中' : state.profileKind === 'sample' ? '历史样本对照' : '来源日期分别标注';
+  $('#adsDataDate').className = 'data-state';
+  $('#keywordSourceStatus').innerHTML = `<div><b>${profileLabel}</b><span>${state.profile ? esc(keywordReadDate(state.profileDate)) : '暂无数据'}${state.profileError ? ' · '+esc(state.profileError) : ''}</span><small>高询盘 / 高引流 / 高P4P 信号；各词统计周期以平台为准</small></div><div><b>年度词指数 · 问鼎推荐池</b><span>${state.keywords?.ok ? '读取于 '+esc(keywordReadDate(state.keywords.fetchedAt)) : state.keywords ? '读取失败，可重试' : '读取中…'}</span><small>已传入当前类目；推荐结果可能跨类目，需核实相关性</small></div><div><b>行业需求 · 近90天</b><span>${state.industry?.ok ? '平台日期 '+esc(sceneDates || '未提供') : state.industry ? '读取失败或未获取类目' : '读取中…'}</span><small>${esc(state.category || '等待当前店铺类目')}</small></div>`;
+  renderKeywordScenes(scenes, state);
+  renderKeywordVisuals(rows, shown, state, profileLabel);
+  $('#keywordCompareCount').textContent = `点击关键词查看数据 · 各来源最多取首批100条`;
+
 }
 
 // ============================ RFQ 商机 ============================
 let rfqState = {
+  compareIds: new Set(), quoteIds: new Set(), history: [], compareVersion: 0, quoteVersion: 0,
   items: [],
   filtered: [],
   selected: null,
   source: 'all',
   country: 'all',
-  keyword: 'smart watch',
+  keyword: '',
   totals: { internal: 0, external: 0, quotes: 0 },
 };
 
@@ -4444,7 +5321,7 @@ function rfqTimeLabel(value) {
 }
 
 /**
- * 读取站内、站外 RFQ 与报价历史，并使用 Demo 中最近一次权益审计快照。
+ * 按用户输入读取站内、站外 RFQ 与当前账号报价历史。
  *
  * 权益接口在当前账号会长时间阻塞，因此首屏不会实时调用它；这能保证商机列表
  * 快速可用，同时在权益卡中明确标注快照日期和实时接口状态。
@@ -4453,16 +5330,15 @@ function rfqTimeLabel(value) {
  * @returns {Promise<void>} 数据读取、筛选和页面渲染完成后返回。
  * @throws {Error} 单个接口失败会显示局部空状态，不会让整页失效。
  */
-async function loadRfq(keyword = $('#rfqKeyword')?.value.trim() || 'smart watch') {
-  rfqState.keyword = keyword || 'smart watch';
-  $('#rfqPageState').textContent = '正在读取 WorkCTL';
+async function loadRfq(keyword = $('#rfqKeyword')?.value.trim() || '') {
+  rfqState.keyword = String(keyword || '').trim();
+  rfqState.compareIds.clear();rfqState.quoteIds.clear();rfqState.compareVersion++;rfqState.quoteVersion++;
+  $('#rfqComparisonResult').hidden=true;$('#rfqQuoteDetailResult').hidden=true;
   $('#rfqOpportunityList').innerHTML = '<div class="empty"><span class="spin"></span> 正在读取商机…</div>';
-  const demoPromise = fetch('/api/demo').then(response => response.json()).catch(() => null);
-  const [internal, external, history, demo] = await Promise.all([
-    api('rfq-internal-search', { pageNum: 1, pageSize: 10, searchText: rfqState.keyword }),
-    api('rfq-external-search', { keywords: JSON.stringify([rfqState.keyword]), pageNum: 1, pageSize: 10 }),
+  const [internal, external, history] = await Promise.all([
+    rfqState.keyword ? api('rfq-internal-search', { pageNum: 1, pageSize: 10, searchText: rfqState.keyword }) : Promise.resolve(null),
+    rfqState.keyword ? api('rfq-external-search', { keywords: JSON.stringify([rfqState.keyword]), pageNum: 1, pageSize: 10 }) : Promise.resolve(null),
     api('rfq-quote-history', { pageSize: 20, currentPage: 1 }),
-    demoPromise,
   ]);
   const internalItems = Array.isArray(internal?.data?.items) ? internal.data.items : [];
   const externalItems = Array.isArray(external?.data?.items) ? external.data.items : [];
@@ -4475,11 +5351,12 @@ async function loadRfq(keyword = $('#rfqKeyword')?.value.trim() || 'smart watch'
     quotes: num(history?.data?.total),
   };
   renderRfqCountries();
-  renderRfqKpis(demo?.pages?.rfq?.rightsSnapshot);
+  renderRfqKpis(null);
   renderRfqHistory(history?.data?.items || []);
-  renderRfqRights(demo?.pages?.rfq?.rightsSnapshot, demo?.pages?.rfq?.rightsLiveStatus);
+  renderRfqRights(null);
+  // 权益未实时核验，不填入任何商家的历史数字。
   applyRfqFilters();
-  $('#rfqPageState').textContent = `${rfqState.keyword} · 三组数据已读取`;
+  if (!rfqState.keyword) $('#rfqOpportunityList').innerHTML = '<div class="empty">请输入当前产品的英文关键词，再搜索商机。</div>';
   $('#dataFreshness').textContent = `已更新 · ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
@@ -4500,17 +5377,17 @@ function renderRfqCountries() {
 /**
  * 渲染 RFQ 核心指标，权益值必须同时带审计日期。
  *
- * @param {object|null} rights - Demo 保存的最近一次脱敏权益快照。
+ * @param {object|null} rights - 当前账号实时核验的权益结果。
  * @returns {void} 直接更新 #rfqKpis。
  * @throws {Error} 不主动抛异常。
  */
 function renderRfqKpis(rights) {
   const rightsValue = rights && Number.isFinite(Number(rights.availableQuote)) ? fmt(rights.availableQuote) : '—';
   $('#rfqKpis').innerHTML = [
-    ['站内 RFQ', fmt(rfqState.totals.internal), `${rfqState.keyword} · WorkCTL 实时`],
-    ['站外 RFQ', fmt(rfqState.totals.external), `MIC / Tradewheel · WorkCTL 实时`],
-    ['报价历史', fmt(rfqState.totals.quotes), '平台历史记录 · WorkCTL 实时'],
-    ['剩余普通权益', rightsValue, rights?.auditedAt ? `审计快照 · ${rights.auditedAt}` : '实时接口本轮未返回'],
+    ['站内 RFQ', rfqState.keyword ? fmt(rfqState.totals.internal) : '—', `${rfqState.keyword} · 平台数据`],
+    ['站外 RFQ', rfqState.keyword ? fmt(rfqState.totals.external) : '—', `MIC / Tradewheel · 平台数据`],
+    ['报价历史', fmt(rfqState.totals.quotes), '平台历史记录 · 平台数据'],
+    ['剩余普通权益', rightsValue, rights?.auditedAt ? `审计快照 · ${rights.auditedAt}` : '尚未查询当前账号权益'],
   ].map(([label, value, note]) => `<article class="analysis-kpi"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(note)}</small></article>`).join('');
 }
 
@@ -4537,7 +5414,8 @@ function applyRfqFilters() {
  * @throws {Error} 不主动抛异常。
  */
 function renderRfqPool() {
-  $('#rfqPoolCount').textContent = `当前展示 ${rfqState.filtered.length} 条 · 总量 ${fmt(rfqState.totals.internal + rfqState.totals.external)}`;
+  updateRfqSelections();
+  $('#rfqPoolCount').textContent = rfqState.keyword ? `当前展示 ${rfqState.filtered.length} 条 · 总量 ${fmt(rfqState.totals.internal + rfqState.totals.external)}` : '尚未搜索';
   if (!rfqState.filtered.length) {
     $('#rfqOpportunityList').innerHTML = '<div class="designed-empty"><i class="ri-inbox-2-line" aria-hidden="true"></i><b>没有符合筛选的 RFQ</b><span>调整来源、国家或搜索词后再试。</span></div>';
     return;
@@ -4546,11 +5424,13 @@ function renderRfqPool() {
     const selected = rfqState.selected?.id === item.id;
     const quantity = item.quantity ? `${fmt(item.quantity)} ${esc(item.quantityUnit || '')}` : '数量待确认';
     const signals = [item.country, item.category, item.createdText].filter(Boolean).slice(0, 3);
-    return `<button class="rfq-opportunity-card ${selected ? 'on' : ''}" type="button" data-rfq-index="${index}" aria-pressed="${selected}">
+    return `<div class="rfq-selectable-row">${item.sourceType==='internal'?`<label class="rfq-select-toggle"><input type="checkbox" data-rfq-compare="${index}" aria-label="选择商机 ${esc(item.title)}" ${rfqState.compareIds.has(item.id)?'checked':''}><span>对比</span></label>`:'<span class="rfq-select-toggle hint">站外</span>'}<button class="rfq-opportunity-card ${selected ? 'on' : ''}" type="button" data-rfq-index="${index}" aria-pressed="${selected}">
       <span class="rfq-thumb ${item.image ? 'has-image' : ''}">${item.image ? `<img src="${esc(item.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<i class="${item.sourceType === 'internal' ? 'ri-file-search-line' : 'ri-global-line'}" aria-hidden="true"></i>`}</span>
       <span class="rfq-card-copy"><span class="rfq-card-top"><em>${esc(item.sourceType === 'internal' ? '站内 RFQ' : item.source || '站外 RFQ')}</em><b>运营优先级 ${item.priority}</b></span><strong>${esc(item.title || '未命名采购需求')}</strong><small>${signals.map(esc).join(' · ') || '采购信息待补充'}</small><span class="rfq-card-bottom"><span>${quantity}</span><span>${fmt(item.quotedCount)} 家已报价 · 剩 ${fmt(item.remainingQuota)} 席</span></span></span>
-    </button>`;
+    </button></div>`;
   }).join('');
+  $$('[data-rfq-compare]').forEach(box=>box.onchange=()=>{const item=rfqState.filtered[Number(box.dataset.rfqCompare)];if(box.checked&&rfqState.compareIds.size>=20){box.checked=false;return;}box.checked?rfqState.compareIds.add(item.id):rfqState.compareIds.delete(item.id);updateRfqSelections();});
+  updateRfqSelections();
   $$('.rfq-opportunity-card').forEach(button => {
     button.onclick = () => selectRfq(rfqState.filtered[Number(button.dataset.rfqIndex)]);
   });
@@ -4640,10 +5520,40 @@ function renderRfqDetail(item, stateLabel = '列表详情') {
  * @returns {void} 直接更新报价表格。
  * @throws {Error} 不主动抛异常。
  */
+/** 更新勾选数量和操作状态；使用当前可见记录，返回void。 */
+function updateRfqSelections() {
+  const available=new Set(rfqState.filtered.filter(r=>r.sourceType==='internal').map(r=>r.id));
+  rfqState.compareIds=new Set([...rfqState.compareIds].filter(id=>available.has(id)));
+  $('#rfqCompareCount').textContent=`已选 ${rfqState.compareIds.size} 条站内商机`;
+  $('#rfqCompareBtn').disabled=rfqState.compareIds.size===0;
+  $('#rfqQuoteCompareCount').textContent=`已选 ${rfqState.quoteIds.size} 条报价`;
+  $('#rfqQuoteCompareBtn').disabled=rfqState.quoteIds.size===0;
+}
+/** 请求所选商机/报价的详情；逐条渲染成功、无返回和失败，网络失败不补零。 */
+async function queryRfqSelection(action,ids,button) {
+  const host=$(action==='opportunities'?'#rfqComparisonResult':'#rfqQuoteDetailResult');
+  const sequence=(action==='opportunities'?++rfqState.compareVersion:++rfqState.quoteVersion);
+  const keyword=rfqState.keyword;
+  host.hidden=false;host.innerHTML='<p class="hint">正在读取所选记录，请稍候…</p>';button.disabled=true;
+  try {
+    const response=await fetch('/api/capabilities/rfq',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,ids,keyword})});
+    const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'读取失败');
+    if(sequence!==(action==='opportunities'?rfqState.compareVersion:rfqState.quoteVersion))return;
+    const items=result.data.items||[];
+    const fields=action==='opportunities'?[['采购需求','description'],['国家','country'],['采购数量','quantity'],['数量单位','quantityUnit'],['类目','category'],['已报价商家','quotedCount'],['剩余报价席位','remainingQuota']]:[['报价商品','productTitle'],['单价','unitPrice'],['币种','currency'],['数量','quantity'],['付款方式','paymentMethod'],['贸易条款','shippingTerms'],['港口','port'],['报价时间','quotationTime'],['报价有效期','validPeriod']];
+    host.innerHTML=`<header class="rfq-result-header"><div><h3>${action==='opportunities'?'采购需求对比':action==='quote'?'报价详情':'报价对比'}</h3><p>${items.filter(r=>r.status==='succeeded').length} / ${items.length} 条读取成功 · ${esc(rfqTimeLabel(result.data.fetchedAt))}</p></div><button class="ghost sm rfq-close-results" type="button">收起结果</button></header>${action==='opportunities'?'':'<p class="hint">仅查看已提交报价；币种未返回时不推断币种，也不跨币种比较价格。</p>'}<div class="rfq-comparison-scroll"><table class="rfq-comparison-table"><thead><tr><th>对比项目</th>${items.map(r=>`<th>${esc(r.title)}</th>`).join('')}</tr></thead><tbody><tr><th>读取状态</th>${items.map(r=>`<td>${r.status==='succeeded'?'已读取':esc(r.error||'未返回详情')}</td>`).join('')}</tr>${fields.map(([label,key])=>`<tr><th>${label}</th>${items.map(r=>`<td>${r.status==='succeeded'?esc(r.detail?.[key]??'未返回'):'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    host.querySelector('.rfq-close-results').onclick=()=>{host.hidden=true;};host.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }catch(error){if(sequence===(action==='opportunities'?rfqState.compareVersion:rfqState.quoteVersion))host.textContent='读取未完成：'+error.message;}
+  finally{button.disabled=false;updateRfqSelections();}
+}
+
 function renderRfqHistory(rows) {
-  const safeRows = Array.isArray(rows) ? rows : [];
-  $('#rfqHistoryCount').textContent = `${safeRows.length} 条 · WorkCTL 实时`;
-  $('#rfqHistoryBody').innerHTML = safeRows.length ? safeRows.map(row => `<tr><td><b>${esc(row.title || '未命名 RFQ')}</b><small>${esc(rfqTimeLabel(row.rfqTime))} 发布</small></td><td>${esc(row.country || '—')}<small>${esc(row.buyerLevel || '等级未返回')}</small></td><td>${esc(rfqTimeLabel(row.quoteTime))}</td><td><span class="action-tag">${esc(row.status || '已报价')}</span></td></tr>`).join('') : '<tr><td colspan="4"><div class="designed-empty"><i class="ri-inbox-2-line" aria-hidden="true"></i><b>暂无报价历史</b><span>当前账号没有返回可展示的记录。</span></div></td></tr>';
+  const safeRows=Array.isArray(rows)?rows:[];rfqState.history=safeRows;rfqState.quoteIds.clear();
+  $('#rfqHistoryCount').textContent=`${safeRows.length} 条 · 平台数据`;
+  $('#rfqHistoryBody').innerHTML=safeRows.length?safeRows.map((row,index)=>`<tr><td><input type="checkbox" data-quote-select="${index}" aria-label="选择报价 ${esc(row.title)}"></td><td><b>${esc(row.title||'未命名RFQ')}</b><small>${esc(rfqTimeLabel(row.rfqTime))} 发布</small></td><td>${esc(row.country||'—')}<small>${esc(row.buyerLevel||'等级未返回')}</small></td><td>${esc(rfqTimeLabel(row.quoteTime))}</td><td><span class="action-tag">${esc(row.status||'已报价')}</span></td><td><button type="button" class="ghost sm" data-quote-detail="${index}">查看详情</button></td></tr>`).join(''):'<tr><td colspan="6"><div class="empty">本次没有返回报价历史</div></td></tr>';
+  $$('[data-quote-select]').forEach(box=>box.onchange=()=>{const row=safeRows[Number(box.dataset.quoteSelect)];if(box.checked&&rfqState.quoteIds.size>=10){box.checked=false;$('#rfqQuoteCompareCount').textContent='每次最多选择10条报价';return;}box.checked?rfqState.quoteIds.add(row.id):rfqState.quoteIds.delete(row.id);updateRfqSelections();});
+  $$('[data-quote-detail]').forEach(button=>button.onclick=()=>queryRfqSelection('quote',[safeRows[Number(button.dataset.quoteDetail)].id],button));
+  updateRfqSelections();
 }
 
 /**
@@ -4656,7 +5566,7 @@ function renderRfqHistory(rows) {
  */
 function renderRfqRights(rights, liveStatus) {
   if (!rights) {
-    $('#rfqRightsState').textContent = '本轮实时接口未返回';
+    $('#rfqRightsState').textContent = '尚未查询当前账号权益';
     $('#rfqRightsGrid').innerHTML = '<div class="designed-empty"><i class="ri-timer-line" aria-hidden="true"></i><b>权益数据暂不可用</b><span>商机和报价历史不受影响。</span></div>';
     return;
   }
@@ -4671,6 +5581,27 @@ function renderRfqRights(rights, liveStatus) {
   $('#rfqRightsGrid').innerHTML = `<div class="rfq-equity-list">${rows.map(([label, value, icon]) => `<article><i class="${icon}" aria-hidden="true"></i><span>${esc(label)}</span><strong>${fmt(value)}</strong></article>`).join('')}</div><div class="rfq-rights-summary"><article><span>当月已用</span><strong>${fmt(rights.usedThisMonth)}</strong></article><article><span>当月报价回复</span><strong>${fmt(rights.replyCount)}</strong></article><article><span>本月预测分</span><strong>${fmt(rights.predictedScore)}</strong></article><article><span>上月评分</span><strong>${fmt(rights.lastMonthScore)}</strong></article></div><p class="rfq-rights-note"><i class="ri-information-line" aria-hidden="true"></i>${esc(liveStatus || '实时权益接口本轮未返回，页面使用最近核验快照。')}</p>`;
 }
 
+/** 将两位国家代码转为中文；普通名称保留。@param {*} value 平台国家值。@returns {string} 中文名称或原值。@throws 无，非法代码回退。 */
+function businessCountry(value) {
+  const text = String(value || '国家未返回');
+  try {
+    const chinese = new Intl.DisplayNames(['zh-CN'], {type: 'region'});
+    if (/^[A-Za-z]{2}$/.test(text)) return chinese.of(text.toUpperCase());
+    // 用浏览器自带地区名称表匹配英文，不改接口参数或原始数据。
+    if (!businessCountry.names) {
+      businessCountry.names = new Map();
+      const english = new Intl.DisplayNames(['en'], {type: 'region'});
+      for (let first = 65; first <= 90; first++) for (let second = 65; second <= 90; second++) {
+        const code = String.fromCharCode(first, second);
+        const name = english.of(code);
+        if (name !== code) businessCountry.names.set(name.toLowerCase(), chinese.of(code));
+      }
+      businessCountry.names.set("cote d'ivoire", '科特迪瓦');
+    }
+    return businessCountry.names.get(text.toLowerCase()) || text;
+  } catch { return text; }
+}
+
 // ============================ 员工绩效 ============================
 const SCOLS = [
   ['fullName', '账号'], ['impression', '曝光'], ['clicks', '点击'],
@@ -4683,7 +5614,9 @@ const SCOLS = [
 ];
 
 async function loadStaff() {
-  const j = await api('account-summary', { ...dates(), statisticsType: $('#staffType').value });
+  const timeRequest=JSON.stringify(timeStates['staff']);
+  const j = await api('account-summary', { ...dates('staff'), statisticsType: timeStates.staff.mode });
+  if(timeRequest!==JSON.stringify(timeStates['staff']))return;
   if (!j) return;
   const rows = [];
   (Array.isArray(j.data) ? j.data : []).forEach(blk =>
@@ -4692,27 +5625,55 @@ async function loadStaff() {
   renderStaff(rows);
 }
 
-function renderStaff(rows) {
+/** 读取绩效数值，保留缺失；回复时长兼容成员与总计的不同字段。@param {object} row 周期记录。@param {string} key 指标。@returns {number|null} 有限数值。@throws 无。 */
+function staffMetric(row, key) {
+  const value = key === 'avgReplyTime' ? row.avgReplyTime ?? row.replyAvgTime : row[key];
+  return value == null || value === '' || !Number.isFinite(Number(value)) ? null : Number(value);
+}
+/** 三类绩效同屏展示。每次只展示一个真实周期，总计与成员分开，不平均百分比或跨币种加总。
+ * @param {object[]} rows 全部周期记录。@param {string} period 所选周期，默认最新。
+ * @returns {void} 更新图表及成员明细。@throws DOM缺失时抛错。
+ */
+function renderStaff(rows, period) {
   const box = $('#staffTable');
   if (!rows.length) { box.innerHTML = '<div class="empty">无员工数据</div>'; return; }
-  rows.sort((a, b) => (a.fullName === '全部账号' ? -1 : b.fullName === '全部账号' ? 1 : num(b.fbUv) - num(a.fbUv)));
-  box.innerHTML = `<table><thead><tr><th>周期</th>${
-    SCOLS.map(([, n]) => `<th>${n}</th>`).join('')}</tr></thead><tbody>${
-    rows.map((r, i) => `<tr data-i="${i}" ${r.fullName === '全部账号' ? 'style="background:#fff4ec;font-weight:600"' : ''}>
-      <td>${esc(r.__period)}</td>${SCOLS.map(([k, , t]) => {
-        const v = r[k];
-        if (k === 'fullName') return `<td>${esc(v ?? '—')}</td>`;
-        if (t === 'p') return `<td>${pct(v)}</td>`;
-        return `<td>${fmt(v)}</td>`;
-      }).join('')}</tr>`).join('')}</tbody></table>`;
-  box.querySelectorAll('tbody tr').forEach(tr => tr.onclick = () => {
-    const r = rows[+tr.dataset.i];
-    $('#modalBody').innerHTML = `<h2 style="font-size:15px">${esc(r.fullName)} · ${esc(r.__period)}</h2>
-      <div class="kvgrid">${Object.keys(r).map(k => `<div class="kv"><div class="k">${esc(k)}</div>
-        <div class="v">${esc(String(r[k] ?? '—')).slice(0, 40)}</div></div>`).join('')}</div>`;
+  const periods = [...new Set(rows.map(row=>row.__period))].sort().reverse();
+  period = periods.includes(period) ? period : periods[0];
+  const current = rows.filter(row=>row.__period===period);
+  const total = current.find(row=>row.fullName==='全部账号');
+  const members = current.filter(row=>row.fullName!=='全部账号').sort((a,b)=>(staffMetric(b,'clicks')??-1)-(staffMetric(a,'clicks')??-1));
+  const configs = [
+    ['成交结果','result',[['drawupMordCnt','起草订单','单'],['prepayMordCnt','已付款订单','单'],['rcvdAmt','实收金额','币种未返回']]],
+    ['客户响应','response',[['fbUv','询盘人数','人'],['fbPv','询盘数','次'],['uvFbAtm','TM访客','人'],['replyRate','回复率','%'],['fst5minReplyRate30d','5分钟回复率','%'],['avgReplyTime','平均回复时长','小时']]],
+    ['商品操作','execution',[['impression','曝光','次'],['clicks','点击','次'],['newProductCount','新增商品','件'],['alterProductCount','编辑商品','件'],['totalProductCount','在架商品','件'],['reviewedRfq','RFQ','条']]]
+  ];
+  const display = (row,key,unit) => {const n=staffMetric(row,key);return n==null?'—':unit==='%'?(n*100).toFixed(1)+'%':n.toLocaleString('zh-CN',{maximumFractionDigits:2});};
+  box.innerHTML = `<div class="staff-dashboard-toolbar"><span>点击成员，查看完整绩效</span><label>平台报告日期 <select id="staffPeriod" aria-label="绩效展示周期">${periods.map(value=>`<option ${value===period?'selected':''}>${esc(value)}</option>`).join('')}</select></label></div><div class="staff-dashboard">${configs.map(([title,kind,metrics])=>`<section class="staff-chart-section ${kind}"><header class="staff-section-heading"><h3><i class="${({result:'ri-bar-chart-box-line',response:'ri-customer-service-2-line',execution:'ri-box-3-line'})[kind]}" aria-hidden="true"></i>${title}</h3><span>${members.length} 位成员 · ${metrics.length} 项指标</span></header><div class="staff-section-body"><div class="staff-member-rail"><div class="staff-rail-heading"><span>团队成员</span><small>点击查看详情</small></div>${members.map((row,index)=>`<button type="button" class="staff-member-label" data-staff-member="${index}" aria-label="查看 ${esc(row.fullName)} 的完整绩效"><i aria-hidden="true">${esc(String(row.fullName||'?').split(/\s+/).map(n=>n[0]).slice(0,2).join('').toUpperCase())}</i><span>${esc(row.fullName)}</span></button>`).join('')}</div><div class="staff-metrics-grid">${metrics.map(([key,label,unit])=>{
+    const max=unit==='%'?1:Math.max(1,...members.map(row=>staffMetric(row,key)??0));
+    const unavailable = members.every(row=>staffMetric(row,key)==null);
+    const allZero = members.length > 0 && members.every(row=>staffMetric(row,key)===0);
+    return `<div class="staff-metric-chart ${unavailable || allZero ? 'no-series' : ''} ${key==='rcvdAmt'?'money-series':''}"><div class="staff-metric-summary"><h4>${label}</h4><strong>${total ? display(total,key,unit):'—'}</strong><small>${unit==='%'?'平台总计':unit+' · 平台总计'}</small></div>${unavailable ? '<div class="staff-no-series"><i class="ri-bar-chart-line" aria-hidden="true"></i><span>暂无成员分项</span><small>可查看上方总计</small></div>' : allZero ? `<div class="staff-no-series"><b>0</b> ${members.length} 位成员该项均为 0</div>` : members.map((row,index)=>{const value=staffMetric(row,key);return `<button type="button" data-staff-member="${index}" class="staff-bar-row ${value===0?'is-zero':''}" aria-label="${esc(row.fullName)} ${label} ${display(row,key,unit)}"><span>${esc(row.fullName)}</span><i>${value==null?'<em>未返回</em>':key==='rcvdAmt'?'<em>原值</em>':`<b style="width:${Math.max(0,Math.min(100,value/max*100))}%"></b>`}</i><strong>${display(row,key,unit)}</strong></button>`;}).join('')}</div>`;
+  }).join('')}</div></div></section>`).join('')}</div><p class="staff-scope">总计直接使用平台“全部账号”行；成员图不重复加入总计。回复率不做简单平均，在架商品不跨期累加；金额币种未返回，数值仅供逐账号核对。</p>`;
+  // 同一成员在本条区域内同步高亮，帮助横向对照；只改变样式，不重新请求数据。
+  box.querySelectorAll('.staff-chart-section').forEach(section => {
+    const highlight = event => {
+      const selected = event.target.closest('[data-staff-member]')?.dataset.staffMember;
+      section.querySelectorAll('[data-staff-member]').forEach(el => el.classList.toggle('member-highlight', selected !== undefined && el.dataset.staffMember === selected));
+    };
+    section.addEventListener('pointerover', highlight);
+    section.addEventListener('focusin', highlight);
+    const clear = () => section.querySelectorAll('.member-highlight').forEach(el => el.classList.remove('member-highlight'));
+    section.addEventListener('pointerleave', clear);
+    section.addEventListener('focusout', clear);
+  });
+  $('#staffPeriod').onchange=event=>renderStaff(rows,event.target.value);
+  box.querySelectorAll('[data-staff-member]').forEach(button=>button.onclick=()=>{
+    const row=members[Number(button.dataset.staffMember)];
+    $('#modalBody').innerHTML=`<h2>${esc(row.fullName)} · ${esc(period)}</h2>${configs.map(([title,,metrics])=>`<h3 class="staff-detail-title">${title}</h3><div class="kvgrid">${metrics.map(([key,label,unit])=>`<div class="kv"><div class="k">${label}</div><div class="v">${display(row,key,unit)} ${unit==='%'?'':unit}</div></div>`).join('')}</div>`).join('')}`;
     $('#modal').classList.add('on');
   });
 }
+
 
 // ============================ 命令控制台 ============================
 let EPS = [];
@@ -4725,23 +5686,45 @@ async function initConsole() {
   $('#cEndpoint').onchange = buildFlags;
 }
 
+/** 根据各工具时间合同生成日期/枚举控件，不再统一使用自由文本。@returns {void}。@throws DOM缺失。 */
 function buildFlags() {
-  const ep = EPS.find(e => e.key === $('#cEndpoint').value);
-  if (!ep) return;
-  const d = dates();
-  $('#cFlags').innerHTML = ep.flags.map(f => {
-    let def = '';
-    if (f === 'startDate') def = d.startDate;
-    if (f === 'endDate') def = d.endDate;
-    return `<label>--${f}<input type="text" data-f="${f}" value="${def}" placeholder="留空则不传"></label>`;
+  const ep=EPS.find(e=>e.key===$('#cEndpoint').value);if(!ep)return;
+  const d=TimePolicy.period('month',defaultTimeValue('month'));
+  $('#cFlags').innerHTML=ep.flags.map(f=>{
+    const choices=TimePolicy.enums[ep.key]?.[f];
+    if(choices) return `<label>--${f}<select data-f="${f}">${f==='openTime'?'<option value="">不限发布时间</option>':''}${choices.map(value=>`<option value="${value}">${f==='dateType' ? (value==='0'?'按日':ep.key==='tm-account-diagnosis'?'按月':'按周') : value}</option>`).join('')}</select></label>`;
+    let type='text',def='',attrs='';
+    if(['startDate','endDate','startStatDate','endStatDate','statDate','queryDate'].includes(f)) {
+      type='date';def=f==='queryDate'?TimePolicy.shift(TimePolicy.today(),-2):f==='statDate'?TimePolicy.shift(TimePolicy.today(),-2):f.startsWith('end')?d.endDate:d.startDate;
+      attrs=`max="${f==='queryDate'?TimePolicy.shift(TimePolicy.today(),-2):TimePolicy.today()}"`;
+      if(ep.key==='shop-product')attrs+=` min="${TimePolicy.shift(TimePolicy.today(),-89)}"`;
+    }
+    if(['gmtOpenFrom','gmtOpenTo'].includes(f)){type='datetime-local';attrs='step="1"';}
+    if(/^(gmtOpen(Start|End)|postTime(Start|End)|expiredTime(Start|End)|limitTimeStamp)$/.test(f)){type='number';attrs='min="0" step="1"';}
+    return `<label>--${f}<input type="${type}" data-f="${f}" value="${def}" ${attrs} placeholder="留空则不传"></label>`;
   }).join('');
-  $$('#cFlags input').forEach(i => i.oninput = previewCmd);
+  const granularity=$('#cFlags [data-f="statisticsType"]'),stat=$('#cFlags [data-f="statDate"]');
+  if(ep.key==='shop-product' && granularity && stat)granularity.onchange=()=>{
+    stat.disabled=granularity.value==='week';stat.type=granularity.value==='month'?'month':'date';
+    stat.value=granularity.value==='week'?'':defaultTimeValue(granularity.value);
+    const earliest=TimePolicy.shift(TimePolicy.today(),-89);
+    stat.min=granularity.value==='month'?TimePolicy.addMonths(earliest.slice(0,7)+'-01',earliest.endsWith('-01')?0:1).slice(0,7):earliest;
+    stat.max=granularity.value==='month'?defaultTimeValue('month'):TimePolicy.today();previewCmd();
+  };
+  $$('#cFlags input, #cFlags select').forEach(i=>i.addEventListener('input',previewCmd));
   previewCmd();
 }
-
+/** 将日期控件转换成工具要求的紧凑日/北京时间，分页游标保持数值。@returns {object} 显式参数。@throws 无。 */
 function consoleParams() {
-  const p = {};
-  $$('#cFlags input').forEach(i => { if (i.value.trim()) p[i.dataset.f] = i.value.trim(); });
+  const p={},key=$('#cEndpoint').value;
+  $$('#cFlags input, #cFlags select').forEach(i=>{
+    if(i.disabled || !i.value.trim())return;
+    let value=i.value.trim();
+    if(i.type==='month')value+='-01';
+    if(i.type==='datetime-local') {value=value.replace('T',' ');if(value.length===16)value+=':00';}
+    if((TimePolicy.adEffects.includes(key) || key==='ads-achieve-rate') && /Date$/.test(i.dataset.f))value=value.replaceAll('-','');
+    p[i.dataset.f]=value;
+  });
   return p;
 }
 function previewCmd() {
@@ -4782,7 +5765,7 @@ async function refreshLog() {
 /**
  * WorkCTL 业务界面的信息架构定义。
  *
- * 这里描述页面结构、字段和 WorkCTL 数据来源；下面的 MODULE_LIVE_DEMO
+ * 这里描述页面结构、字段和 WorkCTL 数据来源；下面的 实时接口结果
  * 只保存本轮只读审计得到的脱敏汇总。这样既能让原型展示真实数据状态，
  * 也不会把买家、订单、账号或凭据复制进前端代码。
  */
@@ -5166,214 +6149,7 @@ const MODULE_VIEW_STATE = {};
  * “未执行 / 无现成任务 / 无权限”，不会为了让画面更满而推算业务数字。
  * 每个 rows 数组严格对应原页面定义中的 table 列，便于通用渲染器复用。
  */
-const MODULE_LIVE_DEMO = {
-  ads: {
-    performance: {
-      state: '已读取 · 部分为空',
-      metrics: [
-        ['可售品牌关键词', 'search-list 返回', '20'],
-        ['次月推荐资源', 'auction-resource 返回', '3'],
-        ['效果记录', '公司 / 商品 / 关键词均为空', '0'],
-      ],
-      facts: ['已找到 20 个可售品牌词', '次月释放资源返回 3 条', '公司效果当前周期为真实空数组', '商品与关键词效果当前周期均为 0 条'],
-      rows: [
-        ['公司整体效果', '—', '—', '—', '当前周期 0 条'],
-        ['广告商品效果', '—', '—', '—', '当前周期 0 条'],
-        ['广告关键词效果', '—', '—', '—', '当前周期 0 条'],
-      ],
-    },
-    diagnosis: {
-      state: '真实空状态',
-      metrics: [['高询盘词', '无效果明细，不推算', '0'], ['高消耗词', '无效果明细，不推算', '0'], ['高引流词', '无效果明细，不推算', '0']],
-      facts: ['关键词效果接口已成功调用', '当前周期返回 0 条', '缺少消耗字段时不生成四象限', '资源词与效果词保持不同口径'],
-      rows: [],
-      empty: '当前周期没有关键词效果记录；这不是“接口未接入”。',
-    },
-    resources: {
-      state: '已读取',
-      metrics: [['可售关键词', '平台返回', '20'], ['次月释放资源', '平台返回', '3'], ['已执行预定', '写命令未执行', '0']],
-      facts: ['smart watch：APP 指数 1000', 'smartwatches：APP 指数 1000', 'smart watch for men：APP 指数 1000', '所有预定动作仍需人工二次确认'],
-      rows: [
-        ['smart watch', '品牌广告词 · APP', '次月', '可预定', '只读'],
-        ['smartwatches', '品牌广告词 · APP', '次月', '可预定', '只读'],
-        ['smart watch for men', '品牌广告词 · APP', '次月', '可预定', '只读'],
-      ],
-    },
-  },
-  rfq: {
-    opportunities: {
-      state: '已读取',
-      metrics: [['站内 RFQ', 'smart watch 样本查询', '325'], ['站外 RFQ', '同一关键词口径', '45'], ['报价历史', '平台记录', '5']],
-      facts: ['站内商机总量 325', '站外商机总量 45', '报价历史共 5 条', '买家身份与商机标题已脱敏，不计算伪匹配分'],
-      rows: [
-        ['smart watch 商机汇总', '多国家 · 已脱敏', '当前快照', '325 条', '站内 RFQ', '未计算'],
-        ['smart watch 商机汇总', '多国家 · 已脱敏', '当前快照', '45 条', '站外 RFQ', '未计算'],
-      ],
-    },
-    quotes: {
-      state: '已读取',
-      metrics: [['报价历史', '平台返回', '5'], ['本地待跟进', '尚未建立本地状态', '—'], ['已转订单', '无可靠关联字段', '—']],
-      facts: ['报价历史接口成功返回', '共读取 5 条记录', '负责人和买家身份未写入 Demo', '本地跟进状态尚未建立'],
-      rows: [['报价历史汇总', '当前快照', '已脱敏', '5 条平台记录', '未建立本地跟进']],
-    },
-    rights: {
-      state: '接口可用',
-      metrics: [['权益接口', '成功读取', '可用'], ['已执行报价', '写命令未执行', '0'], ['权益数字', '不在脱敏 Demo 保存', '—']],
-      facts: ['报价权益查询接口可用', '本轮没有创建或提交报价', '权益只能辅助安排优先级', '所有报价动作保留人工确认'],
-      rows: [['报价权益', '平台返回', '未保存明细', '未保存明细', '2026-09-02']],
-    },
-  },
-  orders: {
-    orders: {
-      state: '已读取',
-      metrics: [['交易合同', '列表总量', '30'], ['本页样本', '读取前 20 条', '20'], ['未付款', '样本状态分布', '4']],
-      distribution: [['已关闭', 11], ['未付款', 4], ['交易成功', 2], ['待确认收货', 2], ['意向处理中', 1]],
-      facts: ['样本 20 条中：已关闭 11', '样本 20 条中：未付款 4', '样本 20 条中：交易成功 2', '待确认收货 2，意向处理中 1'],
-      rows: [
-        ['脱敏合同样本', '已脱敏', '—', '已关闭', '—', '样本 11 / 20'],
-        ['脱敏合同样本', '已脱敏', '—', '未付款', '—', '样本 4 / 20'],
-        ['脱敏合同样本', '已脱敏', '—', '交易成功', '—', '样本 2 / 20'],
-        ['脱敏合同样本', '已脱敏', '—', '待确认收货', '—', '样本 2 / 20'],
-      ],
-    },
-    logistics: {
-      state: '已读取',
-      metrics: [['物流记录', '列表总量', '162'], ['本页样本', '读取前 20 条', '20'], ['运输中', '样本状态分布', '1']],
-      distribution: [['妥投成功', 16], ['运输中', 1], ['离开仓库', 1], ['关闭', 1], ['终止', 1]],
-      facts: ['样本 20 条中：妥投成功 16', '离开仓库 1', '运输中 1', '关闭 1，终止 1'],
-      rows: [
-        ['脱敏物流样本', '已脱敏', '—', '妥投', '当前快照', '16 / 20'],
-        ['脱敏物流样本', '已脱敏', '—', '运输中', '当前快照', '1 / 20'],
-        ['脱敏物流样本', '已脱敏', '—', '离开仓库', '当前快照', '1 / 20'],
-      ],
-    },
-    tariff: {
-      state: '工具已验证',
-      metrics: [['目标国家', '审计样本', 'US'], ['商品归类', '工具成功返回', '可用'], ['税费金额', '未保存到 Demo', '—']],
-      facts: ['关税工具已完成一次只读验证', '目的国样本为美国', '商品归类字段成功返回', '测算结果仅作辅助，不能替代海关结论'],
-      rows: [['脱敏商品样本', 'US', '已返回 · 未保存', '未保存', '未保存', '仅作辅助测算']],
-    },
-  },
-  risk: {
-    health: {
-      state: '已读取 · 双层口径',
-      metrics: [['当前风险商品', '2026-09-02 快照', '0'], ['累计处罚分', '历史记录层', '24'], ['违规记录', '脱敏样本', '1']],
-      facts: ['今日处罚分 0', '当前整改任务 0', '当前欺诈订单 0', '历史层仍有 1 条 FCC 相关美国市场限制记录'],
-      rows: [['FCC 相关市场限制', '无线音频产品（已脱敏）', '历史记录', '历史层', '核对美国市场合规资料']],
-    },
-    violations: {
-      state: '已读取',
-      metrics: [['当前风险商品', '快照层', '0'], ['历史违规记录', '记录层', '1'], ['累计处罚分', '记录层', '24']],
-      facts: ['快照层与记录层并列展示', '存在历史记录不等于当前风险商品大于 0', '违规类型为 FCC 相关', '受影响市场为美国'],
-      rows: [['无线音频产品（已脱敏）', 'FCC 相关', '美国市场限制', '历史记录', '待人工核对资料']],
-    },
-    special: {
-      state: '部分可用',
-      metrics: [['拒付材料', '抽样订单返回', '0'], ['禁限售提交', '写命令未执行', '0'], ['主体核验', '需要明确业务对象', '—']],
-      facts: ['抽样订单没有拒付材料', '禁限售分析需要提交型命令产生 uniqueKey', '本轮未执行任何提交型命令', '供应商主体核验按具体对象发起'],
-      rows: [['拒付材料', '脱敏订单样本', '没有材料', '真实空', '无需处理']],
-    },
-  },
-  storefront: {
-    pages: {
-      state: '已读取 · 真实为空',
-      metrics: [['公司资料', '基础信息接口', '可用'], ['Accio Work 页面', '列表返回', '0'], ['云端页面', 'get-cloud 返回', '0']],
-      facts: ['companyId 可读取但不保存到 Demo', '公司装修资料可读取', '当前页面列表为 0', '当前没有可复用模板或任务 ID'],
-      rows: [],
-      empty: '账号当前没有可读取的页面版本；这是平台真实空状态。',
-    },
-    builder: {
-      state: '前置已读取',
-      metrics: [['公司资料', '平台返回', '可用'], ['现成模板 ID', '当前账号没有', '0'], ['现成任务 ID', '当前账号没有', '0']],
-      facts: ['公司资料接口可用', '没有现成模板 ID', '没有现成生成任务', '创建预览和完整网站均属于写操作'],
-      rows: [],
-      empty: '没有可复用的云端建站任务；本轮未创建新任务。',
-    },
-    publish: {
-      state: '真实空状态',
-      metrics: [['线上页面', '当前列表', '0'], ['发布记录', '当前返回', '0'], ['已执行发布', '写命令未执行', '0']],
-      facts: ['没有当前线上版本可供展示', '没有发布记录', '发布必须确认页面版本与账号', '本轮未执行发布命令'],
-      rows: [],
-      empty: '当前没有发布记录；发布动作保持禁用。',
-    },
-  },
-  assets: {
-    images: {
-      state: '已读取 · 任务为空',
-      metrics: [['公共素材库', '3D gallery 可读取', '有内容'], ['图片生成任务', '没有现成任务 ID', '0'], ['视频生成任务', '没有现成任务 ID', '0']],
-      facts: ['公共 3D 素材库接口可用', '自有图片任务为 0', '自有视频任务为 0', '未发起任何生成或上传'],
-      rows: [],
-      empty: '没有现成 AI 图片任务；公共素材库与自有任务必须分开显示。',
-    },
-    video: {
-      state: '真实空状态',
-      metrics: [['视频方案', '本轮未生成', '0'], ['视频任务', '无现成任务 ID', '0'], ['可用成片', '无现成任务', '0']],
-      facts: ['视频能力 Schema 已核对', '没有现成视频生成任务', '没有调用生成写命令', '未来用 taskId / orderId 跟踪结果'],
-      rows: [],
-      empty: '当前没有可读取的视频生成任务。',
-    },
-    models: {
-      state: '已读取',
-      metrics: [['3D 资格接口', '成功读取', '可用'], ['自有 3D 模型', '模型列表', '0'], ['样本商品关联', 'product-model-query', '否']],
-      facts: ['3D 资格查询可用', '公共图库有内容', '自有模型列表为 0', '脱敏样本商品尚未关联模型'],
-      rows: [],
-      empty: '当前账号没有自有 3D 模型；公共图库模型不冒充自有资产。',
-    },
-    tasks: {
-      state: '真实空状态',
-      metrics: [['图片任务', '现成任务', '0'], ['视频任务', '现成任务', '0'], ['自有 3D 模型', '现成资产', '0']],
-      facts: ['没有现成图片 taskId', '没有现成视频 orderId', '没有自有 3D modelId', '本轮没有执行生成类写命令'],
-      rows: [],
-      empty: '当前没有可追踪的异步生成任务。',
-    },
-  },
-  knowledge: {
-    knowledge: {
-      state: '已读取',
-      metrics: [['FAQ 知识切片', '平台公共知识', '20'], ['商家知识查询', '接口验证', '可用'], ['接待策略', '两类合计', '23']],
-      facts: ['公共 FAQ 知识切片共 20 条', '商家自定义知识可按问题查询', '聊天辅助接待策略 11 条', '自动接待策略 12 条'],
-      rows: [
-        ['平台 FAQ', '20 条知识切片', '国际站业务问答', '公共知识', '当前快照'],
-        ['商家自定义知识', '按问题检索', '店铺个性化回复', '卖家知识', '接口可用'],
-      ],
-    },
-    strategies: {
-      state: '已读取',
-      metrics: [['辅助接待策略', 'CHAT_RECEPTION', '11'], ['自动接待策略', 'AUTO_RECEPTION', '12'], ['策略总数', '两类合计', '23']],
-      facts: ['辅助接待 11 条', '自动接待 12 条', '本轮只读列表', '新增、更新、删除均未执行'],
-      rows: [['辅助接待策略', 'CHAT_RECEPTION', '11 条', '当前快照', '只读'], ['自动接待策略', 'AUTO_RECEPTION', '12 条', '当前快照', '只读']],
-    },
-    quality: {
-      state: '已读取',
-      metrics: [['首次回复率', '店铺经营口径', '97.34%'], ['平均回复时长', '店铺经营口径', '3.74 小时'], ['店铺诊断行', '服务诊断返回', '7']],
-      facts: ['首次回复率 97.34%', '平均回复时长 3.74 小时', '店铺维度诊断 7 行', '账号维度诊断 9 行'],
-      rows: [['首次回复率', '97.34%', '平台诊断口径', '—', '结合未回复会话复盘'], ['平均回复时长', '3.74 小时', '平台诊断口径', '—', '结合班次安排复盘']],
-    },
-  },
-  access: {
-    accounts: {
-      state: '已读取 · 已脱敏',
-      metrics: [['成员账号', 'member list', '9'], ['联系人', 'query-contact', '100'], ['受限接口', 'list-contact', '1']],
-      facts: ['成员账号共 9 个', '联系人查询返回 100 条', '真实姓名与账号标识不写入 Demo', 'list-contact 返回 no privilege'],
-      rows: [
-        ['匿名账号 01–09', '已脱敏', '平台字段可用', '经营账号可关联', '客服诊断可关联'],
-        ['联系人目录', '100 条 · 已脱敏', '—', 'query-contact 可用', 'list-contact 无权限'],
-      ],
-    },
-    matrix: {
-      state: '只读事实层',
-      metrics: [['成员账号', '平台事实源', '9'], ['权限模型接口', '尚未发现', '0'], ['保存权限', '写操作不可用', '0']],
-      facts: ['WorkCTL 可读取账号目录', '没有证据证明可维护自定义角色', '没有权限保存接口', '数据范围需由本系统另建模型'],
-      rows: [['平台账号目录', '成员与管理员字段', '账号级', '不可编辑', 'workctl member list']],
-    },
-    audit: {
-      state: '本地审计边界',
-      metrics: [['只读命令尝试', '本轮审计', '123'], ['成功', '含真实空结果', '112'], ['写命令执行', '本轮', '0']],
-      facts: ['123 个只读命令完成实跑尝试', '112 个成功', '11 个因权限或缺少上下文受阻', '生成、发布、发送、删除等写命令为 0'],
-      rows: [['本轮 WorkCTL 审计', '124 个查询 Schema', '当前账号', '2026-09-02', '112 成功 / 11 受阻 / 1 仅 Schema', '已脱敏']],
-    },
-  },
-};
+
 
 /**
  * 把状态分布渲染成可比较的横向刻度，而不是把每个数字拆成孤立卡片。
@@ -5408,77 +6184,7 @@ function renderOnePageDistribution(distribution = [], tone = 'order') {
  */
 function renderOrdersOnePage() {
   const root = $('#blueprint-orders');
-  if (!root) return;
-  const orders = MODULE_LIVE_DEMO.orders.orders;
-  const logistics = MODULE_LIVE_DEMO.orders.logistics;
-  const tariff = MODULE_LIVE_DEMO.orders.tariff;
-  const totalOrders = orders.metrics[0][2];
-  const unpaidOrders = orders.metrics[2][2];
-  const totalLogistics = logistics.metrics[0][2];
-
-  root.innerHTML = `
-    <section class="one-page-hero one-page-orders-hero">
-      <div>
-        <span class="section-kicker">交易保障 · 连续工作台</span>
-        <h2>从合同到妥投，一页看清履约节奏</h2>
-        <p>先识别需要跟进的交易状态，再核对物流节点；关税测算保留为需要时调用的辅助工具。</p>
-      </div>
-      <div class="one-page-snapshot" role="status"><i class="ri-database-2-line" aria-hidden="true"></i><span><b>脱敏审计快照</b><small>2026-09-02 · 只读</small></span></div>
-      <ol class="one-page-route" aria-label="订单履约查看顺序"><li>合同状态</li><li>物流节点</li><li>异常核对</li><li>关税复核</li></ol>
-    </section>
-
-    <section class="one-page-metric-band" aria-label="订单与物流核心指标">
-      <article><span>交易合同</span><strong>${esc(totalOrders)}</strong><small>平台列表总量</small></article>
-      <article class="is-attention"><span>未付款</span><strong>${esc(unpaidOrders)}</strong><small>前 20 条样本</small></article>
-      <article><span>物流记录</span><strong>${esc(totalLogistics)}</strong><small>平台列表总量</small></article>
-      <article class="is-stable"><span>妥投成功</span><strong>16/20</strong><small>物流样本状态</small></article>
-    </section>
-
-    <section class="one-page-focus-grid" aria-label="订单与物流关注事项">
-      <div class="one-page-priority-list">
-        <div class="one-page-section-heading"><div><span class="section-kicker">优先处理</span><h3>今天先看这三类状态</h3></div><span class="data-state is-live">基于样本分布</span></div>
-        <article><em>01</em><div><b>跟进未付款合同</b><p>前 20 条合同中有 4 条未付款；先确认付款安排，不在本页修改订单状态。</p></div><strong>4</strong></article>
-        <article><em>02</em><div><b>核对待确认收货</b><p>2 条合同处于待确认收货；与物流妥投状态交叉核对后再人工跟进。</p></div><strong>2</strong></article>
-        <article><em>03</em><div><b>查明关闭或终止原因</b><p>物流样本中关闭 1 条、终止 1 条；需要回到平台详情确认原因。</p></div><strong>2</strong></article>
-      </div>
-      <div class="one-page-distribution-panel">
-        <div class="one-page-section-heading"><div><span class="section-kicker">状态结构</span><h3>合同样本 20 条</h3></div></div>
-        ${renderOnePageDistribution(orders.distribution, 'order')}
-      </div>
-      <div class="one-page-distribution-panel">
-        <div class="one-page-section-heading"><div><span class="section-kicker">履约结构</span><h3>物流样本 20 条</h3></div></div>
-        ${renderOnePageDistribution(logistics.distribution, 'logistics')}
-      </div>
-    </section>
-
-    <section class="one-page-ledger" aria-label="订单与物流脱敏明细">
-      <div class="one-page-section-heading"><div><span class="section-kicker">证据台账</span><h3>合同与物流并排核对</h3><p>当前只保存状态汇总，不在浏览器保存买家、合同号或物流单号。</p></div><span class="data-state is-live">脱敏展示</span></div>
-      <div class="one-page-ledger-grid">
-        <div><b class="one-page-ledger-title"><i class="ri-file-list-3-line" aria-hidden="true"></i>交易合同</b><table><thead><tr><th>状态</th><th>样本数</th><th>运营动作</th></tr></thead><tbody>
-          <tr><td>未付款</td><td>4 / 20</td><td>核对付款安排</td></tr>
-          <tr><td>待确认收货</td><td>2 / 20</td><td>关联物流节点</td></tr>
-          <tr><td>意向处理中</td><td>1 / 20</td><td>确认下一步</td></tr>
-          <tr><td>交易成功</td><td>2 / 20</td><td>进入履约复盘</td></tr>
-        </tbody></table></div>
-        <div><b class="one-page-ledger-title"><i class="ri-truck-line" aria-hidden="true"></i>国际物流</b><table><thead><tr><th>状态</th><th>样本数</th><th>运营动作</th></tr></thead><tbody>
-          <tr><td>妥投成功</td><td>16 / 20</td><td>等待交易闭环</td></tr>
-          <tr><td>运输中</td><td>1 / 20</td><td>持续观察轨迹</td></tr>
-          <tr><td>离开仓库</td><td>1 / 20</td><td>核对首程节点</td></tr>
-          <tr><td>关闭 / 终止</td><td>2 / 20</td><td>回平台确认原因</td></tr>
-        </tbody></table></div>
-      </div>
-    </section>
-
-    <section class="one-page-tool-strip" aria-label="关税测算能力">
-      <div class="one-page-tool-icon"><i class="ri-scales-3-line" aria-hidden="true"></i></div>
-      <div><span class="section-kicker">需要时使用</span><h3>目的国关税测算</h3><p>${esc(tariff.facts[0])}，审计样本目的国为美国，归类结果已返回；金额未保存，结果只作辅助，不能替代海关结论。</p></div>
-      <span class="data-state is-live">工具已验证</span>
-    </section>
-
-    <footer class="one-page-evidence-footer">
-      <div><span class="section-kicker">数据依据</span><p>交易合同列表 · 国际站物流订单 · 商品详情 · 目的国关税测算</p></div>
-      <div class="one-page-boundary"><i class="ri-shield-check-line" aria-hidden="true"></i><p><b>能力边界</b> 当前没有创建订单、发货确认、退款、取消或修改状态能力；本页只做查询与辅助判断。</p></div>
-    </footer>`;
+  if (root) root.innerHTML = liveWorkspaceState('实时数据', '正在等待当前账号查询；不展示历史样本。');
 }
 
 /**
@@ -5493,67 +6199,13 @@ function renderOrdersOnePage() {
  */
 function renderRiskOnePage() {
   const root = $('#blueprint-risk');
-  if (!root) return;
-  const health = MODULE_LIVE_DEMO.risk.health;
-  const special = MODULE_LIVE_DEMO.risk.special;
-
-  root.innerHTML = `
-    <section class="one-page-hero one-page-risk-hero">
-      <div>
-        <span class="section-kicker">风险治理 · 双层口径</span>
-        <h2>当前没有风险商品，不等于没有历史记录</h2>
-        <p>把当前健康快照和历史违规证据并列呈现，再决定是否需要专项核对或准备材料。</p>
-      </div>
-      <div class="one-page-snapshot" role="status"><i class="ri-shield-check-line" aria-hidden="true"></i><span><b>脱敏审计快照</b><small>2026-09-02 · 只读</small></span></div>
-      <ol class="one-page-route" aria-label="风险合规查看顺序"><li>当前快照</li><li>历史记录</li><li>专项核对</li><li>人工处置</li></ol>
-    </section>
-
-    <section class="risk-two-layer" aria-label="当前风险与历史记录">
-      <div class="risk-current-layer">
-        <div class="one-page-section-heading"><div><span class="section-kicker">当前快照</span><h3>店铺当前风险状态</h3></div><span class="risk-clean-label"><i class="ri-checkbox-circle-line" aria-hidden="true"></i>当前层无待办</span></div>
-        <div class="risk-zero-grid">
-          <article><strong>0</strong><span>风险商品</span></article>
-          <article><strong>0</strong><span>今日处罚分</span></article>
-          <article><strong>0</strong><span>整改任务</span></article>
-          <article><strong>0</strong><span>欺诈订单</span></article>
-          <article><strong>0</strong><span>知识产权记录</span></article>
-        </div>
-      </div>
-      <div class="risk-history-layer">
-        <div><span class="section-kicker">历史记录层</span><h3>仍需保留的合规证据</h3><p>记录层不会因当前快照归零而消失。</p></div>
-        <div class="risk-history-score"><strong>24</strong><span>累计处罚分</span></div>
-        <div class="risk-history-count"><strong>1</strong><span>条脱敏违规记录</span></div>
-      </div>
-    </section>
-
-    <section class="risk-evidence-record" aria-label="历史违规记录">
-      <div class="risk-record-severity">历史记录</div>
-      <div class="risk-record-main"><span class="section-kicker">需要人工核对</span><h3>FCC 相关美国市场限制</h3><p>影响对象：无线音频产品（已脱敏）。建议核对美国市场合规资料和平台处罚结果，不在本页推断申诉结论。</p></div>
-      <dl><div><dt>影响市场</dt><dd>美国</dd></div><div><dt>记录类型</dt><dd>FCC 相关</dd></div><div><dt>当前处理</dt><dd>待人工核对资料</dd></div></dl>
-    </section>
-
-    <section class="risk-special-grid" aria-label="专项风险能力">
-      <div class="one-page-section-heading"><div><span class="section-kicker">专项核对</span><h3>按业务对象调用，不自动执行</h3></div><span class="data-state">部分可用</span></div>
-      <article class="is-empty"><i class="ri-bank-card-line" aria-hidden="true"></i><div><b>拒付材料</b><p>抽样订单没有拒付材料，这是该样本的真实空结果。</p></div><span>0</span></article>
-      <article><i class="ri-forbid-2-line" aria-hidden="true"></i><div><b>禁限售分析</b><p>需要提交型命令生成查询标识；本轮没有执行。</p></div><span>未执行</span></article>
-      <article><i class="ri-building-2-line" aria-hidden="true"></i><div><b>供应商主体核验</b><p>需要先指定具体供应商，再读取候选主体与核验报告。</p></div><span>待选择</span></article>
-    </section>
-
-    <section class="risk-proof-path" aria-label="风险处理证据链">
-      <div class="one-page-section-heading"><div><span class="section-kicker">处理路径</span><h3>从发现到人工处置</h3><p>每一步保留来源，避免把系统提示直接当最终合规结论。</p></div></div>
-      <ol><li><b>01</b><span>店铺扫描</span><small>当前风险快照</small></li><li><b>02</b><span>记录定位</span><small>商品与店铺违规</small></li><li><b>03</b><span>规则核对</span><small>处罚结果与品牌词</small></li><li><b>04</b><span>人工处置</span><small>申诉或整改在线下确认</small></li></ol>
-    </section>
-
-    <footer class="one-page-evidence-footer risk-evidence-footer">
-      <div><span class="section-kicker">数据依据</span><p>店铺风险诊断 · 商品违规 · 店铺违规 · 商品处罚结果 · 风险品牌词</p></div>
-      <div class="one-page-boundary"><i class="ri-shield-check-line" aria-hidden="true"></i><p><b>能力边界</b> 当前页面可以查询风险与准备材料，但没有提交申诉、撤销违规或修改风险状态的能力。</p></div>
-    </footer>`;
+  if (root) root.innerHTML = liveWorkspaceState('实时数据', '正在等待当前账号查询；不展示历史样本。');
 }
 
 /**
  * 从某个审计模块的 metrics 中按名称读取展示值。
  *
- * @param {object} section - MODULE_LIVE_DEMO 中的一个子模块。
+ * @param {object} section - 实时接口结果 中的一个子模块。
  * @param {string} label - 指标中文名称，例如“成员账号”。
  * @param {string} [fallback='—'] - 找不到指标时显示的安全占位符。
  * @returns {string} 指标的脱敏展示值。
@@ -5656,39 +6308,7 @@ function liveField(record, keys, fallback = '—') {
  * @returns {void} 将页面资产、生成前置与发布边界连续写入店铺装修容器。
  * @throws {Error} DOM 容器缺失时安全返回。
  */
-function renderStorefrontOnePageLegacy() {
-  const root = $('#blueprint-storefront');
-  if (!root) return;
-  const pages = MODULE_LIVE_DEMO.storefront.pages;
 
-  root.innerHTML = `
-    <section class="one-page-hero storefront-one-page-hero">
-      <div><span class="section-kicker">店铺装修 · 首页规划</span><h2>把公司资料变成一套能接住买家的店铺首页</h2><p>从首屏主张、主营类目到公司实力和询盘入口，一页看清首页应该展示什么、还缺什么。</p></div>
-      <div class="one-page-snapshot" role="status"><i class="ri-layout-4-line" aria-hidden="true"></i><span><b>当前店铺状态</b><small>公司资料已读取 · 页面待创建</small></span></div>
-      <ol class="one-page-route" aria-label="店铺装修查看顺序"><li>品牌定位</li><li>首页结构</li><li>素材准备</li><li>预览发布</li></ol>
-    </section>
-
-    <section class="storefront-readiness" aria-label="店铺装修准备状态">
-      <article class="is-ready"><span>01</span><div><b>公司基础资料</b><p>名称、简介等可用于页面</p></div><em>已就绪</em></article>
-      <article class="is-ready"><span>02</span><div><b>首页结构</b><p>5 个核心区域已规划</p></div><em>5</em></article>
-      <article><span>03</span><div><b>装修素材</b><p>主视觉、产品图、资质图待选择</p></div><em>待准备</em></article>
-      <article><span>04</span><div><b>页面版本</b><p>创建预览后开始记录</p></div><em>${esc(moduleMetricValue(pages, 'Accio Work 页面', '0'))}</em></article>
-    </section>
-
-    <section class="storefront-planner" aria-label="店铺首页装修规划">
-      <aside class="storefront-module-list"><div><span class="section-kicker">首页结构</span><h3>建议展示顺序</h3><p>先讲清楚卖什么，再证明为什么值得合作。</p></div><ol><li class="is-current"><b>01</b><span>首屏主视觉<small>一句话定位 + 主推行动</small></span></li><li><b>02</b><span>主营类目<small>帮助买家快速分流</small></span></li><li><b>03</b><span>核心产品<small>展示重点款与应用场景</small></span></li><li><b>04</b><span>公司实力<small>工厂、认证、交付与服务</small></span></li><li><b>05</b><span>联系转化<small>承接询盘与定制需求</small></span></li></ol></aside>
-      <div class="storefront-preview-shell"><div class="storefront-preview-toolbar"><span><i></i><i></i><i></i></span><b>店铺首页预览草图</b><em>桌面端</em></div><div class="storefront-preview-hero"><span>品牌主张</span><h3>用一句话说清楚<br>你的核心产品与优势</h3><p>这里将组合公司资料、主营类目和买家最关心的交付能力。</p><button type="button" data-storefront-jump="product-publish">准备核心产品</button></div><div class="storefront-preview-categories"><span>主营类目 A</span><span>主营类目 B</span><span>主营类目 C</span></div><div class="storefront-preview-products"><article><i class="ri-image-line"></i><b>重点产品位</b><small>主图与卖点待选择</small></article><article><i class="ri-image-line"></i><b>场景产品位</b><small>应用图与参数待选择</small></article><article><i class="ri-image-line"></i><b>新品推荐位</b><small>新品与定制能力待选择</small></article></div></div>
-      <aside class="storefront-checklist"><div><span class="section-kicker">装修清单</span><h3>发布前要补齐</h3></div><ul><li class="is-done"><i class="ri-check-line"></i><span><b>公司基础资料</b><small>已经可以读取</small></span></li><li><i class="ri-image-add-line"></i><span><b>首屏主视觉</b><small>建议准备桌面与移动两版</small></span></li><li><i class="ri-price-tag-3-line"></i><span><b>主营类目映射</b><small>确定 3–6 个买家入口</small></span></li><li><i class="ri-award-line"></i><span><b>实力与信任证明</b><small>工厂、认证、质检与交付</small></span></li><li><i class="ri-smartphone-line"></i><span><b>移动端检查</b><small>标题与按钮不能被裁切</small></span></li></ul></aside>
-    </section>
-
-    <section class="storefront-asset-plan" aria-label="首页内容资产规划"><div class="one-page-section-heading"><div><span class="section-kicker">内容资产</span><h3>一套首页需要的四类证明</h3><p>页面不是只放商品图，还要回答买家对能力、质量和交付的疑问。</p></div><span class="data-state">待补充素材</span></div><div><article><i class="ri-building-4-line"></i><b>企业与工厂</b><p>厂房、生产线、团队与关键设备。</p><small>建议 6–10 张</small></article><article><i class="ri-shield-check-line"></i><b>质量与认证</b><p>检测流程、证书和质量标准。</p><small>建议 3–6 项</small></article><article><i class="ri-truck-line"></i><b>交付与包装</b><p>包装方案、产能、交期与物流。</p><small>建议 4–8 张</small></article><article><i class="ri-customer-service-2-line"></i><b>服务与定制</b><p>OEM/ODM、打样和售后流程。</p><small>建议 3–5 项</small></article></div></section>
-
-    <section class="single-page-stage-line" aria-label="店铺装修执行链路"><div class="one-page-section-heading"><div><span class="section-kicker">装修进度</span><h3>从资料到上线的四个阶段</h3></div><span class="data-state">当前在第 1 阶段</span></div><ol><li class="is-done"><b>01</b><span>整理公司资料</span><small>基础资料已就绪</small></li><li><b>02</b><span>选择产品与素材</span><small>建立首页内容清单</small></li><li><b>03</b><span>生成并检查预览</span><small>桌面与移动端核对</small></li><li><b>04</b><span>确认页面版本</span><small>确认后再发布</small></li></ol></section>
-
-    <footer class="one-page-evidence-footer"><div><span class="section-kicker">当前说明</span><p>页面结构和素材清单已经展开；当前账号还没有已创建的装修版本，因此预览区展示的是待填充框架。</p></div><div class="one-page-boundary"><i class="ri-shield-check-line" aria-hidden="true"></i><p><b>发布保护</b> 生成或发布页面前仍需选择素材并单独确认，不会自动修改线上店铺。</p></div></footer>`;
-
-  root.querySelector('[data-storefront-jump]')?.addEventListener('click', () => switchTab('product-publish'));
-}
 
 /**
  * 渲染素材工坊的一页式能力与资产工作台。
@@ -5699,47 +6319,7 @@ function renderStorefrontOnePageLegacy() {
  * @returns {void} 将图片、视频、3D 和任务中心合并为连续单页。
  * @throws {Error} DOM 容器缺失时安全返回。
  */
-function renderAssetsOnePageLegacy() {
-  const root = $('#blueprint-assets');
-  if (!root) return;
-  const models = MODULE_LIVE_DEMO.assets.models;
-  const tasks = MODULE_LIVE_DEMO.assets.tasks;
-  const tools = [
-    ['main-image', '商品主图', '统一背景与版式', 'ri-layout-masonry-line'],
-    ['scene', '场景图', '把产品放入使用场景', 'ri-landscape-line'],
-    ['color', '颜色变体', '快速生成多色展示', 'ri-palette-line'],
-    ['model', '模特展示', '生成人物佩戴或使用图', 'ri-user-smile-line'],
-    ['poster', '营销海报', '组合卖点、参数与行动文案', 'ri-advertisement-line'],
-    ['translate', '图片翻译', '替换图片中的语言内容', 'ri-translate-2'],
-    ['video', '商品视频', '先形成分镜，再生成成片', 'ri-movie-2-line'],
-    ['3d', '3D 模型', '从视频创建可旋转模型', 'ri-shape-2-line'],
-  ];
 
-  root.innerHTML = `
-    <section class="one-page-hero assets-one-page-hero"><div><span class="section-kicker">素材工坊 · 创作工作台</span><h2>从一张产品图开始，完成图片、视频和 3D 素材</h2><p>先选商品与原始素材，再选创作工具、检查参数，结果统一进入任务与资产区。</p></div><div class="one-page-snapshot" role="status"><i class="ri-magic-line" aria-hidden="true"></i><span><b>8 类创作能力</b><small>当前未发起生成任务</small></span></div><ol class="one-page-route" aria-label="素材生产查看顺序"><li>选择商品</li><li>导入原图</li><li>选择工具</li><li>保存结果</li></ol></section>
-
-    <section class="asset-inventory-band" aria-label="素材能力与资产概览"><article class="is-ready"><span>图片创作工具</span><strong>6</strong><small>主图、场景、换色、模特等</small></article><article class="is-ready"><span>视频创作工具</span><strong>1</strong><small>提示词、分镜与成片</small></article><article class="is-ready"><span>3D 创作资格</span><strong>${esc(moduleMetricValue(models, '3D 资格接口', '可用'))}</strong><small>可进入模型生成流程</small></article><article><span>自有 3D 模型</span><strong>${esc(moduleMetricValue(models, '自有 3D 模型', '0'))}</strong><small>生成后在资产区沉淀</small></article><article><span>进行中任务</span><strong>0</strong><small>当前没有排队任务</small></article></section>
-
-    <section class="asset-workbench" aria-label="素材创作工作台"><div class="asset-tool-shelf"><div class="one-page-section-heading"><div><span class="section-kicker">创作工具</span><h3>这次想做什么？</h3></div><span class="data-state">选择 1 项</span></div><div class="asset-tool-grid">${tools.map((tool, index) => `<button type="button" class="${index === 0 ? 'is-selected' : ''}" data-asset-tool="${tool[0]}" data-asset-name="${tool[1]}"><i class="${tool[3]}" aria-hidden="true"></i><span><b>${tool[1]}</b><small>${tool[2]}</small></span><em>${index === 0 ? '已选择' : '选择'}</em></button>`).join('')}</div></div><div class="asset-compose-panel"><div class="asset-compose-head"><span class="section-kicker">本次创作</span><h3 id="assetToolName">商品主图</h3><p>选择一个店铺商品，并导入清晰的原始图片。</p></div><div class="asset-source-drop"><i class="ri-image-add-line" aria-hidden="true"></i><b>原始素材区</b><p>支持从店铺商品选择，也可以使用本地图片。</p><span>建议：主体完整、背景清晰、分辨率不低于 1000px</span></div><dl><div><dt>画面比例</dt><dd>1:1 商品主图</dd></div><div><dt>生成数量</dt><dd>4 个方案</dd></div><div><dt>品牌元素</dt><dd>生成前确认 Logo 与文字</dd></div><div><dt>结果去向</dt><dd>我的素材</dd></div></dl><button type="button" class="asset-prepare-button" data-asset-prepare>选择商品素材</button></div></section>
-
-    <section class="asset-output-guide" aria-label="素材结果分类"><div class="one-page-section-heading"><div><span class="section-kicker">资产归档</span><h3>生成结果按用途保存</h3><p>同一素材可以继续用于发品、店铺装修或广告内容。</p></div></div><div><article><span>01</span><i class="ri-product-hunt-line"></i><b>商品素材</b><p>主图、详情图、颜色图、规格图</p></article><article><span>02</span><i class="ri-store-2-line"></i><b>店铺素材</b><p>首页横幅、类目入口、实力证明</p></article><article><span>03</span><i class="ri-megaphone-line"></i><b>营销素材</b><p>活动海报、社媒图、广告视频</p></article><article><span>04</span><i class="ri-shape-line"></i><b>立体资产</b><p>3D 模型、默认机位、商品关联</p></article></div></section>
-
-    <section class="asset-task-empty" aria-label="素材任务中心"><div class="asset-task-radar" aria-hidden="true"><i></i><i></i><i></i><span>0</span></div><div><span class="section-kicker">最近任务</span><h3>还没有生成记录</h3><p>${esc(tasks.empty)} 选择商品和创作工具后，这里会显示排队、生成、完成或失败状态。</p></div><span class="data-state">等待首次创作</span></section>
-
-    <footer class="one-page-evidence-footer"><div><span class="section-kicker">当前说明</span><p>创作能力和操作入口已经展开；“最近任务”为 0，只表示当前账号没有历史生成记录。</p></div><div class="one-page-boundary"><i class="ri-shield-check-line" aria-hidden="true"></i><p><b>执行保护</b> 真正生成前会再次确认素材、数量和可能产生的费用，本页不会自动发起任务。</p></div></footer>`;
-
-  root.querySelectorAll('[data-asset-tool]').forEach(button => {
-    button.addEventListener('click', () => {
-      root.querySelectorAll('[data-asset-tool]').forEach(item => {
-        const selected = item === button;
-        item.classList.toggle('is-selected', selected);
-        item.querySelector('em').textContent = selected ? '已选择' : '选择';
-      });
-      $('#assetToolName').textContent = button.dataset.assetName;
-    });
-  });
-  root.querySelector('[data-asset-prepare]')?.addEventListener('click', () => switchTab('product-publish'));
-}
 
 /**
  * 渲染知识库与接待的一页式“知识到服务”闭环。
@@ -5750,50 +6330,7 @@ function renderAssetsOnePageLegacy() {
  * @returns {void} 将知识、策略和质量诊断连续写入同一页面。
  * @throws {Error} DOM 容器缺失时安全返回。
  */
-function renderKnowledgeOnePageLegacy() {
-  const root = $('#blueprint-knowledge');
-  if (!root) return;
-  const knowledge = MODULE_LIVE_DEMO.knowledge.knowledge;
-  const strategies = MODULE_LIVE_DEMO.knowledge.strategies;
-  const quality = MODULE_LIVE_DEMO.knowledge.quality;
-  const topics = [
-    ['付款方式', '公共知识可引用', '店铺收款口径待补充', 'ri-bank-card-line'],
-    ['起订量与样品', '商家知识可检索', '建议核对不同产品规则', 'ri-box-3-line'],
-    ['价格与报价', '接待策略覆盖', '报价有效期需业务确认', 'ri-money-dollar-circle-line'],
-    ['交期与产能', '商家知识可检索', '建议按产品建立交期口径', 'ri-calendar-check-line'],
-    ['包装与定制', '商家知识可检索', '建议补充包装选项与费用', 'ri-archive-line'],
-    ['物流与关税', '公共知识可引用', '具体线路需按订单确认', 'ri-truck-line'],
-    ['售后与质保', '商家知识可检索', '建议明确质保范围', 'ri-service-line'],
-    ['认证与合规', '公共知识可引用', '证书需关联具体产品', 'ri-shield-check-line'],
-  ];
 
-  root.innerHTML = `
-    <section class="one-page-hero knowledge-one-page-hero"><div><span class="section-kicker">知识库与接待 · 内容运营</span><h2>买家问什么、应该怎么答、哪里还需要补知识</h2><p>把常见业务问题、店铺回复口径、自动接待策略和服务表现放在一页管理。</p></div><div class="one-page-snapshot" role="status"><i class="ri-book-open-line" aria-hidden="true"></i><span><b>知识与策略已接入</b><small>公共知识 20 · 接待策略 23</small></span></div><ol class="one-page-route" aria-label="知识接待闭环"><li>知识主题</li><li>回复口径</li><li>接待策略</li><li>服务复盘</li></ol></section>
-
-    <section class="knowledge-metric-line" aria-label="知识与服务核心指标"><article><span>公共 FAQ</span><strong>${esc(moduleMetricValue(knowledge, 'FAQ 知识切片', '20'))}</strong><small>国际站业务知识切片</small></article><article><span>商家知识查询</span><strong>${esc(moduleMetricValue(knowledge, '商家知识查询', '可用'))}</strong><small>按问题检索</small></article><article><span>接待策略</span><strong>${esc(moduleMetricValue(strategies, '策略总数', '23'))}</strong><small>辅助 11 + 自动 12</small></article><article class="is-quality"><span>首次回复率</span><strong>${esc(moduleMetricValue(quality, '首次回复率', '97.34%'))}</strong><small>店铺诊断口径</small></article><article class="is-quality"><span>平均回复时长</span><strong>${esc(moduleMetricValue(quality, '平均回复时长', '3.74 小时'))}</strong><small>店铺诊断口径</small></article></section>
-
-    <section class="knowledge-topic-workbench" aria-label="业务知识主题"><div class="knowledge-topic-head"><div><span class="section-kicker">业务知识地图</span><h3>8 类高频买家问题</h3><p>“可引用”代表已有来源，“待补充”代表还需要店铺给出自己的明确口径。</p></div><label><i class="ri-search-line"></i><span class="sr-only">筛选知识主题</span><input id="knowledgeTopicSearch" type="search" placeholder="筛选付款、交期、包装等主题"></label></div><div class="knowledge-topic-table" role="table"><div class="knowledge-topic-table-head" role="row"><span>知识主题</span><span>当前基础</span><span>建议补充</span></div>${topics.map(topic => `<article role="row" data-knowledge-topic="${esc(topic.join(' '))}"><span><i class="${topic[3]}" aria-hidden="true"></i><b>${topic[0]}</b></span><em>${topic[1]}</em><p>${topic[2]}</p></article>`).join('')}</div><p class="knowledge-topic-empty" id="knowledgeTopicEmpty" hidden>没有匹配主题，请换一个关键词。</p></section>
-
-    <section class="knowledge-reception-map" aria-label="接待策略场景"><div class="one-page-section-heading"><div><span class="section-kicker">接待场景</span><h3>从首次问候到成交后服务</h3><p>23 条现有策略分为辅助接待和自动接待，具体内容仍以平台策略列表为准。</p></div><span class="data-state is-live">23 条策略</span></div><ol><li><b>01</b><span>首次问候<small>识别国家、产品与采购意图</small></span></li><li><b>02</b><span>需求澄清<small>数量、规格、认证与交期</small></span></li><li><b>03</b><span>报价前确认<small>付款、包装、运输与样品</small></span></li><li><b>04</b><span>未回复跟进<small>控制频率并补充有效信息</small></span></li><li><b>05</b><span>成交后服务<small>订单节点、售后与复购</small></span></li></ol></section>
-
-    <section class="knowledge-operations-grid" aria-label="接待策略与服务诊断"><div class="knowledge-strategy-panel"><div class="one-page-section-heading"><div><span class="section-kicker">策略结构</span><h3>辅助接待与自动接待</h3></div><span class="data-state is-live">23 条</span></div><div class="knowledge-strategy-balance"><article><span>辅助接待</span><strong>11</strong><i><b style="width:47.8%"></b></i><small>业务员辅助回复</small></article><article><span>自动接待</span><strong>12</strong><i><b style="width:52.2%"></b></i><small>系统自动接待</small></article></div><p>策略内容已读取；本页暂不提供新增、编辑和删除。</p></div><div class="knowledge-quality-panel"><div class="one-page-section-heading"><div><span class="section-kicker">服务诊断</span><h3>回复效率与诊断覆盖</h3></div><span class="data-state is-live">已读取</span></div><dl><div><dt>首次回复率</dt><dd>97.34%</dd></div><div><dt>平均回复时长</dt><dd>3.74 小时</dd></div><div><dt>店铺诊断维度</dt><dd>7</dd></div><div><dt>账号诊断维度</dt><dd>9</dd></div></dl><p>诊断结果用于定位未回复会话、班次和沟通质量，不替代聊天明细复核。</p></div></section>
-
-    <section class="knowledge-improvement-path" aria-label="知识运营改进路径"><span class="section-kicker">持续改进</span><h3>知识库不是一次上传完成，而是从真实会话持续补齐</h3><ol><li><b>发现问题</b><span>从未回复、慢回复和质检记录中找到高频问题。</span></li><li><b>确认口径</b><span>由业务确认价格、交期、付款和售后等店铺规则。</span></li><li><b>补充知识</b><span>形成可检索、带来源、可复核的标准答案。</span></li><li><b>更新策略</b><span>决定哪些场景自动回复，哪些必须由业务员接管。</span></li></ol></section>
-
-    <footer class="one-page-evidence-footer"><div><span class="section-kicker">当前说明</span><p>页面已展示知识主题、策略结构和服务结果；现有接口支持检索，但完整的上传、编辑和版本管理还未接入。</p></div><div class="one-page-boundary"><i class="ri-shield-check-line" aria-hidden="true"></i><p><b>回复保护</b> 店铺没有确认的价格、交期和政策不能由系统自行编写，必须保留来源并允许业务复核。</p></div></footer>`;
-
-  const search = root.querySelector('#knowledgeTopicSearch');
-  search?.addEventListener('input', () => {
-    const keyword = search.value.trim().toLowerCase();
-    let visibleCount = 0;
-    root.querySelectorAll('[data-knowledge-topic]').forEach(row => {
-      const visible = !keyword || row.dataset.knowledgeTopic.toLowerCase().includes(keyword);
-      row.hidden = !visible;
-      if (visible) visibleCount += 1;
-    });
-    $('#knowledgeTopicEmpty').hidden = visibleCount > 0;
-  });
-}
 
 /**
  * 渲染账号与权限的一页式只读治理工作台。
@@ -5804,27 +6341,7 @@ function renderKnowledgeOnePageLegacy() {
  * @returns {void} 将账号目录、权限事实和审计边界连续写入同一页面。
  * @throws {Error} DOM 容器缺失时安全返回。
  */
-function renderAccessOnePageLegacy() {
-  const root = $('#blueprint-access');
-  if (!root) return;
-  const accounts = MODULE_LIVE_DEMO.access.accounts;
-  const audit = MODULE_LIVE_DEMO.access.audit;
 
-  root.innerHTML = `
-    <section class="one-page-hero access-one-page-hero"><div><span class="section-kicker">账号与权限 · 团队治理</span><h2>谁能看什么、谁能操作什么，一页说清楚</h2><p>先统一成员目录和业务账号映射，再按角色分配可见模块、数据范围与敏感操作。</p></div><div class="one-page-snapshot" role="status"><i class="ri-team-line" aria-hidden="true"></i><span><b>团队目录已读取</b><small>9 个成员 · 100 个联系人</small></span></div><ol class="one-page-route" aria-label="账号治理查看顺序"><li>成员目录</li><li>账号映射</li><li>角色方案</li><li>操作记录</li></ol></section>
-
-    <section class="access-fact-band" aria-label="账号与权限概览"><article class="is-ready"><span>团队成员</span><strong>${esc(moduleMetricValue(accounts, '成员账号', '9'))}</strong><small>主账号下的成员目录</small></article><article class="is-ready"><span>联系人目录</span><strong>${esc(moduleMetricValue(accounts, '联系人', '100'))}</strong><small>当前可正常读取</small></article><article><span>业务账号映射</span><strong>2 类</strong><small>经营数据与客服数据</small></article><article><span>角色方案</span><strong>4</strong><small>系统预设，等待配置</small></article><article class="is-safe"><span>敏感操作记录</span><strong>${esc(moduleMetricValue(audit, '写命令执行', '0'))}</strong><small>当前没有执行记录</small></article></section>
-
-    <section class="access-directory" aria-label="团队成员目录"><div class="one-page-section-heading"><div><span class="section-kicker">成员目录</span><h3>9 个账号的统一映射视图</h3><p>演示页面隐藏姓名和账号标识，但保留业务系统之间的关联状态。</p></div><span class="data-state is-live">目录已同步</span></div><div class="access-directory-head"><span>成员</span><span>平台账号</span><span>经营数据</span><span>客服数据</span><span>角色配置</span></div>${Array.from({ length: 9 }, (_, index) => `<article><span><i>${String(index + 1).padStart(2, '0')}</i><b>成员账号 ${String(index + 1).padStart(2, '0')}</b></span><em class="is-ready">已读取</em><em>可关联</em><em>可关联</em><em class="is-pending">待配置</em></article>`).join('')}</section>
-
-    <section class="access-role-matrix" aria-label="角色权限方案"><div class="one-page-section-heading"><div><span class="section-kicker">权限方案</span><h3>四种业务角色应该看到什么</h3><p>这是本系统的待配置方案，不代表平台已经授予这些权限。</p></div><span class="data-state">尚未启用</span></div><div class="access-matrix-table"><div class="access-matrix-head"><span>业务模块</span><b>店铺负责人</b><b>运营</b><b>业务员</b><b>设计师</b></div><div><span>经营总览与分析</span><em class="can-manage">管理</em><em class="can-view">查看</em><em class="can-view">查看自己</em><em class="is-none">不开放</em></div><div><span>产品发布</span><em class="can-manage">确认发布</em><em class="can-operate">编辑</em><em class="can-operate">准备资料</em><em class="can-operate">提供素材</em></div><div><span>客户与询盘</span><em class="can-manage">全部</em><em class="can-view">查看</em><em class="can-operate">负责客户</em><em class="is-none">不开放</em></div><div><span>店铺与素材</span><em class="can-manage">确认发布</em><em class="can-operate">编辑</em><em class="can-view">查看</em><em class="can-operate">创作</em></div><div><span>账号与权限</span><em class="can-manage">管理</em><em class="is-none">不开放</em><em class="is-none">不开放</em><em class="is-none">不开放</em></div></div><div class="access-matrix-legend"><span><i class="can-manage"></i>管理或最终确认</span><span><i class="can-operate"></i>可执行日常操作</span><span><i class="can-view"></i>只读查看</span><span><i class="is-none"></i>不开放</span></div></section>
-
-    <section class="access-sensitive-rules" aria-label="敏感操作规则"><div><span class="section-kicker">敏感操作保护</span><h3>这些动作不能只靠“能看到页面”决定</h3></div><div><article><i class="ri-send-plane-line"></i><span><b>正式发布</b><small>必须明确选择对象并二次确认</small></span><em>强确认</em></article><article><i class="ri-stack-line"></i><span><b>批量修改</b><small>显示影响数量与执行范围</small></span><em>强确认</em></article><article><i class="ri-delete-bin-line"></i><span><b>删除操作</b><small>没有明确能力时不提供入口</small></span><em>默认关闭</em></article><article><i class="ri-file-history-line"></i><span><b>操作记录</b><small>保留执行账号、确认信息和结果</small></span><em>应记录</em></article></div></section>
-
-    <section class="access-connection-note"><i class="ri-checkbox-circle-line" aria-hidden="true"></i><div><b>联系人目录当前可正常读取</b><p>底层存在不同读取方式，其中一个旧入口对当前账号未开放；页面已经使用可用方式返回 100 条联系人。这类技术差异由系统内部处理，不再直接显示英文错误。</p></div></section>
-
-    <footer class="one-page-evidence-footer"><div><span class="section-kicker">当前说明</span><p>成员和联系人目录来自平台读取；角色矩阵是待配置的产品方案，并非平台现有授权结果。</p></div><div class="one-page-boundary"><i class="ri-shield-check-line" aria-hidden="true"></i><p><b>权限边界</b> 当前没有员工增删和权限保存能力，因此本页只展示方案，不会直接改动平台账号。</p></div></footer>`;
-}
 
 /**
  * 用当前账号的真实公司资料和页面版本渲染店铺装修页。
@@ -5842,7 +6359,7 @@ function renderStorefrontOnePage(data) {
   root.innerHTML = `
     <section class="one-page-hero storefront-one-page-hero"><div><span class="section-kicker">店铺装修 · 当前账号</span><h2>公司资料和店铺页面，按平台实时返回展示</h2><p>页面不再用演示文案代替店铺内容；公司号、企业字段和已建页面都来自当前登录账号。</p></div><div class="one-page-snapshot" role="status"><i class="ri-store-2-line"></i><span><b>公司号 ${esc(data?.companyId || '未返回')}</b><small>${profileRows.length} 个资料字段 · ${pages.length} 个页面版本</small></span></div></section>
     ${errors.length ? `<section class="live-error-strip">${errors.map(error => `<p>${esc(error)}</p>`).join('')}</section>` : ''}
-    <section class="module-table-panel live-data-panel"><div class="one-page-section-heading"><div><span class="section-kicker">公司资料</span><h3>当前店铺的完整可读字段</h3><p>字段名按平台返回的原始结构展开，不改写内容。</p></div><span class="data-state is-live">WorkCTL 实时</span></div><div class="module-table-wrap"><table><thead><tr><th>字段</th><th>当前值</th></tr></thead><tbody>${profileRows.length ? profileRows.map(row => `<tr><td><code>${esc(row.label)}</code></td><td>${esc(row.value)}</td></tr>`).join('') : '<tr><td colspan="2"><div class="designed-empty"><b>公司资料未返回</b><span>这是当前真实结果，请检查页面上方的读取错误。</span></div></td></tr>'}</tbody></table></div></section>
+    <section class="module-table-panel live-data-panel"><div class="one-page-section-heading"><div><span class="section-kicker">公司资料</span><h3>当前店铺的完整可读字段</h3><p>字段名按平台返回的原始结构展开，不改写内容。</p></div><span class="data-state is-live">平台数据</span></div><div class="module-table-wrap"><table><thead><tr><th>字段</th><th>当前值</th></tr></thead><tbody>${profileRows.length ? profileRows.map(row => `<tr><td><code>${esc(row.label)}</code></td><td>${esc(row.value)}</td></tr>`).join('') : '<tr><td colspan="2"><div class="designed-empty"><b>公司资料未返回</b><span>这是当前真实结果，请检查页面上方的读取错误。</span></div></td></tr>'}</tbody></table></div></section>
     <section class="module-table-panel live-data-panel"><div class="one-page-section-heading"><div><span class="section-kicker">页面版本</span><h3>Accio Work 已创建页面</h3><p>返回 0 条就表示当前账号确实还没有创建页面。</p></div><span class="data-state ${pages.length ? 'is-live' : ''}">${pages.length} 条</span></div><div class="live-card-grid">${pages.length ? pages.map((page, index) => `<article><span>${String(index + 1).padStart(2, '0')}</span><h4>${esc(liveField(page, ['pageName', 'title', 'name'], '未命名页面'))}</h4><p>页面 ID：${esc(liveField(page, ['pageId', 'id']))}</p><small>页面类型：${esc(liveField(page, ['pageType', 'type']))}</small></article>`).join('') : '<div class="designed-empty"><i class="ri-layout-line"></i><b>当前没有页面版本</b><span>这不是空白占位，而是平台对该公司号返回的真实结果。</span></div>'}</div></section>
     <footer class="one-page-evidence-footer"><div><span class="section-kicker">数据时间</span><p>${esc(data?.fetchedAt || '刚刚')} · ${data?.cached ? '五分钟内的当前账号缓存' : '本次实时读取'}</p></div><div class="one-page-boundary"><i class="ri-shield-keyhole-line"></i><p><b>仅保留密钥边界</b> 公司业务资料原样展示；登录令牌和运行密钥不会进入浏览器。</p></div></footer>`;
 }
@@ -6168,7 +6685,7 @@ function renderModuleDesign(moduleKey, requestedView) {
 
   const selectedId = requestedView || MODULE_VIEW_STATE[moduleKey] || module.views[0].id;
   const view = module.views.find(item => item.id === selectedId) || module.views[0];
-  const live = MODULE_LIVE_DEMO[moduleKey]?.[view.id] || {};
+  const live = {};
   const metrics = live.metrics || view.metrics.map(([label, note]) => [label, note, '—']);
   const rows = live.rows || [];
   const facts = live.facts || ['尚未获得可安全展示的脱敏汇总'];
@@ -6184,7 +6701,7 @@ function renderModuleDesign(moduleKey, requestedView) {
       </div>
       <div class="module-status" role="status">
         <i class="ri-database-2-line" aria-hidden="true"></i>
-        <span><b>WorkCTL 已读取</b><small>脱敏 Demo · 2026-09-02</small></span>
+        <span><b>等待查询</b><small>等待当前账号数据</small></span>
       </div>
     </section>
     <div class="module-view-tabs" role="tablist" aria-label="${esc(module.title)}子页面">
@@ -6194,7 +6711,7 @@ function renderModuleDesign(moduleKey, requestedView) {
     </div>
     <section class="module-intro">
       <div><span class="section-kicker">当前界面</span><h3>${esc(view.title)}</h3><p>${esc(view.description)}</p></div>
-      <button type="button" class="ghost sm blueprint-disabled" disabled title="当前展示本轮只读审计快照">审计快照</button>
+      <button type="button" class="ghost sm blueprint-disabled" disabled title="当前尚未取得数据">等待查询</button>
     </section>
     <div class="module-metrics">
       ${metrics.map(([label, note, value]) => `<article><span>${esc(label)}</span><strong class="metric-live">${esc(value)}</strong><small>${esc(note)}</small></article>`).join('')}
@@ -6202,7 +6719,7 @@ function renderModuleDesign(moduleKey, requestedView) {
     <div class="module-workspace">
       <div class="module-main-column">
         <section class="module-process" aria-label="${esc(view.title)}业务流程">
-          <div class="module-section-head"><div><span class="section-kicker">业务工作区</span><h3>${esc(view.title)}</h3></div><span class="data-state is-live">${esc(live.state || '审计快照')}</span></div>
+          <div class="module-section-head"><div><span class="section-kicker">业务工作区</span><h3>${esc(view.title)}</h3></div><span class="data-state is-live">${esc(live.state || '未查询')}</span></div>
           <div class="process-track">
             ${view.steps.map((step, index) => `<div class="process-step"><b>${String(index + 1).padStart(2, '0')}</b><span>${esc(step)}</span></div>`).join('')}
           </div>
@@ -6256,7 +6773,7 @@ function handleModuleViewClick(event) {
 // ============================ tab / 事件 ============================
 const LOADED = {};
 const LOADERS = { overview: loadOverview, product: loadProductPage, 'product-publish': initProductPublish, region: () => switchTab('flow'),
-                  flow: loadFlow, visitor: loadVisitor, staff: loadStaff, console: refreshLog,
+                  flow: loadFlow, market: loadMarketInsights, visitor: loadVisitor, staff: loadStaff, console: refreshLog,
                   ads: loadAds, rfq: loadRfq,
                   orders: renderOrdersOnePage, risk: renderRiskOnePage,
                   storefront: loadStorefrontOnePage, assets: loadAssetsOnePage,
@@ -6270,6 +6787,7 @@ const LOADERS = { overview: loadOverview, product: loadProductPage, 'product-pub
  * @throws {Error} 正常 DOM 结构下不会抛错；若导航按钮缺失，标题保持原值。
  */
 function switchTab(name) {
+  renderTimeControls(name);
   let activeLabel = '';
   $('.app-layout')?.classList.toggle('product-publish-mode', name === 'product-publish');
   $$('#tabs button[data-tab]').forEach(b => {
@@ -6284,6 +6802,9 @@ function switchTab(name) {
   });
   $$('.tab').forEach(s => s.classList.toggle('on', s.id === 'tab-' + name));
   if (activeLabel && $('#workspaceTitle')) $('#workspaceTitle').textContent = activeLabel;
+  window.LsouAdvisor?.navigate(name,!LOADED[name]);
+  // 扩展收到导航后会立即读取数据，必须先固定AI归属页，避免把新页面数据记到上一页。
+  window.dispatchEvent(new CustomEvent('lsou:navigation', { detail: name }));
   if (!LOADED[name]) { LOADED[name] = 1; LOADERS[name] && LOADERS[name](); }
   // 每次从侧栏打开客户页都先展示分析，已加载的会话上下文仍然保留。
   if (name === 'visitor') document.querySelector('[data-customer-view=analysis]')?.click();
@@ -6308,7 +6829,8 @@ function scrollToOverviewBlock(id) {
  * @throws {Error} 页面关键控件缺失时可能抛出 DOM 访问异常。
  */
 function bind() {
-  $$('#tabs button[data-tab]').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+  // React 交付入口自己绑定导航；本地原生入口继续使用原有事件。
+  if (!document.querySelector('[data-react-navigation]')) $$('#tabs button[data-tab]').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
   $$('#tabs button[data-anchor]').forEach(b => b.onclick = () => scrollToOverviewBlock(b.dataset.anchor));
   $$('[data-tab-link]').forEach(b => b.onclick = () => switchTab(b.dataset.tabLink));
   $$('[data-anchor-link]').forEach(b => b.onclick = () => scrollToOverviewBlock(b.dataset.anchorLink));
@@ -6316,6 +6838,10 @@ function bind() {
   // 点击产地控件外部时收起浮层，行为与 Alibaba 发品页的单选下拉一致。
   document.addEventListener('click', event => {
     if (!event.target.closest('.publish-origin-picker')) closePublishOriginPickers();
+    if (!event.target.closest('.publish-category-picker')) {
+      const picker = $('.publish-category-picker[open]');
+      if (picker) picker.open = false;
+    }
   });
 
   $('#sidebarToggle').onclick = () => {
@@ -6331,13 +6857,21 @@ function bind() {
     }, 220);
   };
 
-  $('#quickRange').onchange = e => {
-    if (!e.target.value) return;
-    setRange(+e.target.value); reloadAll();
+  $('#quickRange').onchange = e => renderTimePicker($('#tabs button[data-tab].on')?.dataset.tab || 'overview',e.target.value);
+  $('#timeApply').onclick=applyTimeSelection;
+  $('#btnReload').onclick = async () => {
+    if ($('#tab-product-publish').classList.contains('on')) { await refreshPublishSourceData(); return; }
+    const button=$('#btnReload');button.disabled=true;
+    try{const r=await fetch('/api/cache/refresh',{method:'POST'});const j=await r.json();if(!j.ok)throw new Error();await reloadAll();}
+    catch(_){toast('刷新未能启动，请稍后重试。',true);}
+    finally{button.disabled=false;}
   };
-  $('#btnReload').onclick = reloadAll;
   $('#btnClearCache').onclick = async () => {
     const r = await fetch('/api/cache/clear'); const j = await r.json();
+    publishState.accountContextLoaded = false;
+    publishState.businessOptionsLoaded = false;
+    publishState.sourceCache = null;
+    Object.values(PUBLISH_CATEGORY_CONFIG).forEach(config => { config.needsRefresh = true; });
     toast(`已清除 ${j.cleared} 条缓存`); reloadAll();
   };
 
@@ -6390,15 +6924,17 @@ function bind() {
     publishState.queueCollapsed = !publishState.queueCollapsed;
     renderPublishQueue();
   };
+  $('#publishHistory').onclick = showPublishHistory;
   $('#publishOperationResult').onclick = () => {
     const operationId = resolveVisiblePublishOperationId();
     if (!operationId || !showPublishOperationResult(operationId)) toast('本次任务还没有全部结束');
   };
 
   $('#regionApply').onclick = loadRegion;
-  $('#flowApply').onclick = loadFlow;
-  $('#staffApply').onclick = loadStaff;
 
+
+  $('#rfqCompareBtn').onclick=event=>queryRfqSelection('opportunities',[...rfqState.compareIds],event.currentTarget);
+  $('#rfqQuoteCompareBtn').onclick=event=>queryRfqSelection('quotes',[...rfqState.quoteIds],event.currentTarget);
   $('#rfqSearchBtn').onclick = () => loadRfq();
   $('#rfqKeyword').onkeydown = event => { if (event.key === 'Enter') loadRfq(); };
   $('#rfqSource').onchange = event => {
@@ -6447,14 +6983,18 @@ function reloadAll() {
   productAnalysisData = null;
   customerContextPromise = null;
   const cur = $('#tabs button[data-tab].on')?.dataset.tab || 'overview';
+  window.LsouAdvisor?.navigate(cur,true);
   LOADED[cur] = 1;
-  LOADERS[cur] && LOADERS[cur]();
+  const loading=LOADERS[cur] && LOADERS[cur]();
   buildFlags();
+  return loading;
 }
 
 // ============================ 启动 ============================
-(async function init() {
-  setRange(30);
+/** 初始化已挂载工作区；无参数，返回 Promise<void>；依赖加载错误由入口捕获。 */
+async function initializeWorkbench() {
+  const initialTime=defaultTimeState('overview');
+  $('#startDate').value=initialTime.startDate;$('#endDate').value=initialTime.endDate;
   bind();
   await initConsole();
   // 只接受已注册的标签页名称，方便最终交付链接直接打开“产品发布”，
@@ -6462,4 +7002,116 @@ function reloadAll() {
   const requestedTab = new URLSearchParams(location.search).get('tab');
   switchTab(requestedTab && Object.prototype.hasOwnProperty.call(LOADERS, requestedTab) ? requestedTab : 'overview');
   setInterval(refreshLog, 6000);
-})();
+}
+// React 在全部业务扩展加载后显式初始化，避免扩展与首屏请求的竞态。
+if (!window.__LSOU_FRONTEND__) initializeWorkbench();
+
+/** 加载市场洞察的选品区；无参数；返回Promise<void>；查询错误由区域内处理。 */
+async function loadMarketInsights() {
+  if(flowDiscoveryState.mounted)await queryFlowDiscovery();
+  else await initFlowDiscovery();
+}
+
+const flowDiscoveryState={mounted:false,version:0,kind:'products'};
+/**
+ * 向AI提供程序已计算的当前页面状态，保持日期、象限、选中对象与图表一致。
+ * @param {string} module 六页标识。@param {object} selection 用户当前选择。
+ * @returns {object} 有界结构化记录、周期与限制，不执行查询或修改。
+ * @throws 无；尚未加载的数据保持缺失。
+ */
+function getAdvisorPageContext(module,selection={}) {
+  const period=timePages[module]?{...dates(module),grain:timeStates[module]?.mode||'range'}:{label:timeNotes[module]||'各来源独立周期',grain:'snapshot'};
+  const records=[],limitations=[];
+  // 只有改变分析对象的业务筛选进入缓存索引；指标值、读取时间、图表高亮不进入。
+  const cache_scope=({
+    product:()=>({quadrant:productFocusMode,page:productFocusPage}),
+    visitor:()=>({page:vState.pageNO,country:$('#visCountry')?.value.trim()||'',tm:$('#visAtm')?.checked||false,inquiry:$('#visMc')?.checked||false}),
+    flow:()=>({channel:flowSelectedChannel||'',metric:$('#regionDim')?.value||'',terminal:$('#regionTerm')?.value||''}),
+    market:()=>({kind:flowDiscoveryState.kind,category:$('#flowDiscoveryCategory')?.selectedOptions[0]?.textContent||'',period:$('#flowDiscoveryPeriod')?.value||'',sort:$('#flowDiscoverySort')?.value||'',researchProduct:$('#ops-market .market-object-heading h3')?.textContent||'',researchCategory:$('#ops-market .market-object-heading strong')?.textContent||''}),
+    ads:()=>({profile:keywordCompareState.profileKind,profileDate:keywordCompareState.profileDate,category:keywordCompareState.category,channel:keywordCompareState.channel,search:keywordCompareState.search}),
+  })[module]?.()||{};
+  const add=(label,data,scope,contextOnly=false)=>records.push({source:'工作台程序计算/'+module,label,data,scope,contextOnly,observed_at:new Date().toISOString()});
+  let object;
+  if(module==='overview'&&summaryRows.length&&summaryRows.every(row=>row.statDate>=period.startDate&&row.statDate<=period.endDate)){
+    add('经营指标与同行对标',{metrics:OVERVIEW_KPIS.filter(meta=>!meta.unavailable).map(meta=>({key:meta.k,label:meta.n,aggregation:meta.aggregate,unit:meta.format,scope:meta.scope||'所选周期累计',mine:overviewMetricValue(meta),rivalAverage:overviewMetricValue(meta,'RivalAvg'),rivalGood:overviewMetricValue(meta,'RivalGood')})),selectedMetric:curKpi},'程序按本店与同行同批序列计算；回复指标取最新平台近30天值，不拼漏斗');
+    add('经营趋势原始序列',summaryRows,'与经营汇总同批返回；截断样本不能重新累计成整月值');
+  }
+  if(module==='product'&&productAnalysisData){
+    const data=productAnalysisData,rows=data.focusProducts?.[productFocusMode]||[];
+    add('当前商品四象限与重点商品',{population:data.population,recordCount:data.recordCount,thresholds:data.thresholds,quadrantCounts:data.quadrantCounts,diagnostics:data.diagnostics,totals:data.totals,selectedQuadrant:productFocusMode,focusCount:rows.length,focusProducts:rows.slice((productFocusPage-1)*20,productFocusPage*20)},'本店曝光P75与加权CTR；重点商品为当前象限当前页样本');
+    if(data.population<data.recordCount)limitations.push(`平台记录${data.recordCount}件，实际分析${data.population}件，存在未读完的数据。`);
+    if(selection.entity_ref){const row=Object.values(data.focusProducts||{}).flat().find(r=>r.productRef===selection.entity_ref);if(row)object={ref:row.productRef,cache_ref:row.analysisRef,label:row.title||'当前商品',data:row};}
+  }
+  if(module==='flow')add('当前渠道与国家筛选',{selectedChannel:flowSelectedChannel,channelData:flowChannelData,region:regionRows,regionMetric:$('#regionDim')?.value,terminal:$('#regionTerm')?.value},'渠道与国家记录独立；画像近30天，行业需求近90天，不按行比较国家',!Object.keys(flowChannelData||{}).length&&!regionRows?.length);
+  if(module==='visitor')add('当前客户分析范围',{page:vState.pageNO,total:vState.total,country:$('#visCountry')?.value},'仅当前读取的访客样本，客户评分为本地规则，不是成交概率；会话必须有明确关联',true);
+  if(module==='market')add('当前行业筛选',{kind:flowDiscoveryState.kind,category:$('#flowDiscoveryCategory')?.selectedOptions[0]?.textContent,period:$('#flowDiscoveryPeriod')?.selectedOptions[0]?.textContent,sort:$('#flowDiscoverySort')?.selectedOptions[0]?.textContent},'当前选品榜单筛选；其他市场区块的类目和日期独立',true);
+  if(module==='ads'){
+    add('关键词当前来源与选择',{profileKind:keywordCompareState.profileKind,profileDate:keywordCompareState.profileDate,category:keywordCompareState.category,channel:keywordCompareState.channel,selected:keywordCompareState.selected,search:keywordCompareState.search},'店铺词库、行业指数与广告效果独立口径',true);
+    if(keywordCompareState.profileKind==='sample')limitations.push('当前店铺词库为历史样本，不能据此判断本店投放表现。');
+    if(keywordCompareState.profileKind==='saved')limitations.push('店铺词库来自本账号保存快照，使用前须核对来源日期。');
+  }
+  return {period,cache_scope,records,limitations,object};
+}
+window.getAdvisorPageContext=getAdvisorPageContext;
+/** 调用流量页固定查询；payload为筛选对象；返回业务数据；网络与业务失败抛错供页面显示。 */
+async function flowDiscoveryRequest(payload) {
+  const advisorRead=window.LsouAdvisor?.beginRead('/api/capabilities/flow',payload);
+  const response=await fetch('/api/capabilities/flow',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const result=await response.json();window.LsouAdvisor?.finishRead(advisorRead,result,!response.ok||!result.ok);if(!response.ok||!result.ok)throw new Error(result.error||'行业数据读取失败');return result.data;
+}
+/** 初始化页内行业选品区，无参数；返回Promise<void>；异常在结果区展示，允许再次查询。 */
+async function initFlowDiscovery() {
+  if(flowDiscoveryState.mounted)return;
+  flowDiscoveryState.mounted=true;
+  $('#flowDiscoveryForm').addEventListener('submit',event=>{event.preventDefault();void queryFlowDiscovery();});
+  $('#flowDiscoveryTabs').addEventListener('click',event=>{const button=event.target.closest('[data-kind]');if(!button)return;setFlowDiscoveryKind(button.dataset.kind);void queryFlowDiscovery();});
+  $('#flowDiscoveryForm').addEventListener('change',()=>{
+    flowDiscoveryState.version++;$('#flowDiscoveryQuery').disabled=false;
+    $('#flowDiscoveryResult').innerHTML='<div class="empty">筛选已变更，请点击查询更新结果。</div>';
+  });
+  $('#flowDiscoveryResult').addEventListener('click',event=>{
+    const button=event.target.closest('[data-supplier-url]');if(!button)return;
+    $('#flowSupplierUrl').value=button.dataset.supplierUrl;setFlowDiscoveryKind('suppliers');void queryFlowDiscovery();
+  });
+  await queryFlowDiscovery();
+}
+/** 切换商品/供应商视图；kind为固定页签名；返回void；不抛出业务异常。 */
+function setFlowDiscoveryKind(kind) {
+  flowDiscoveryState.kind=kind;
+  $('#flowDiscoveryTabs').querySelectorAll('button').forEach(button=>{const on=button.dataset.kind===kind;button.classList.toggle('on',on);button.setAttribute('aria-pressed',String(on));});
+  $('#flowSupplierUrlLabel').hidden=kind!=='suppliers';
+}
+/** 查询当前筛选并只渲染最后一次请求；无参数；返回Promise<void>；错误就地显示，保留重试按钮。 */
+async function queryFlowDiscovery() {
+  const version=++flowDiscoveryState.version,kind=flowDiscoveryState.kind,host=$('#flowDiscoveryResult');
+  $('#flowDiscoveryQuery').disabled=true;host.innerHTML='<div class="empty">正在读取'+(kind==='products'?'热门商品':'供应商')+'…</div>';
+  try {
+    if(!$('#flowDiscoveryCategory').value){
+      const context=await flowDiscoveryRequest({action:'categories'});if(version!==flowDiscoveryState.version)return;
+      $('#flowDiscoveryCategory').innerHTML=context.categories.map(c=>`<option value="${esc(c.ref)}">${esc(c.label)}</option>`).join('')||'<option value="">当前目录没有类目</option>';
+    }
+    const period=$('#flowDiscoveryPeriod').value,sort=$('#flowDiscoverySort').value,shopUrl=kind==='suppliers'?$('#flowSupplierUrl').value.trim():'';
+    if(!shopUrl&&!$('#flowDiscoveryCategory').value)throw new Error('当前商品目录未返回类目，供应商也可输入店铺网址查询。');
+    const categoryLabel=$('#flowDiscoveryCategory').selectedOptions[0]?.textContent||'';
+    const data=await flowDiscoveryRequest({action:kind,category:$('#flowDiscoveryCategory').value,period,sort,shopUrl});
+    if(version!==flowDiscoveryState.version)return;
+    renderFlowDiscovery(data,kind,sort,`${shopUrl?'指定供应商全店 · 不按类目筛选':categoryLabel+' · 行业样本'} · ${$('#flowDiscoveryPeriod').selectedOptions[0].textContent}`);
+  } catch(error){if(version===flowDiscoveryState.version)host.innerHTML=`<div class="empty">${esc(error.message)}<br>请调整条件或点击查询重试。</div>`;}
+  finally {if(version===flowDiscoveryState.version)$('#flowDiscoveryQuery').disabled=false;}
+}
+/** 仅允许外部HTTP(S)链接；value为平台字符串；返回安全URL或空串；无异常。 */
+function flowDiscoveryUrl(value) {try{const url=new URL(value);return ['https:','http:'].includes(url.protocol)&&!url.username&&!url.password?url.href:'';}catch{return '';}}
+/** 按真实字段展示行业列表，指数保留每日日期；data为返回值，kind/sort为查询快照，scope为口径；返回void；无主动异常。 */
+function renderFlowDiscovery(data,kind,sort,scope) {
+  const host=$('#flowDiscoveryResult'),items=data.items||[],product=kind==='products';
+  const metric={ab_cnt:['abCntIndex','询盘指数'],prepay_ord_cnt:['prepayOrdCntIndex','挂账订单指数'],rec_ord_amt:['recOrdAmtIndex','实收GMV指数'],uv_detail:['uvDetailIndex','详情访客指数']}[sort];
+  const shown=value=>esc(value===null||value===undefined||value===''?'未返回':value);
+  const link=(url,label)=>flowDiscoveryUrl(url)?`<a href="${esc(flowDiscoveryUrl(url))}" target="_blank" rel="noopener noreferrer">${esc(label)} ↗</a>`:'';
+  host.innerHTML=`<div class="flow-discovery-status">${esc(scope)} · 返回 ${items.length} 条 · 读取于 ${esc(new Date(data.fetchedAt).toLocaleTimeString('zh-CN'))}</div>`;
+  if(!items.length){host.innerHTML+=`<div class="empty">平台未返回符合当前条件的${product?'热门商品':'供应商'}。${product?'可切换类目或周期重试。':'可输入店铺网址，或从热门商品点击“查看供应商”。'}</div>`;return;}
+  host.innerHTML+=`<div class="flow-discovery-list">${items.map(row=>{
+    const series=row.trends?.[metric[0]]||[],last=series.slice(-1)[0],image=flowDiscoveryUrl(row.prodImage),url=product?row.detailUrl:row.minisiteUrl;
+    const shop=flowDiscoveryUrl(row.shopUrl);
+    return `<article class="flow-discovery-row"><div class="flow-discovery-identity">${product&&image?`<img src="${esc(image)}" alt="" loading="lazy">`:''}<div><h3>${shown(product?row.prodName:row.compCnName)}</h3><p>${shown(product?row.supplierCnName:row.mainProdSlr)}</p><div class="flow-discovery-links">${link(url,product?'查看商品':'访问店铺')}${product&&shop?`<button type="button" class="ghost sm" data-supplier-url="${esc(shop)}">查看供应商</button>`:''}</div></div></div><dl class="flow-discovery-facts">${(product?[['价格（币种未返回）',row.price],['最小起订量',row.minOrdQty],['评分 / 评价数',`${row.rating??'—'} / ${row.commentCnt??'—'}`]]:[['商家评分',row.compScore],['评价数',row.compReviewCnt],['经营类型',row.compBizTypeDesc]]).map(([label,value])=>`<div><dt>${label}</dt><dd>${shown(value)}</dd></div>`).join('')}</dl><details class="flow-discovery-trend"><summary>${metric[1]} <strong>${shown(last?.value)}</strong><small>${last?esc(last.date.replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3')):'日期未返回'} · 查看每日趋势</small></summary>${series.length?`<div class="flow-series">${series.map(p=>`<span><time>${esc(p.date.slice(4,6)+'/'+p.date.slice(6))}</time><b>${shown(p.value)}</b></span>`).join('')}</div>`:'<p>平台未返回趋势</p>'}</details></article>`;
+  }).join('')}</div>`;
+}

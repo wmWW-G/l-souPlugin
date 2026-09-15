@@ -1,0 +1,19 @@
+{
+  "tools": [
+    {
+      "id": "lsou-workbench",
+      "displayName": "来搜桌面工作台",
+      "description": "查看来搜版本或运行独立启动诊断；即使桌面/MCP失败也可用 --diagnose 排查。",
+      "source": {
+        "type": "node-cli",
+        "entry": "scripts/desktop-mcp.cjs",
+        "commandName": "lsou-workbench",
+        "moduleFormat": "cjs"
+      },
+      "usageExamples": [
+        "lsou-workbench --version",
+        "lsou-workbench --diagnose"
+      ]
+    }
+  ]
+}

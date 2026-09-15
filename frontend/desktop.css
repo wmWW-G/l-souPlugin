@@ -1,0 +1,2 @@
+/* macOS WebView 后台窗口会节流动画；切页直接显示，避免停在透明首帧。 */
+.tab.on { animation: none; }

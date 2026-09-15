@@ -59,7 +59,7 @@ test('五条运营链路通过真实HTTP边界，参数和实体关联来自平�
     ['orders', { start: 20, limit: 20 }, 'icbu trade list-trade-list-mcp'],
     ['logistics', { currentPage: 2, pageSize: 20, statusList: ['TRANSPORTING'] }, 'icbu logistics list'],
     ['risk', {}, 'icbu trade shop-risk-diagnosis'],
-    ['stars', { locale: 'zh_CN' }, 'icbu other icbu-starrating-cgs-pc-page-data-open'],
+    ['stars', { locale: 'zh_CN' }, 'icbu advisor icbu-starrating-cgs-pc-page-data-open'],
     ['channel-trend', { startDate: '2026-08-07', endDate: '2026-09-05', channelType: '搜索', dimensionType: 'shop_uv', statisticsType: 'day', terminalType: 'TOTAL' }, 'icbu advisor data-advisor-shop-channel-trend'],
   ]) { assert.equal((await f.request('read', { action, params })).ok, true); assert.equal(f.calls.at(-1).command, expected); }
   const product = (await f.request('read', { action: 'products', params: {} })).items[0];
@@ -147,4 +147,23 @@ test('四象限商品引用区分同名商品并拒绝无效编号', async t => 
   const response = await f.request('read', {action: 'product-info', params: {productRef: second, queryType: 'trunk'}});
   assert.equal(response.ok, true);
   assert.equal(f.calls.at(-1).params.productId, 222222);
+});
+
+
+test('合同日期在HTTP边界复核，越界记录不进入图表且保留原始分页总数',async t=>{
+  const f=await fixture(t);
+  f.setOverride(()=>({ok:true,durationMs:1,parsed:{success:true,data:{totalCount:30,tradeList:[
+    {id:'inside',createDate:'2026-08-31T23:59:59.999+08:00'},
+    {id:'outside',createDate:'2026-09-01T14:10:07+08:00'},
+    {id:'unknown'},
+  ]}}}));
+  const result=await f.request('read',{action:'orders',params:{createDateFrom:'2026-08-01 00:00:00',createDateTo:'2026-08-31 23:59:59',limit:20}});
+  assert.equal(result.ok,true);
+  assert.equal(result.data.totalCount,30);
+  assert.deepEqual(result.data.tradeList.map(row=>row.id),['inside']);
+  assert.equal(result.data.dateCheck.outside,1);assert.equal(result.data.dateCheck.unknown,1);
+  const count=f.calls.length;
+  assert.equal((await f.request('read',{action:'orders',params:{createDateFrom:'2026-08-31',createDateTo:'2026-08-01'}})).ok,false);
+  assert.equal((await f.request('read',{action:'risk',params:{startDate:'2026-08-01',endDate:'2026-08-31'}})).ok,false);
+  assert.equal(f.calls.length,count);
 });

@@ -305,7 +305,7 @@
       },
       "requiresYes": false
     },
-    "icbu other icbu-starrating-cgs-pc-page-data-open": {
+    "icbu advisor icbu-starrating-cgs-pc-page-data-open": {
       "schema": {
         "type": "object",
         "properties": {

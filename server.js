@@ -11,13 +11,23 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
+const { isIP } = require('node:net');
 const { execFile } = require('child_process');
 const { createOperations } = require('./lib/operations');
+const { createAdvertising } = require('./lib/advertising');
+const { createCapabilities } = require('./lib/capabilities');
+const TimePolicy = require('./public/time-policy');
+const { QueryCache } = require('./lib/query-cache');
+const { PublishReadCache } = require('./lib/publish-read-cache');
+const { MAX_PRODUCT_IMAGES } = require('./public/publish-product-utils');
+const { createAiAdvisor } = require('./lib/ai-advisor');
 
-const PORT = Number(process.env.PORT || 8787);
+let PORT = Number(process.env.PORT || 8787);
+// 桌面模式由系统分配端口，令牌仅驻内存；浏览器测试入口保持兼容。
+const DESKTOP_TOKEN = process.env.LSOU_DESKTOP_TOKEN || '';
+const PUBLIC_DIR = process.env.LSOU_PUBLIC_DIR || path.join(__dirname, 'public');
 const HOST = '127.0.0.1';
-const WORKCTL = process.env.WORKCTL_BIN ||
-  '/Users/garden/.accio/accounts/7070142663_212003/plugins/data/cli-tools/plugins/alibaba-com-seller-assistant/tools/workctl/versions/0.1.53/prefix/bin/workctl';
+const WORKCTL = process.env.WORKCTL_BIN || ''; // 由本地 start.sh 或桌面启动器发现，禁止回退到历史账号。
 
 // ---------------------------------------------------------------------------
 // 端点白名单：只读。key => { argv, flags(允许的业务参数), label }
@@ -30,7 +40,7 @@ const ENDPOINTS = {
   },
   'shop-product': {
     argv: ['icbu', 'advisor', 'data-advisor-shop-product'],
-    flags: ['pageNo', 'pageSize', 'orderBy', 'orderModel', 'productName',
+    flags: ['pageNo', 'pageSize', 'orderBy', 'orderModel', 'productName', 'statDate', 'statisticsType',
             'prodLevel', 'minViews', 'maxViews', 'minClicks', 'maxClicks',
             'minInquiries', 'maxInquiries', 'minClickRate', 'maxClickRate',
             'p4pProd', 'hasEffect', 'starMkProd', 'bizProd', 'domain'],
@@ -233,8 +243,9 @@ const ENDPOINTS = {
 // 缓存 + 命令日志
 // ---------------------------------------------------------------------------
 const cache = new Map();
-const CACHE_TTL = 5 * 60 * 1000;
-// 四个内部工作台页面复用同一份短期实时快照，避免用户来回切页时连续启动
+const endpointQueries = new QueryCache();
+const workspaceQueries = new QueryCache();
+// 四个内部工作台页面复用成功快照，直至用户主动刷新，避免来回切页时连续启动
 // 多个 WorkCTL 子进程。缓存只在当前进程内存在，重启或切换账号后不会串数据。
 const workspaceCache = new Map();
 const cmdLog = [];      // 最近执行的命令，供前端"执行日志"面板消费
@@ -246,9 +257,6 @@ const PUBLISH_ACKNOWLEDGEMENT = 'I_CONFIRM_PRODUCT_WRITE';
 const MAX_PUBLISH_BATCH = 50;
 const MAX_PUBLISH_JOBS = 200;
 const MAX_PUBLISH_IMAGE_BYTES = 8 * 1024 * 1024;
-const PUBLISH_IMAGE_BUCKET = String(process.env.PUBLISH_IMAGE_BUCKET || '').trim();
-const PUBLISH_IMAGE_ENDPOINT = String(process.env.PUBLISH_IMAGE_ENDPOINT || '').trim();
-const PUBLISH_IMAGE_PATH_PREFIX = String(process.env.PUBLISH_IMAGE_PATH_PREFIX || 'lsou-product-publish').trim();
 const PUBLISH_SUBMISSION_INTERVAL_MS = Math.max(0,
   Math.min(Number(process.env.PUBLISH_SUBMISSION_INTERVAL_MS ?? 1000) || 0, 10000));
 const publishJobs = [];
@@ -256,13 +264,8 @@ const publishRequests = new Map();
 let publishWorkerRunning = false;
 let publishLastSubmissionAt = 0;
 
-// 发品类目和属性规则变化频率远低于经营数据，因此使用独立的长缓存。
-// 缓存只存在于当前 Node 进程内；切换 Accio 账号或重启服务后会自然重新读取，
-// 不会把甲店铺的类目规则永久写进乙店铺的插件包。
+// 浏览资料长期复用本地快照；写入前仍要求类目和业务规则在 30 分钟有效期内。
 const PUBLISH_SCHEMA_CACHE_TTL = 30 * 60 * 1000;
-const publishCategoryCache = { at: 0, categories: [] };
-const publishCategorySchemaCache = new Map();
-let publishCategoryLoadPromise = null;
 
 // 计价单位和物流方案属于账号级业务选项。浏览器只展示中文业务名称，平台整数
 // 编码始终保留在服务端与请求载荷内部，避免让运营人员理解或手工录入抽象 ID。
@@ -276,14 +279,6 @@ const VERIFIED_PRICE_UNIT_LABELS = new Map([
   [25, '单位 / 台'],
   [92, '组合装'],
 ]);
-const publishBusinessOptionsCache = { at: 0, value: null };
-let publishBusinessOptionsLoadPromise = null;
-
-// 产品发布页只需要当前账号商品的“图片 -> 类目”上下文，不需要把经营接口中的
-// 负责人、详情地址、曝光点击等字段一并发给浏览器。该缓存与类目 Schema 使用
-// 相同生命周期，切换账号或清空缓存后会重新读取，不会把开发账号的类目带给别人。
-const publishAccountCatalogCache = { at: 0, value: null };
-let publishAccountCatalogLoadPromise = null;
 // 浏览器选择“参考已有商品”时只拿到随机短期令牌。真实 productId 只存在于服务端
 // 映射中，并在缓存失效后清理，避免把平台内部编号变成普通用户需要理解的表单项。
 const publishAccountReferenceTokens = new Map();
@@ -294,10 +289,6 @@ const publishAccountReferenceKeysByProductId = new Map();
 // `list-information`。缓存写在用户系统缓存目录而不是项目目录，避免把某个商家的
 // 商品号和图片 URL 打进插件交付包或 Git。
 const PUBLISH_IMAGE_LIBRARY_VERSION = 1;
-const PUBLISH_IMAGE_LIBRARY_TTL = Math.max(
-  60 * 60 * 1000,
-  Math.min(Number(process.env.PUBLISH_IMAGE_LIBRARY_TTL_MS || 24 * 60 * 60 * 1000), 7 * 24 * 60 * 60 * 1000)
-);
 const PUBLISH_IMAGE_LIBRARY_CONCURRENCY = Math.max(
   1,
   Math.min(Number(process.env.PUBLISH_IMAGE_LIBRARY_CONCURRENCY || 4), 8)
@@ -316,6 +307,13 @@ const PUBLISH_IMAGE_LIBRARY_CACHE_FILE = path.join(
   PUBLISH_IMAGE_LIBRARY_CACHE_DIRECTORY,
   `publish-image-library-${PUBLISH_IMAGE_LIBRARY_SCOPE}.json`
 );
+// 目录、类目、规格规则、交易选项及已选参考资料统一落盘；未识别账号时只存内存。
+const publishReadCache = new PublishReadCache({
+  directory: path.resolve(process.env.PUBLISH_READ_CACHE_DIR || `${PUBLISH_IMAGE_LIBRARY_CACHE_DIRECTORY}-publish-data`),
+  scope: String(process.env.ACCIO_ACTIVE_SPACE || (process.env.PUBLISH_READ_CACHE_DIR || process.env.PUBLISH_IMAGE_LIBRARY_CACHE_DIR ? 'isolated-local-session' : '')),
+  onEvent: (label, ok) => pushLog({ ts: new Date().toISOString(), label, cmd: 'local publish cache', ms: 0, cached: true, ok }),
+});
+let publishSourceRefreshPromise = null;
 const publishImageLibraryState = {
   initialized: false,
   loadedFromDisk: false,
@@ -566,6 +564,7 @@ function shapeEndpointData(name, data) {
     };
     const basic = data?.['客户店铺基本信息']?.data || {};
     return {
+      profileComplete: ['店铺高询盘词列表', '店铺高引流词列表', '店铺高p4p词列表'].every(key => Array.isArray(data?.[key]?.data?.wordList)),
       category: String(basic['客户主营三级行业'] || basic['客户主营二级行业'] || ''),
       primaryProduct: String(basic['店铺主营产品'] || ''),
       showcaseProductCount: Number(data?.['客户店铺橱窗商品列表']?.data?.count || 0),
@@ -643,7 +642,8 @@ function runWorkctl(args, timeoutMs = 120000) {
     const started = Date.now();
     let timedOut = false;
     let settled = false;
-    const child = execFile(WORKCTL, args, {
+    const child = execFile(WORKCTL, process.env.WORKCTL_ENTRY ? [process.env.WORKCTL_ENTRY, ...args] : args, {
+      windowsHide: true,
       maxBuffer: 64 * 1024 * 1024,
       // 使用独立进程组才能在超时时同时结束 JS 包装器和它启动的原生 WorkCTL，
       // 否则只结束父进程会留下长期占用网关的孤儿查询。
@@ -675,7 +675,7 @@ function runWorkctl(args, timeoutMs = 120000) {
       timedOut = true;
       try {
         if (process.platform !== 'win32' && child.pid) process.kill(-child.pid, 'SIGTERM');
-        else child.kill('SIGTERM');
+        else if (child.pid) execFile('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
       } catch (_) {
         child.kill('SIGTERM');
       }
@@ -759,6 +759,11 @@ function findBestWorkctlArray(value, predicate, depth = 0) {
  * @throws {Error} 子进程失败、业务 success=false 或没有可解析响应时抛出。
  */
 async function readWorkspaceWorkctl(command, label) {
+  const result=await workspaceQueries.read(JSON.stringify(command),async()=>({ok:true,data:await readWorkspaceWorkctlLive(command,label)}));
+  return result.data;
+}
+/** 执行未缓存的工作台只读查询；参数为命令和日志名称，返回业务数据，失败抛错。 */
+async function readWorkspaceWorkctlLive(command, label) {
   const args = [...command, '--format', 'json', '--compact-output', 'off'];
   const result = await runWorkctl(args, 35000);
   const ok = result.ok && result.parsed?.success !== false;
@@ -990,16 +995,18 @@ async function loadAccessContactsWorkspace() {
 }
 
 /**
- * 按模块读取或复用当前账号的短期实时快照。
+ * 按模块读取或复用当前账号的成功快照。
  *
  * @param {'storefront'|'assets'|'knowledge'|'access'} name - 工作台模块名。
- * @param {boolean} force - true 时跳过五分钟缓存。
+ * @param {boolean} force - true 时主动重新读取缓存。
  * @returns {Promise<object>} 对应模块的真实业务数据。
  * @throws {Error} 未知模块或底层聚合查询失败时抛出。
  */
 async function loadAccountWorkspace(name, force = false) {
+  if(force)workspaceQueries.clear();
+  const generation=workspaceQueries.generation;
   const cached = workspaceCache.get(name);
-  if (!force && cached && Date.now() - cached.at < CACHE_TTL) return { ...cached.data, cached: true };
+  if (!force && cached) return { ...cached.data, cached: true };
   const loaders = {
     storefront: loadStorefrontWorkspace,
     assets: loadAssetsWorkspace,
@@ -1009,7 +1016,7 @@ async function loadAccountWorkspace(name, force = false) {
   if (!loaders[name]) throw new Error(`未知工作台：${name}`);
   const data = await loaders[name]();
   const result = { ...data, source: 'workctl-live', fetchedAt: new Date().toISOString(), cached: false };
-  workspaceCache.set(name, { at: Date.now(), data: result });
+  if(generation===workspaceQueries.generation)workspaceCache.set(name, { at: Date.now(), data: result });
   return result;
 }
 
@@ -1019,10 +1026,11 @@ async function loadAccountWorkspace(name, force = false) {
  * @param {string[]} command - 不含 `workctl` 的命令路径，例如 `['icbu','product','list-attribute-options']`。
  * @param {object} payload - 需要写入 `--json-file` 的参数对象。
  * @param {string} prefix - 临时目录前缀，仅用于本机排障辨识。
+ * @param {number} timeoutMs - 子进程最长运行时间，默认保留原查询时限。
  * @returns {Promise<object>} `runWorkctl()` 的标准结果。
  * @throws {Error} 临时目录或文件无法创建时抛出文件系统错误。
  */
-async function runWorkctlWithJsonFile(command, payload, prefix) {
+async function runWorkctlWithJsonFile(command, payload, prefix, timeoutMs = 120000) {
   const temporaryDirectory = await fs.promises.mkdtemp(path.join(os.tmpdir(), prefix));
   const paramsFile = path.join(temporaryDirectory, 'params.json');
   try {
@@ -1032,38 +1040,55 @@ async function runWorkctlWithJsonFile(command, payload, prefix) {
       '--json-file', paramsFile,
       '--format', 'json',
       '--compact-output', 'off',
-    ]);
+    ], timeoutMs);
   } finally {
     await fs.promises.rm(temporaryDirectory, { recursive: true, force: true });
   }
 }
 
 /**
- * 通过权限为 0600 的临时参数文件调用需要明确确认的 WorkCTL 工具。
- *
- * 图片正文可能达到数 MB，既不能出现在进程参数里，也不应进入操作日志。本函数
- * 只把参数写入临时目录，向 WorkCTL 传递文件路径，并在命令结束后立即清理。
- *
- * @param {string[]} command - 不含 workctl 的命令路径。
- * @param {object} payload - 传给动态 WorkCTL 工具的业务参数。
- * @param {string} prefix - 临时目录前缀。
- * @returns {Promise<object>} runWorkctl() 的标准执行结果。
- * @throws {Error} 临时文件创建、写入或删除异常按 Node 文件系统错误抛出。
+ * 读取发布前所需的平台规则，遇到短暂连接故障时最多重试两次。
+ * @param {string[]} command 固定白名单内的只读命令；发布、上传等写命令不能传入。
+ * @param {object|null} payload JSON 查询参数；类目列表使用 null 和固定 locale。
+ * @returns {Promise<object>} 成功的 WorkCTL 结果；不会使用旧规则假装校验成功。
+ * @throws {Error} 拒绝非白名单命令；权限/业务拒绝立即报错，连接故障三次失败后报可重试错误。
  */
-async function runConfirmedWorkctlWithJsonFile(command, payload, prefix) {
-  const temporaryDirectory = await fs.promises.mkdtemp(path.join(os.tmpdir(), prefix));
-  const paramsFile = path.join(temporaryDirectory, 'params.json');
-  try {
-    await fs.promises.writeFile(paramsFile, JSON.stringify(payload), { mode: 0o600 });
-    return await runWorkctl([
-      ...command,
-      '--json-file', paramsFile,
-      '--yes',
-      '--format', 'json',
-      '--compact-output', 'off',
-    ]);
-  } finally {
-    await fs.promises.rm(temporaryDirectory, { recursive: true, force: true });
+async function runPublishRuleRead(command, payload = null) {
+  const name = command.join(' ');
+  const labels = {
+    'icbu product list-user-category': '读取店铺类目',
+    'icbu product list-attribute': '读取类目属性',
+    'icbu product list-attribute-options': '读取属性选项',
+    'icbu product list-information': '读取交易选项',
+  };
+  const label = Object.hasOwn(labels, name) ? labels[name] : null;
+  if (!label) throw new Error('发布规则重试仅支持只读查询');
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const result = payload === null
+      ? await runWorkctl([...command, '--locale', 'zh_CN', '--format', 'json', '--compact-output', 'off'], 20000)
+      : await runWorkctlWithJsonFile(command, payload, 'lsou-publish-rule-', 20000);
+    const outcome = publishWorkctlOutcome(result);
+    const detail = `${outcome.message} ${result.stderr || ''}`;
+    // mcp_upstream_rejected 本身不代表可以重试；必须同时命中连接/超时错误，且不是权限或参数问题。
+    const transient = !/unauth|forbidden|permission|access.denied|invalid.argument|权限|认证|登录|配额|余额|欠费|quota|参数错误/i.test(detail) &&
+      /超时|timed?\s*out|timeout|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EAI_AGAIN|socket hang up|连接中断|连接失败/i.test(detail);
+    pushLog({ ts: new Date().toISOString(), label, cmd: `workctl ${name}`, ms: result.durationMs,
+      cached: false, ok: outcome.ok, attempt, err: outcome.ok ? null : transient ? '平台连接超时或中断' : '平台拒绝规则查询' });
+    console.log(`[publish-rule] ${label} attempt=${attempt} ok=${outcome.ok} transient=${transient} durationMs=${result.durationMs}`);
+    if (outcome.ok) return result;
+    if (transient && attempt < 3) {
+      await new Promise(resolve => setTimeout(resolve, attempt * 500));
+      continue;
+    }
+    const error = new Error(transient
+      ? `${label}时平台连接超时或中断，已自动重试 2 次，请稍后再试。`
+      : `${label}被平台拒绝，请检查当前账号授权和可用类目。`);
+    error.code = transient ? 'PUBLISH_RULE_READ_TIMEOUT' : 'PUBLISH_RULE_READ_REJECTED';
+    error.statusCode = transient ? 503 : 502;
+    error.retryable = transient;
+    error.ruleRead = true;
+    error.stage = label;
+    throw error;
   }
 }
 
@@ -1121,20 +1146,13 @@ function flattenPublishCategories(tree) {
 async function fetchPublishCategoriesFromWorkctl() {
   let lastError = '当前账号没有返回可识别的叶子类目';
   for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const result = await runWorkctl([
-      'icbu', 'product', 'list-user-category',
-      '--locale', 'zh_CN',
-      '--format', 'json',
-      '--compact-output', 'off',
-    ]);
+    const result = await runPublishRuleRead(['icbu', 'product', 'list-user-category']);
     if (!result.ok || result.parsed?.success === false) {
       lastError = result.stderr || result.parseErr || '读取当前账号类目失败';
       continue;
     }
     const categories = flattenPublishCategories(result.parsed?.data);
     if (!categories.length) continue;
-    publishCategoryCache.at = Date.now();
-    publishCategoryCache.categories = categories;
     pushLog({
       ts: new Date().toISOString(),
       label: '发品叶子类目',
@@ -1149,24 +1167,14 @@ async function fetchPublishCategoriesFromWorkctl() {
 }
 
 /**
- * 读取当前登录账号可见的国际站叶子类目，并在进程内缓存和合并并发请求。
+ * 读取当前登录账号可见的叶子类目，复用账号隔离的本地快照并合并并发请求。
+ * @param {{maxAge?:number}} options 浏览时长期复用，写前限制有效期。
  *
  * @returns {Promise<{id:number,name:string,path:string}[]>} 当前账号的叶子类目列表。
  * @throws {Error} 底层 WorkCTL 两次都失败或返回空结构时抛出可读错误。
  */
-async function loadPublishCategories() {
-  if (publishCategoryCache.categories.length &&
-      Date.now() - publishCategoryCache.at < PUBLISH_SCHEMA_CACHE_TTL) {
-    return publishCategoryCache.categories;
-  }
-  if (publishCategoryLoadPromise) return publishCategoryLoadPromise;
-
-  publishCategoryLoadPromise = fetchPublishCategoriesFromWorkctl();
-  try {
-    return await publishCategoryLoadPromise;
-  } finally {
-    publishCategoryLoadPromise = null;
-  }
+async function loadPublishCategories(options = {}) {
+  return publishReadCache.read('categories', fetchPublishCategoriesFromWorkctl, options);
 }
 
 /**
@@ -1198,19 +1206,21 @@ function normalizePublishAttributeOptions(data) {
  * 读取某个叶子类目的 PRODUCT 属性和官方下拉选项。
  *
  * @param {number} categoryId - Alibaba 叶子类目整数 ID。
+ * @param {{maxAge?:number}} options 浏览时长期复用，写前限制有效期。
  * @returns {Promise<object>} 前端可直接渲染的动态类目 Schema。
  * @throws {Error} 类目无效、属性工具失败或未返回属性时抛出可读错误。
  */
-async function loadPublishCategorySchema(categoryId) {
+async function loadPublishCategorySchema(categoryId, options = {}) {
   if (!Number.isSafeInteger(categoryId) || categoryId <= 0) throw new Error('categoryId 必须是正整数');
-  const cached = publishCategorySchemaCache.get(categoryId);
-  if (cached && Date.now() - cached.at < PUBLISH_SCHEMA_CACHE_TTL) return cached.schema;
+  return publishReadCache.read(`schema:${categoryId}`, () => fetchPublishCategorySchema(categoryId, options), options);
+}
 
-  const categoriesPromise = loadPublishCategories();
-  const attributeResultPromise = runWorkctlWithJsonFile(
-    ['icbu', 'product', 'list-attribute'],
-    { categoryId, propertyType: 'PRODUCT' },
-    'lsou-workctl-attribute-'
+/** 读取新类目规则；categoryId 为叶子类目，options 控制归属列表有效期；返回 Schema，上游失败抛错。 */
+async function fetchPublishCategorySchema(categoryId, options = {}) {
+  if (!Number.isSafeInteger(categoryId) || categoryId <= 0) throw new Error('categoryId 必须是正整数');
+  const categoriesPromise = loadPublishCategories(options);
+  const attributeResultPromise = runPublishRuleRead(
+    ['icbu', 'product', 'list-attribute'], { categoryId, propertyType: 'PRODUCT' }
   );
   const [categories, attributeResult] = await Promise.all([categoriesPromise, attributeResultPromise]);
   const category = categories.find(item => item.id === categoryId);
@@ -1229,10 +1239,8 @@ async function loadPublishCategorySchema(categoryId) {
   const optionMap = new Map();
   for (let index = 0; index < enumAttributeIds.length; index += 50) {
     const attrIdList = enumAttributeIds.slice(index, index + 50);
-    const optionResult = await runWorkctlWithJsonFile(
-      ['icbu', 'product', 'list-attribute-options'],
-      { categoryId, attrIdList },
-      'lsou-workctl-attribute-options-'
+    const optionResult = await runPublishRuleRead(
+      ['icbu', 'product', 'list-attribute-options'], { categoryId, attrIdList }
     );
     if (!optionResult.ok || optionResult.parsed?.success === false) {
       throw new Error(optionResult.stderr || optionResult.parseErr || '读取类目属性选项失败');
@@ -1275,7 +1283,6 @@ async function loadPublishCategorySchema(categoryId) {
     source: 'workctl-live',
     fetchedAt: new Date().toISOString(),
   };
-  publishCategorySchemaCache.set(categoryId, { at: Date.now(), schema });
   pushLog({
     ts: new Date().toISOString(),
     label: '发品类目属性',
@@ -1323,24 +1330,18 @@ function buildPublishBusinessOptionList(counter, labels, genericLabel) {
 }
 
 /**
- * 从当前登录账号读取一页代表商品，作为发品页自动匹配类目的依据。
+ * 从当前登录账号读取完整商品目录，作为发品页自动匹配类目的依据。
  *
- * `data-advisor-shop-product` 会直接返回每件商品的 categoryId。这里保留原始行仅供
- * 服务端继续统计计价单位，给浏览器的路由会再裁剪成标题、缩略图和类目四项。
+ * 只保存商品号、标题、缩略图、类目、计价单位与修改时间；商品号不返回浏览器。
  * 使用同一份缓存还能避免发品页同时加载类目上下文与计价单位时重复调用 WorkCTL。
  *
  * @returns {Promise<{rows:object[],durationMs:number,fetchedAt:string}>} 当前账号代表商品。
  * @throws {Error} WorkCTL 不可用或当前账号没有返回商品时抛出可读错误。
  */
 async function loadPublishAccountCatalog() {
-  if (publishAccountCatalogCache.value &&
-      Date.now() - publishAccountCatalogCache.at < PUBLISH_SCHEMA_CACHE_TTL) {
-    return publishAccountCatalogCache.value;
-  }
-  if (publishAccountCatalogLoadPromise) return publishAccountCatalogLoadPromise;
-
-  publishAccountCatalogLoadPromise = (async () => {
+  return publishReadCache.read('catalog', async () => {
     const productResult = await callEndpoint('shop-product', {
+      __nocache: '1',
       pageNo: '1',
       pageSize: '20',
       orderBy: 'views',
@@ -1356,11 +1357,13 @@ async function loadPublishAccountCatalog() {
       // WorkCTL 进程。这样已有商品缩略图可以精确映射，而不是只看首页后猜类目。
       const batch = pageNumbers.slice(index, index + 4);
       const results = await Promise.all(batch.map(pageNo => callEndpoint('shop-product', {
+        __nocache: '1',
         pageNo: String(pageNo),
         pageSize: '20',
         orderBy: 'views',
         orderModel: 'DESC',
       })));
+      if (results.some(result => !result.ok)) throw new Error('部分店铺商品未读取成功，请重新更新店铺资料');
       remainingResults.push(...results);
     }
     const rows = [productResult, ...remainingResults]
@@ -1369,21 +1372,18 @@ async function loadPublishAccountCatalog() {
       .filter(row => Number.isSafeInteger(Number(row?.categoryId)) && Number(row.categoryId) > 0);
     if (!rows.length) throw new Error('当前店铺没有返回可用于匹配类目的商品');
     return {
-      rows,
+      // 仅保存参考发品所需字段，经营指标、负责人等原始内容不写入这份缓存。
+      rows: rows.map(row => ({
+        productId: publishAccountProductId(row), categoryId: Number(row.categoryId),
+        subject: publishText(row.subject || row.prodName, 128), prodImage: publishText(row.prodImage, 1000),
+        cateName: publishText(row.cateName, 160), priceUnit: Number(row.priceUnit) || null,
+        gmtModified: publishText(row.gmtModified || row.modifiedTime || row.crtTime, 80),
+      })),
       durationMs: Number(productResult.durationMs || 0) + remainingResults
         .reduce((sum, result) => sum + Number(result.durationMs || 0), 0),
       fetchedAt: new Date().toISOString(),
     };
-  })();
-
-  try {
-    const value = await publishAccountCatalogLoadPromise;
-    publishAccountCatalogCache.at = Date.now();
-    publishAccountCatalogCache.value = value;
-    return value;
-  } finally {
-    publishAccountCatalogLoadPromise = null;
-  }
+  });
 }
 
 /**
@@ -1412,12 +1412,12 @@ function publishAccountReferenceKey(productId) {
   const now = Date.now();
   const existingKey = publishAccountReferenceKeysByProductId.get(productId);
   const existing = existingKey ? publishAccountReferenceTokens.get(existingKey) : null;
-  if (existing && existing.expiresAt > now) return existingKey;
+  if (existing) { existing.expiresAt = now + 24 * 60 * 60 * 1000; return existingKey; }
   const referenceKey = crypto.randomUUID();
   publishAccountReferenceKeysByProductId.set(productId, referenceKey);
   publishAccountReferenceTokens.set(referenceKey, {
     productId,
-    expiresAt: now + PUBLISH_SCHEMA_CACHE_TTL,
+    expiresAt: now + 24 * 60 * 60 * 1000,
   });
   return referenceKey;
 }
@@ -1641,8 +1641,7 @@ function persistPublishImageLibrary() {
  */
 function shouldRefreshPublishImageRecord(record, row, force) {
   if (force || !record) return true;
-  const fetchedAt = Date.parse(record.fetchedAt || '');
-  if (!Number.isFinite(fetchedAt) || Date.now() - fetchedAt >= PUBLISH_IMAGE_LIBRARY_TTL) return true;
+  if (!Number.isFinite(Date.parse(record.fetchedAt || ''))) return true;
   const latestModifiedAt = publishText(row?.gmtModified || row?.modifiedTime || row?.crtTime, 80);
   return Boolean(latestModifiedAt && record.sourceModifiedAt && latestModifiedAt !== record.sourceModifiedAt);
 }
@@ -1742,8 +1741,7 @@ function publicPublishImageRecord(record) {
 /**
  * 按当前账号完整商品目录预热历史图库，并在每批结束后持久化进度。
  *
- * 首次运行会读取全部商品；以后启动先立即复用磁盘缓存，只刷新新增、已修改或超过
- * TTL 的记录。失败商品不会删除旧缓存，避免网关短暂异常让用户已经可用的图片消失。
+ * 首次运行会读取全部商品；以后启动先立即复用磁盘缓存，只补齐新增或已修改的记录。用户主动更新时才全量重读。失败商品不会删除旧缓存，避免网关短暂异常让用户已经可用的图片消失。
  *
  * @param {{force?:boolean}} [options={}] - force=true 时强制重读全部商品。
  * @returns {Promise<object>} 最终脱敏同步状态。
@@ -1903,6 +1901,7 @@ async function buildPublicPublishAccountContext(limit = 20) {
     defaultCategory: categorySummary[0] || null,
     source: 'current-account-products',
     fetchedAt,
+    cache: publishReadCache.status('catalog'),
     imageLibrary: publicPublishImageLibraryStatus(),
   };
 }
@@ -1935,15 +1934,17 @@ async function fetchPublishBusinessOptionsFromWorkctl() {
   for (let index = 0; index < sampleIds.length; index += 3) {
     // 每批最多三条，避免为了初始化下拉选项瞬间占满同一个 Accio 网关。
     const batch = sampleIds.slice(index, index + 3);
-    const results = await Promise.all(batch.map(productId => runWorkctlWithJsonFile(
+    const results = await Promise.all(batch.map(productId => runPublishRuleRead(
       ['icbu', 'product', 'list-information'],
       {
         productId,
         queryType: 'trunk',
         componentList: ['priceUnit', 'shippingTemplate', 'logisticsProperty'],
-      },
-      'lsou-workctl-publish-options-'
+      }
     )));
+    if (results.some(result => !result.ok || result.parsed?.success === false)) {
+      throw new Error('店铺交易选项未完整读取，请重新更新店铺资料');
+    }
     results.forEach(result => {
       detailDurationMs += Number(result.durationMs || 0);
       if (!result.ok || result.parsed?.success === false) return;
@@ -1989,24 +1990,31 @@ async function fetchPublishBusinessOptionsFromWorkctl() {
 /**
  * 读取并缓存当前账号的计价单位与物流方案，合并同一时刻的并发请求。
  *
+ * @param {{maxAge?:number}} options 浏览时长期复用，写前限制有效期。
  * @returns {Promise<object>} 当前账号可用的发品业务选项。
  * @throws {Error} 底层 WorkCTL 查询失败时透传业务错误。
  */
-async function loadPublishBusinessOptions() {
-  if (publishBusinessOptionsCache.value &&
-      Date.now() - publishBusinessOptionsCache.at < PUBLISH_SCHEMA_CACHE_TTL) {
-    return publishBusinessOptionsCache.value;
-  }
-  if (publishBusinessOptionsLoadPromise) return publishBusinessOptionsLoadPromise;
-  publishBusinessOptionsLoadPromise = fetchPublishBusinessOptionsFromWorkctl();
-  try {
-    const value = await publishBusinessOptionsLoadPromise;
-    publishBusinessOptionsCache.at = Date.now();
-    publishBusinessOptionsCache.value = value;
-    return value;
-  } finally {
-    publishBusinessOptionsLoadPromise = null;
-  }
+async function loadPublishBusinessOptions(options = {}) {
+  return publishReadCache.read('business-options', fetchPublishBusinessOptionsFromWorkctl, options);
+}
+
+/**
+ * 手动失效发布资料并重读目录、类目和交易选项；其他已参考的详情与规则按需更新。
+ * @returns {Promise<object>} 新的账号上下文和业务选项；图库后台更新，已有编辑内容不受影响。
+ * @throws {Error} 读取失败透传，保留旧磁盘快照但不把失败当作更新成功。
+ */
+function refreshPublishSourceData() {
+  if (publishSourceRefreshPromise) return publishSourceRefreshPromise;
+  publishSourceRefreshPromise = (async () => {
+    await publishReadCache.invalidate();
+    const [context, options] = await Promise.all([buildPublicPublishAccountContext(500), loadPublishBusinessOptions()]);
+    // 等待旧图库同步收尾，再开始用户明确要求的更新，避免强制刷新被旧任务吞掉。
+    const refreshImages = () => startPublishImageLibraryWarmup({ force: true });
+    if (publishImageLibrarySyncPromise) publishImageLibrarySyncPromise.finally(refreshImages).catch(() => {});
+    else refreshImages();
+    return { context, options };
+  })().finally(() => { publishSourceRefreshPromise = null; });
+  return publishSourceRefreshPromise;
 }
 
 /**
@@ -2091,6 +2099,39 @@ function isRemotePublishImage(value) {
 }
 
 /**
+ * 将页面多选值还原为平台的逐条属性，不拼接、不截断已选内容。
+ * @param {object[]} rawAttributes 页面按字段组织的属性；attrValue 可以是字符串或多选数组。
+ * @param {object|null} categorySchema 服务端已校验的当前类目规则，用于匹配每一项官方值ID。
+ * @returns {object[]} basicInfo.attr；同一多选属性的各项使用相同attrNameId，各自保留值和ID。
+ * @throws {Error} 单选提交多值、未知固定选项或单条超过WorkCTL的50字符限制时抛字段级错误。
+ */
+function normalizePublishAttributes(rawAttributes, categorySchema = null) {
+  const schemaById = new Map((categorySchema?.attributes || []).map(attribute => [Number(attribute.attrNameId), attribute]));
+  return (Array.isArray(rawAttributes) ? rawAttributes : []).flatMap(item => {
+    const attrNameId = Number(item?.attrNameId);
+    const definition = schemaById.get(attrNameId);
+    const attrName = publishText(definition?.attrName || item?.attrName, 120);
+    if (!Number.isSafeInteger(attrNameId) || attrNameId <= 0 || !attrName) return [];
+    const rawValues = Array.isArray(item?.attrValue) ? item.attrValue : [item?.attrValue];
+    const values = [...new Set(rawValues.map(value => String(value ?? '').trim()).filter(Boolean))];
+    if (definition && !definition.multiSelect && values.length > 1) throw new Error(`${attrName} 只允许选择一个值`);
+    return values.map(attrValue => {
+      const length = [...attrValue].length;
+      if (length > 50) throw new Error(`${attrName} 的单条属性值有 ${length} 个字符，最多允许 50 个，请修改该属性`);
+      const option = definition?.options?.find(candidate => candidate.label === attrValue);
+      if (definition?.enumProp && !definition.inputProp && attrNameId !== 1 && definition.options?.length && !option) {
+        throw new Error(`${attrName} 含有非平台选项，请重新选择`);
+      }
+      const submittedId = Number(item?.attrValueId);
+      // 当前平台数据每个多选项均为独立记录；从可信Schema回填对应ID，不能让整组选项共用一个ID。
+      const attrValueId = option ? Number(option.id)
+        : values.length === 1 && Number.isSafeInteger(submittedId) ? submittedId : -1;
+      return { attrNameId, attrName, attrValueId, attrValue, imageUrl: null };
+    });
+  });
+}
+
+/**
  * 将页面中的单个商品收敛为 publish-from-json 可消费的平台商品 material。
  *
  * WorkCTL 动态 Schema 只把 material 声明为字符串，但 Alibaba Seller Assistant
@@ -2100,10 +2141,11 @@ function isRemotePublishImage(value) {
  *
  * @param {*} input - 浏览器提交的一条商品快照。
  * @param {'draft'|'publish'} action - 保存远端草稿或提交正式发布。
+ * @param {object|null} categorySchema - 已通过归属/枚举校验的类目规则，入队路径必须传入。
  * @returns {{material:object, localId:string, title:string, image:string}} 清洗后的素材和页面关联字段。
  * @throws {Error} 字段缺失、类型错误或正式发布校验不通过时抛出可读错误。
  */
-function normalizePublishProduct(input, action) {
+function normalizePublishProduct(input, action, categorySchema = null) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('商品数据必须是对象');
   }
@@ -2113,7 +2155,9 @@ function normalizePublishProduct(input, action) {
   const categoryId = Number(input.categoryId);
   const categoryName = publishText(input.categoryName, 240);
   const images = [...new Set((Array.isArray(input.images) ? input.images : [])
-    .filter(isRemotePublishImage).map(value => String(value)).slice(0, 10))];
+    .filter(isRemotePublishImage).map(value => String(value)))];
+  // 超量必须让用户选择保留哪些图片，不能默默截断后仍返回提交成功。
+  if (images.length > MAX_PRODUCT_IMAGES) throw new Error(`商品主图最多 ${MAX_PRODUCT_IMAGES} 张，当前 ${images.length} 张，请先移除多余图片`);
   const keywords = [...new Set((Array.isArray(input.keywords) ? input.keywords : [])
     .map(value => publishText(value, 40)).filter(Boolean).slice(0, 5))];
   const sellingPoints = (Array.isArray(input.sellingPoints) ? input.sellingPoints : [])
@@ -2125,29 +2169,13 @@ function normalizePublishProduct(input, action) {
   if (!Number.isSafeInteger(categoryId) || categoryId <= 0) issues.push('叶子类目 ID 无效');
   if (!images.length) issues.push('至少需要 1 张已经上传的远程图片；浏览器本地图片不能直接发布');
 
-  const rawAttributes = Array.isArray(input.attributes) ? input.attributes : [];
-  const attributes = rawAttributes.slice(0, 80).map(item => {
-    const attrNameId = Number(item?.attrNameId);
-    const submittedAttrValueId = Number(item?.attrValueId);
-    const attrName = publishText(item?.attrName, 120);
-    const rawValue = Array.isArray(item?.attrValue) ? item.attrValue : [item?.attrValue];
-    const attrValue = rawValue.map(value => publishText(value, 160)).filter(Boolean).slice(0, 20);
-    return {
-      attrNameId: Number.isSafeInteger(attrNameId) && attrNameId > 0 ? attrNameId : null,
-      attrName,
-      // 单选枚举必须保留 WorkCTL 返回的正整数 ID；多值和允许自定义的文本按
-      // 平台完整素材约定使用 -1。绝不在服务端臆造某个官方枚举编码。
-      attrValueId: Number.isSafeInteger(submittedAttrValueId) ? submittedAttrValueId : -1,
-      attrValue: attrValue.join(';'),
-      imageUrl: null,
-    };
-  }).filter(item => item.attrNameId && item.attrName && item.attrValue);
+  const attributes = normalizePublishAttributes(input.attributes, categorySchema);
 
   const rawTrade = input.trade && typeof input.trade === 'object' ? input.trade : {};
   const saleType = ['normal', 'batch'].includes(rawTrade.saleType) ? rawTrade.saleType : '';
-  const moq = Number(rawTrade.moq);
-  const inventory = Number(rawTrade.inventory);
-  const batchNum = Number(rawTrade.batchNum);
+  const moq = publishReferenceNumber(rawTrade.moq);
+  const inventory = publishReferenceNumber(rawTrade.inventory);
+  const batchNum = publishReferenceNumber(rawTrade.batchNum);
   const priceUnitId = Number(rawTrade.priceUnitId);
   const priceUnitLabel = publishText(rawTrade.priceUnitLabel, 80);
   const ladderPrices = (Array.isArray(rawTrade.ladderPrices) ? rawTrade.ladderPrices : [])
@@ -2162,6 +2190,19 @@ function normalizePublishProduct(input, action) {
         unitPrice: Number.isFinite(unitPrice) && unitPrice > 0 ? unitPrice : null,
       };
     });
+  const sku = normalizePublishSkus(rawTrade.sku);
+  if (!sku.length) issues.push('请填写商品规格，或重新读取参考商品的规格资料');
+  sku.forEach((item, index) => {
+    if (!item.skuAttributes.length || item.skuAttributes.some(attr => !attr.attrName || !attr.attrValue)) {
+      issues.push(`第 ${index + 1} 个规格需要填写规格名称和值`);
+    }
+    // 单规格可沿用表单中实际填写的总库存；多规格不能把总库存复制到每条规格。
+    if (item.stock === null && sku.length === 1) item.stock = publishReferenceNumber(rawTrade.inventory);
+    if (item.unitPrice === null) item.unitPrice = ladderPrices[0]?.unitPrice ?? null;
+    if (item.stock !== null && (!Number.isInteger(item.stock) || item.stock < 0)) issues.push(`第 ${index + 1} 个规格库存必须为非负整数`);
+    if (item.unitPrice !== null && !(item.unitPrice > 0)) issues.push(`第 ${index + 1} 个规格价格必须大于 0`);
+    if (action === 'publish' && (item.stock === null || item.unitPrice === null)) issues.push(`第 ${index + 1} 个规格的价格和库存尚未填写完整`);
+  });
 
   const rawFulfillment = input.fulfillment && typeof input.fulfillment === 'object' ? input.fulfillment : {};
   const packageInfo = rawFulfillment.package && typeof rawFulfillment.package === 'object'
@@ -2206,6 +2247,7 @@ function normalizePublishProduct(input, action) {
     images: images.map((newImageUrl, imageIndex) => ({ imageIndex, newImageUrl })),
   };
   const trade = {
+    sku,
     ...(saleType ? { saleType } : {}),
     ...(saleType === 'batch' && Number.isInteger(batchNum) ? { batchNum } : {}),
     ...(Number.isInteger(moq) ? { moq } : {}),
@@ -2261,10 +2303,10 @@ function findPublishResponseField(value, keys, depth = 0) {
 }
 
 /**
- * 校验浏览器上传的图片正文，防止伪造 MIME、超大请求和路径型文件名进入 OSS。
+ * 校验浏览器上传的图片正文，防止伪造 MIME 和超大图片进入 Accio 上传接口。
  *
  * @param {*} body - POST /api/publish/images 的 JSON 请求体。
- * @returns {{filename:string,contentType:string,base64:string,size:number}} 可直接交给 WorkCTL 的安全图片参数。
+ * @returns {{filename:string,contentType:string,base64:string,size:number}} 已校验的图片参数。
  * @throws {Error} 文件名、类型、Base64 或图片签名不符合约束时抛出可读错误。
  */
 function normalizePublishImageUpload(body) {
@@ -2290,47 +2332,95 @@ function normalizePublishImageUpload(body) {
 }
 
 /**
- * 把一张已经通过本地校验的图片上传到管理员配置的 OSS bucket。
+ * 读取启动器注入的当前 Accio 本机网关连接，不接受浏览器指定上传目标。
+ * 地址必须是回环 HTTP，避免把当前登录凭据发送到其他服务器；返回值仅在后端使用。
  *
- * bucket、endpoint 和 path prefix 都只存在于服务端环境，普通运营用户不会看见、
- * 选择或提交这些基础设施参数。接口响应也只返回发品所需的远程 URL。
+ * @returns {{url:URL,authorization:string}} 固定上传路由及本机网关认证头。
+ * @throws {Error} 当前会话缺失或网关地址不合法时抛出可公开的中文错误。
+ */
+function publishImageGateway() {
+  const token = String(process.env.ACCIO_GATEWAY_TOKEN || '').trim();
+  try {
+    const base = new URL(process.env.ACCIO_LOCAL_GATEWAY_URL || 'http://127.0.0.1:4097');
+    if (!token || base.protocol !== 'http:' || base.username || base.password ||
+        !['localhost', '127.0.0.1', '[::1]'].includes(base.hostname)) throw new Error();
+    return {
+      url: new URL('/api/image/cdn/upload', base),
+      authorization: 'Basic ' + Buffer.from(`phoenix:${token}`).toString('base64'),
+    };
+  } catch {
+    throw Object.assign(new Error('图片上传尚未连接 Accio Work，请登录后重新打开工作台'), { statusCode: 503 });
+  }
+}
+
+/**
+ * 上传到 Accio 自带 CDN，再返回可直接写入发品 material 的图片地址。
+ * 凭据和图片正文仅经本机网关传输，不写临时文件、日志或浏览器响应。
+ * 不自动重试或切换到其他存储，失败后由用户在页面明确重试。
  *
  * @param {*} body - 浏览器图片上传请求体。
  * @returns {Promise<{url:string,filename:string,contentType:string,size:number}>} 已上传图片的公开结果。
- * @throws {Error} 存储未配置、WorkCTL 调用失败或未返回远程 URL 时抛出。
+ * @throws {Error} 图片校验、会话、网络或平台返回异常时抛出已脱敏的中文错误。
  */
 async function uploadPublishImage(body) {
-  if (!PUBLISH_IMAGE_BUCKET) {
-    throw new Error('图片存储尚未由管理员配置，请设置 PUBLISH_IMAGE_BUCKET 后重新启动');
+  const startedAt = Date.now();
+  let ok = false;
+  let statusCode = 400;
+  console.info(`[publish-image] ${new Date().toISOString()} start`);
+  try {
+    const image = normalizePublishImageUpload(body);
+    const gateway = publishImageGateway();
+    let response;
+    let payload;
+    try {
+      response = await fetch(gateway.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: gateway.authorization },
+        body: JSON.stringify({ data_uri: `data:${image.contentType};base64,${image.base64}` }),
+        redirect: 'error', // 禁止重定向，登录凭据和图片不可被转发到其他地址。
+        signal: AbortSignal.timeout(90000),
+      });
+      payload = await response.json().catch(() => null);
+    } catch (error) {
+      const timeout = error?.name === 'TimeoutError' || error?.name === 'AbortError';
+      throw Object.assign(new Error(timeout
+        ? '图片上传超时，请稍后重试'
+        : '无法连接 Accio 图片上传服务，请确认 Accio Work 正在运行后重试'), { statusCode: timeout ? 504 : 502 });
+    }
+    // 使用固定错误文案；上游错误正文可能包含会话、内部路径等信息，绝不透传。
+    if (!response.ok) {
+      const messages = {
+        400: 'Accio 未接受这张图片，请检查图片后重新上传',
+        401: 'Accio 登录会话已失效，请登录后重新打开工作台',
+        403: 'Accio 图片上传未获授权，请检查当前登录状态后重新打开工作台',
+        404: '当前 Accio Work 版本未提供图片上传，请更新后重试',
+        405: '当前 Accio Work 版本未提供图片上传，请更新后重试',
+        413: 'Accio 未接受此图片的大小或分辨率，请压缩后重试',
+        429: '图片上传请求较多，请稍后重试',
+        503: 'Accio 图片服务尚未就绪，请稍后重试',
+      };
+      throw Object.assign(new Error(messages[response.status] || 'Accio 图片上传失败，请稍后重试'), {
+        statusCode: [400, 413, 429].includes(response.status) ? response.status : 502,
+      });
+    }
+    let url;
+    try { url = new URL(typeof payload?.url === 'string' ? payload.url : ''); } catch { /* 下方统一拒绝异常返回。 */ }
+    if (!url || url.protocol !== 'https:' || url.username || url.password ||
+        !url.hostname.includes('.') || url.hostname.endsWith('.localhost') || isIP(url.hostname.replace(/^\[|\]$/g, ''))) {
+      throw Object.assign(new Error('Accio 未返回可用于发品的图片地址，请重新上传'), { statusCode: 502 });
+    }
+    ok = true;
+    statusCode = 201;
+    return { url: url.href, filename: image.filename, contentType: image.contentType, size: image.size };
+  } catch (error) {
+    statusCode = error.statusCode || 400;
+    throw error;
+  } finally {
+    const ms = Date.now() - startedAt;
+    pushLog({ ts: new Date().toISOString(), label: '上传发品图片', cmd: 'Accio 图片上传', ms, cached: false, ok });
+    // 正式 Tauri 启动器将 stdout/stderr 收入既有 desktop.log；只记录状态与耗时。
+    console.info(`[publish-image] ${new Date().toISOString()} ${ok ? 'success' : 'failed'} status=${statusCode} ms=${ms}`);
   }
-  const image = normalizePublishImageUpload(body);
-  const result = await runConfirmedWorkctlWithJsonFile(
-    ['icbu', 'other', 'upload-file'],
-    {
-      bucket_name: PUBLISH_IMAGE_BUCKET,
-      file_content: image.base64,
-      filename: image.filename,
-      content_type: image.contentType,
-      is_base64: true,
-      ...(PUBLISH_IMAGE_ENDPOINT ? { endpoint: PUBLISH_IMAGE_ENDPOINT } : {}),
-      ...(PUBLISH_IMAGE_PATH_PREFIX ? { path_prefix: PUBLISH_IMAGE_PATH_PREFIX } : {}),
-    },
-    'lsou-workctl-image-upload-'
-  );
-  const outcome = publishWorkctlOutcome(result);
-  if (!outcome.ok) throw new Error(outcome.message || '图片上传失败');
-  const data = parseEmbeddedWorkctlData(result.parsed?.data);
-  const remoteUrl = findPublishResponseField(data, new Set(['url', 'cdnUrl', 'accessUrl', 'fileUrl']));
-  if (!isRemotePublishImage(remoteUrl)) throw new Error('图片已经上传，但平台没有返回可用于发品的远程地址');
-  pushLog({
-    ts: new Date().toISOString(),
-    label: '上传发品图片',
-    cmd: 'workctl icbu other upload-file --json-file [redacted] --yes',
-    ms: result.durationMs,
-    cached: false,
-    ok: true,
-  });
-  return { url: String(remoteUrl), filename: image.filename, contentType: image.contentType, size: image.size };
 }
 
 /**
@@ -2458,9 +2548,45 @@ function normalizePublishReferenceTextList(value, limit, maxLength) {
  * @throws {Error} 不主动抛出异常。
  */
 function publishReferenceNumber(value) {
-  if (value === null || value === undefined || value === '') return null;
+  if (value === null || value === undefined || (typeof value === 'string' && !value.trim())) return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+/**
+ * 保留可编辑的规格属性、商家编码、价格与库存，剔除旧商品的 SKU ID 等内部字段。
+ * 不截断规格列表，不凭空构造颜色/型号；超大或结构异常的输入显式拒绝。
+ * @param {*} value - WorkCTL 或浏览器传来的 trade.sku。
+ * @returns {object[]} 具有 skuAttributes 的独立规格列表，缺失数字保持 null。
+ * @throws {Error} 列表或属性形态不合法、超过合理大小时抛出业务错误。
+ */
+function normalizePublishSkus(value) {
+  if (value === null || value === undefined) return [];
+  if (!Array.isArray(value) || value.length > 100) throw new Error('商品规格必须是列表，最多支持 100 个规格');
+  return value.map((item, index) => {
+    if (!item || typeof item !== 'object' || !Array.isArray(item.skuAttributes) || item.skuAttributes.length > 20) {
+      throw new Error(`第 ${index + 1} 个规格的属性格式不完整，请重新读取或填写规格资料`);
+    }
+    for (const field of ['stock', 'unitPrice']) {
+      const raw = item[field];
+      if (raw !== null && raw !== undefined && String(raw).trim() &&
+          (!['number', 'string'].includes(typeof raw) || !Number.isFinite(Number(raw)))) {
+        throw new Error(`第 ${index + 1} 个规格的${field === 'stock' ? '库存' : '价格'}不是有效数字`);
+      }
+    }
+    return {
+      skuAttributes: item.skuAttributes.map(attr => ({
+        attrNameId: Number.isSafeInteger(attr?.attrNameId) && attr.attrNameId > 0 ? attr.attrNameId : null,
+        attrName: publishText(attr?.attrName, 120),
+        attrValueId: Number.isSafeInteger(attr?.attrValueId) ? attr.attrValueId : null,
+        attrValue: publishText(attr?.attrValue, 160),
+        imageUrl: isRemotePublishImage(attr?.imageUrl) ? String(attr.imageUrl) : null,
+      })),
+      skuCode: publishText(item.skuCode, 120),
+      stock: publishReferenceNumber(item.stock),
+      unitPrice: publishReferenceNumber(item.unitPrice),
+    };
+  });
 }
 
 /**
@@ -2517,6 +2643,7 @@ function normalizePublishReferenceMaterial(rawData) {
       inventory: publishReferenceNumber(trade.inventory),
       priceUnit: publishReferenceNumber(trade.priceUnit),
       ladderPrices,
+      sku: normalizePublishSkus(trade.sku),
     },
     fulfillment: {
       ladderPeriod,
@@ -2547,7 +2674,7 @@ async function queryPublishAccountProductMaterial(productId) {
       productId: Number(productId),
       queryType: 'trunk',
       componentList: [
-        'productTitle', 'productKeywords', 'attr', 'priceUnit', 'saleType', 'ladderPrices',
+        'productTitle', 'productKeywords', 'attr', 'priceUnit', 'saleType', 'ladderPrices', 'sku',
         'moq', 'inventory', 'ladderPeriod', 'pkgWeight', 'pkgMeasure', 'logisticsProperty',
         'shippingTemplate', 'productSellingPoint',
       ],
@@ -2664,6 +2791,7 @@ function inferPublishFailureFields(message) {
   add('keywords', ['keyword', '关键词']);
   add('attributes', ['attribute', 'attr', '属性']);
   add('price', ['unitprice', 'skuprice', 'ladderprice', 'price', '价格']);
+  add('sku', ['sku', '规格']);
   add('moq', ['moq', 'minimum order', '起订']);
   add('package', ['pkgweight', 'pkglength', 'pkgwidth', 'pkgheight', 'package', '包装', '毛重']);
   add('fulfillment', ['ladderperiod', 'lead time', 'shipping', '发货', '物流']);
@@ -2687,7 +2815,11 @@ function publishFlowOutcome(result) {
   const productId = findPublishResponseField(item, new Set(['productId', 'prodId']));
   const itemSuccess = findPublishResponseField(item, new Set(['success', 'isSuccess', 'businessSuccess']));
   const errorCode = publishText(findPublishResponseField(item, new Set(['errorCode', 'code'])), 120);
-  const errorValue = findPublishResponseField(item, new Set(['error', 'errorMsg', 'message', 'next_step']));
+  // 本地 JSON 校验的具体原因在 details 中；顶层 message 只有“校验未通过”。
+  const validationErrors = data?.status === 'pending_fix' && Array.isArray(data.details)
+    ? data.details.map(detail => publishText(detail?.error, 240)).filter(Boolean) : [];
+  const errorValue = validationErrors.length ? validationErrors.join('；')
+    : findPublishResponseField(item, new Set(['error', 'errorMsg', 'message', 'next_step']));
   const errorMessage = publishText(
     typeof errorValue === 'object'
       ? errorValue?.message || errorValue?.errorMsg || errorValue?.reason || JSON.stringify(errorValue)
@@ -2695,7 +2827,7 @@ function publishFlowOutcome(result) {
     600
   );
   const ok = Boolean(envelope.ok && itemSuccess !== false && productId !== null && productId !== undefined && productId !== '');
-  const finalScoreValue = Number(findPublishResponseField(item, new Set(['finalScore', 'qualityScore', 'score'])));
+  const finalScoreValue = publishReferenceNumber(findPublishResponseField(item, new Set(['finalScore', 'qualityScore', 'score'])));
   const lowScoreValue = findPublishResponseField(item, new Set(['lowScore']));
   const deductReasons = normalizeQualityReasons(findPublishResponseField(item, new Set(['deductReasons', 'deductionReasons'])));
   const qualityScoreMessage = publishText(
@@ -2883,12 +3015,16 @@ async function processPublishQueue() {
  *
  * @param {*} product - 浏览器提交的原始商品快照。
  * @param {'draft'|'publish'} action - 草稿允许缺字段，正式发布要求所有必填属性完整。
- * @returns {Promise<void>} 校验通过时完成且不返回业务数据。
+ * @returns {Promise<object>} 校验通过后返回本次使用的类目规则，供最终JSON逐项匹配官方ID。
  * @throws {Error} 类目不属于当前账号、必填缺失或枚举值不是官方选项时抛出。
  */
 async function validatePublishProductSchema(product, action) {
   const categoryId = Number(product?.categoryId);
-  const schema = await loadPublishCategorySchema(categoryId);
+  const [schema, categories] = await Promise.all([
+    loadPublishCategorySchema(categoryId, { maxAge: PUBLISH_SCHEMA_CACHE_TTL }),
+    loadPublishCategories({ maxAge: PUBLISH_SCHEMA_CACHE_TTL }),
+  ]);
+  if (!categories.some(category => category.id === categoryId)) throw new Error('所选类目已不在当前账号可用类目中，请更新店铺资料');
   const inputAttributes = Array.isArray(product?.attributes) ? product.attributes : [];
   const submittedById = new Map(inputAttributes.map(attribute => [Number(attribute?.attrNameId), attribute]));
   const issues = [];
@@ -2896,8 +3032,7 @@ async function validatePublishProductSchema(product, action) {
   schema.attributes.forEach(attribute => {
     const submitted = submittedById.get(attribute.attrNameId);
     const values = (Array.isArray(submitted?.attrValue) ? submitted.attrValue : [submitted?.attrValue])
-      .flatMap(value => String(value ?? '').split(';'))
-      .map(value => publishText(value, 160))
+      .map(value => String(value ?? '').trim())
       .filter(Boolean);
     const attrValueId = Number(submitted?.attrValueId);
 
@@ -2910,8 +3045,8 @@ async function validatePublishProductSchema(product, action) {
     const allowedById = new Map(attribute.options.map(option => [Number(option.id), option.label]));
     const allowedLabels = new Set(attribute.options.map(option => option.label));
     if (attribute.multiSelect) {
-      // 平台 JSON 对多值属性使用分号合并并将 attrValueId 设为 -1，但每个文本值
-      // 仍必须能在实时 options 中找到，除非该属性明确允许自定义输入。
+      // 页面按数组保留多选；校验每个值后，normalizePublishAttributes逐条输出并回填官方ID。
+      // 不再拼接分号，避免把多项合成一个超过平台单值长度限制的字符串。
       if (!attribute.inputProp && values.some(value => !allowedLabels.has(value))) {
         issues.push(`${attribute.attrName} 含有非平台选项`);
       }
@@ -2937,6 +3072,7 @@ async function validatePublishProductSchema(product, action) {
     }
   });
   if (issues.length) throw new Error(issues.slice(0, 8).join('；'));
+  return schema;
 }
 
 /**
@@ -2971,10 +3107,10 @@ async function enqueuePublishJobs(body) {
   // 进入写队列前先在服务端自动匹配账号级业务选项，再重新核验实时类目 Schema。
   // 浏览器从不要求用户输入平台 ID；即使前端数据被修改，也不能绕过账号选项集合、
   // 平台枚举和值与类目归属检查。
-  const businessOptions = await loadPublishBusinessOptions();
+  const businessOptions = await loadPublishBusinessOptions({ maxAge: PUBLISH_SCHEMA_CACHE_TTL });
   const resolvedProducts = products.map(product => applyPublishBusinessOptions(product, businessOptions));
-  await Promise.all(resolvedProducts.map(product => validatePublishProductSchema(product, action)));
-  const normalized = resolvedProducts.map(product => normalizePublishProduct(product, action));
+  const schemas = await Promise.all(resolvedProducts.map(product => validatePublishProductSchema(product, action)));
+  const normalized = resolvedProducts.map((product, index) => normalizePublishProduct(product, action, schemas[index]));
   const now = new Date().toISOString();
   const operationId = `publish-operation-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const jobs = normalized.map((product, index) => ({
@@ -3017,34 +3153,78 @@ async function enqueuePublishJobs(body) {
   return { jobs, deduplicated: false };
 }
 
+/**
+ * 读写当前账号最近成功的关键词画像；文件仅保存脱敏数据，空画像也可以保存。
+ * @param {object|null} value 有值时保存，无值时读取。
+ * @returns {object|null} 已保存画像；账号未知、文件损坏或写入失败返回 null。
+ * @throws {Error} 不向调用方抛错，存储异常只记录状态，不记录经营正文。
+ */
+function keywordProfileSnapshot(value = null) {
+  const scope = process.env.ACCIO_ACTIVE_SPACE;
+  if (!scope) return null;
+  const hash = crypto.createHash('sha256').update(scope).digest('hex').slice(0, 16);
+  const file = path.join(process.env.KEYWORD_PROFILE_STATE_DIR || path.join(os.homedir(), 'Library', 'Application Support', 'com.lsou.workctl-dashboard'), `keyword-profile-${hash}.json`);
+  try {
+    if (value) {
+      fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+      const temporary = `${file}.${process.pid}.tmp`;
+      fs.writeFileSync(temporary, JSON.stringify(value), { mode: 0o600 });
+      fs.renameSync(temporary, file);
+      console.log('[keyword-profile] 已保存当前账号画像快照');
+      return value;
+    }
+    const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return saved?.data?.profileComplete && Number.isFinite(Date.parse(saved.fetchedAt)) ? saved : null;
+  } catch (error) {
+    if (error.code !== 'ENOENT') console.log('[keyword-profile] 快照读写失败');
+    return null;
+  }
+}
+
 async function callEndpoint(name, query) {
   const ep = ENDPOINTS[name];
   if (!ep) return { ok: false, error: `unknown endpoint: ${name}` };
 
+  try { TimePolicy.validate(name, query, ep.flags); }
+  catch(error) {
+    pushLog({ts:new Date().toISOString(),label:ep.label,cmd:name,ms:0,ok:false,err:error.message});
+    return {ok:false,error:error.message,status:400};
+  }
   const args = buildArgs(ep, query);
   const cmdText = ['workctl', ...args].join(' ');
   const key = cmdText;
 
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_TTL && query.__nocache !== '1') {
+  if (hit && query.__nocache !== '1') {
     pushLog({ ts: new Date().toISOString(), label: ep.label, cmd: cmdText,
               ms: 0, cached: true, ok: hit.res.ok });
     return { ...hit.res, cached: true, command: cmdText };
   }
 
-  const r = await runWorkctl(args);
+  const queryGeneration=endpointQueries.generation;
+  return endpointQueries.read(key, async () => {
+  const r = await runWorkctl(args, name === 'ads-shop-profile' ? 25000 : 120000);
   pushLog({ ts: new Date().toISOString(), label: ep.label, cmd: cmdText,
             ms: r.durationMs, cached: false, ok: r.ok,
             err: r.ok ? null : (r.stderr || r.parseErr || `exit ${r.exitCode}`) });
 
   const res = r.ok
     ? { ok: true, data: shapeEndpointData(name, r.parsed.data), meta: r.parsed.meta || null,
-        durationMs: r.durationMs, warnings: r.warnings }
+        durationMs: r.durationMs, warnings: r.warnings, fetchedAt: new Date().toISOString() }
     : { ok: false, error: r.stderr || r.parseErr || `exit code ${r.exitCode}`,
         durationMs: r.durationMs };
 
-  if (r.ok) cache.set(key, { at: Date.now(), res });
+  if (name === 'ads-shop-profile') {
+    if (res.ok && res.data.profileComplete) keywordProfileSnapshot(res);
+    else {
+      const saved = keywordProfileSnapshot();
+      if (saved) return { ...saved, stale: true, cached: true, refreshError: '实时画像暂不可用，保留本账号最近快照', command: cmdText };
+      return { ok: false, error: '店铺画像未返回完整数据，且暂无本账号成功快照', durationMs: r.durationMs };
+    }
+  }
+  if (r.ok && queryGeneration===endpointQueries.generation) cache.set(key, { at: Date.now(), res });
   return { ...res, cached: false, command: cmdText };
+  }, {force:query.__nocache === '1',limited:name === 'shop-product'});
 }
 
 /**
@@ -3071,8 +3251,12 @@ function quantile(values, ratio) {
  * @returns {Promise<object>} 完整商品样本、门槛、四象限计数、诊断计数和重点商品。
  * @throws {Error} 不主动抛异常；WorkCTL 失败会转成 ok=false 的标准响应。
  */
-async function getProductAnalysis() {
-  const baseQuery = { pageSize: '20', orderBy: 'views', orderModel: 'DESC' };
+async function getProductAnalysis(query = {}) {
+  try {
+    TimePolicy.validate('shop-product',query,['statDate','statisticsType']);
+    if(!query.statDate || !['day','month'].includes(query.statisticsType))throw new Error('商品分析请选择自然日或自然月');
+  } catch(error) {return {ok:false,error:error.message,status:400};}
+  const baseQuery = { pageSize: '20', orderBy: 'views', orderModel: 'DESC',statDate:query.statDate,statisticsType:query.statisticsType };
   const first = await callEndpoint('shop-product', { ...baseQuery, pageNo: '1' });
   if (!first.ok) return first;
 
@@ -3115,6 +3299,8 @@ async function getProductAnalysis() {
 
   const summarizeProduct = row => ({
     productRef: operations.registerProduct(row),
+    // 分析缓存需要跨刷新识别同一商品；这个账号内摘要不能用于编辑或还原商品号。
+    analysisRef: crypto.createHash('sha256').update(JSON.stringify([PUBLISH_IMAGE_LIBRARY_SCOPE,String(row.productId||row.prodId||row.id)])).digest('hex').slice(0,32),
     title: row.subject || row.prodName || '',
     image: row.prodImage || '',
     level: row.prodLevel3 || '未分层',
@@ -3128,16 +3314,7 @@ async function getProductAnalysis() {
   });
   const byExposure = (a, b) => Number(b.sumProdShowNum || 0) - Number(a.sumProdShowNum || 0);
 
-  // 商品诊断接口在当前网关偶发长时间不结束。四象限仍使用完整实时商品数据；
-  // 质量诊断数量读取本轮已经实跑并保存的脱敏 Demo，避免一个慢命令阻塞整页。
-  let diagnosticSnapshot = {};
-  try {
-    const demoPath = path.join(__dirname, 'demo-data', 'workctl-demo.json');
-    const demo = JSON.parse(fs.readFileSync(demoPath, 'utf8'));
-    diagnosticSnapshot = demo?.pages?.product?.analysis || {};
-  } catch (_) {
-    diagnosticSnapshot = {};
-  }
+  // 未取得当前账号质量诊断时保留缺项，不能读取开发账号的随包快照。
   const layerCounts = rows.reduce((acc, row) => {
     const key = row.prodLevel3 || '未分层';
     acc[key] = (acc[key] || 0) + 1;
@@ -3160,9 +3337,9 @@ async function getProductAnalysis() {
         inquiryNoDraft: rows.filter(row => Number(row.sumProdFbNum || 0) + Number(row.atmFbUv || 0) > 0 && Number(row.crtOrd || 0) === 0).length,
         noSearchExposure: rows.filter(row => Number(row.sumProdShowNum || 0) === 0).length,
         p4pProducts: rows.filter(row => row.isP4pProd === 'Y').length,
-        lowScoreQueryRows: diagnosticSnapshot.lowScoreQueryRowsZeroToFour ?? null,
-        zeroEffectRows: diagnosticSnapshot.zeroEffectDiagnosisRows ?? null,
-        qualitySource: 'workctl-demo-audit',
+        lowScoreQueryRows: null,
+        zeroEffectRows: null,
+        qualitySource: 'unavailable',
       },
       focusProducts: {
         highExposureHighCtr: quadrants.highExposureHighCtr.slice()
@@ -3183,7 +3360,9 @@ async function getProductAnalysis() {
 // HTTP
 // ---------------------------------------------------------------------------
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-               '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8' };
+               '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
+               '.png': 'image/png', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.webp': 'image/webp',
+               '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf' };
 
 /**
  * 读取受大小限制的 application/json 请求体。
@@ -3288,11 +3467,339 @@ async function checkRuntimeHealth() {
 
 // 五条业务扩展链路独立维护参数合同与任务记录，复用当前账号的 WorkCTL 进程环境。
 const operations = createOperations({ runWorkctl, callEndpoint, pushLog });
+const advertising = createAdvertising({ runWorkctl, pushLog });
+const capabilities = createCapabilities({ accountContext:advertising.accountContext, runWorkctl, pushLog, callEndpoint, shapeRfq: shapeInternalRfq, operationSources: operations.referenceSources, loadWorkspace: name => name === 'access-contacts' ? loadAccessContactsWorkspace() : loadAccountWorkspace(name) });
+/**
+ * 从同一批原始记录计算六项行业对标；不让模型自行拼口径或把缺失值补零。
+ * @param {object} snapshot 含 trend 的经营快照。@returns {Array<object>} 数值、展示值与对标状态。
+ * @throws 无；缺失/非法/不完整序列返回 null 并注明覆盖记录数。
+ */
+function buildOverviewBenchmarks(snapshot) {
+  const rows = Array.isArray(snapshot.trend) ? snapshot.trend : [];
+  const definitions = [
+    ['totalImpsCnt','曝光量','sum','number'], ['totalClkCnt','点击量','sum','number'],
+    ['fbCnt','询盘数','sum','number'], ['sucOrdCnt','成交订单','sum','number'],
+    ['fstReplyRate30d','首次回复率','latest','percent'], ['avgReplyTime30d','平均回复时长','latest','hours'],
+  ];
+  const numeric = value => value !== null && value !== undefined && String(value).trim() !== '' && Number.isFinite(Number(value)) ? Number(value) : null;
+  return definitions.map(([key,label,aggregation,unit]) => {
+    const selected = aggregation === 'latest' ? rows.slice(-1) : rows;
+    const aggregate = suffix => {
+      const values = selected.map(row => numeric(row[key + suffix]));
+      return values.length && values.every(value => value !== null) ? values.reduce((sum,value) => sum + value,0) : null;
+    };
+    const current = aggregate(''), average = aggregate('RivalAvg'), excellent = aggregate('RivalGood');
+    const format = value => value === null ? '未提供' : unit === 'percent' ? `${(value*100).toFixed(2)}%` : unit === 'hours' ? `${value.toFixed(2)}h` : value.toLocaleString('zh-CN',{maximumFractionDigits:2});
+    const compare = reference => {
+      if (current === null || reference === null) return {state:'unknown',text:'缺少可比数据'};
+      const delta = current - reference;
+      const state = delta === 0 ? 'equal' : (unit === 'hours' ? delta < 0 : delta > 0) ? 'better' : 'behind';
+      const distance = unit === 'percent' ? `${Math.abs(delta*100).toFixed(2)}个百分点` : unit === 'hours' ? `${Math.abs(delta).toFixed(2)}h` : reference === 0 ? `${Math.abs(delta).toLocaleString('zh-CN')}` : `${(Math.abs(delta/reference)*100).toFixed(1)}%`;
+      return {state,delta,text:delta === 0 ? '持平' : `${delta < 0 ? '低' : '高'} ${distance}`};
+    };
+    return {key,label,aggregation,unit,direction:unit === 'hours' ? 'lower_better' : 'higher_better',
+      current,average,excellent,display:{current:format(current),average:format(average),excellent:format(excellent)},
+      vs_average:compare(average),vs_excellent:compare(excellent),period:snapshot.period,
+      coverage:{received_days:rows.length,compared_records:selected.length},source:'shop-summary；平台同行参考，具体行业/类目范围未返回'};
+  });
+}
+
+/**
+ * 只在确实需要生成时补充经营事实，避免刷新缓存时重复拉取数据。
+ * 参考 SOP 的产品定位/定品、流量复盘和店铺诊断：保留明细字段、样本范围与缺项，
+ * 不把排行样本当全店、不引入历史 Demo 诊断，也不向模型传商品内部 ID 或图片 URL。
+ * @param {object} snapshot 浏览器总览快照。@returns {Promise<object>} 有来源的精简明细。
+ * @throws {Error} 不向外抛出单项查询异常，缺项以 unavailable 标记。
+ */
+async function enrichOverviewTaskSnapshot(snapshot) {
+  const period = snapshot.period || {};
+  const [products, channels] = await Promise.all([
+    callEndpoint('shop-product', {pageNo:'1', pageSize:'20', orderBy:'views', orderModel:'DESC'}).catch(() => null),
+    callEndpoint('shop-flow', {...period, terminalType:'TOTAL'}).catch(() => null),
+  ]);
+  const productFields = ['subject', 'prodLevel3', 'sumProdShowNum', 'sumProdClickNum', 'sumProdClickRate', 'sumProdVisitorCnt', 'sumProdFbNum', 'atmFbUv', 'crtOrd'];
+  const channelFields = ['statDate', 'statisticsType', 'sourceType', 'subSourceType', 'uv', 'abRate', 'cateTopAbRate', 'cateTopUvDetail'];
+  // 白名单拣选；缺失字段不补 0，文本长度限制防止单条标题挤占输入预算。
+  const pick = (row, fields) => Object.fromEntries(fields.filter(key => row?.[key] != null)
+    .map(key => [key, typeof row[key] === 'string' ? row[key].slice(0, 180) : row[key]]));
+  const productRows = Array.isArray(products?.data?.data) ? products.data.data : [];
+  const channelRows = Array.isArray(channels?.data) ? channels.data : [];
+  const result = {...snapshot, benchmark_comparisons:buildOverviewBenchmarks(snapshot), operational_evidence: {
+    products: {source:'shop-product', status: products?.ok ? 'available' : 'unavailable',
+      scope:'搜索曝光排序前20个商品样本，并非全店；接口默认统计周期，不与总览周期合并',
+      record_count:products?.data?.recordCount ?? null, rows:productRows.slice(0,20).map(row => pick(row, productFields))},
+    channels: {source:'shop-flow', status:channels?.ok ? 'available' : 'unavailable', period,
+      scope:'渠道原始记录，最多120条；逐条保留statisticsType。30d是滚动30天口径，不能将相邻日期记录相加当作区间访客；访客与商机率口径独立，不据此推断曝光下降归因',
+      record_count:channelRows.length, truncated:channelRows.length > 120, rows:channelRows.slice(0,120).map(row => pick(row,channelFields))},
+    unavailable:['商品主图与详情内容','广告计划花费和关键词转化明细','客户询盘正文与跟进状态'],
+  }};
+  // Dify 的 business_context 限制 50000 字符；优先保留原始总览和商品样本。
+  while (JSON.stringify(result).length > 48000 && result.operational_evidence.channels.rows.length) result.operational_evidence.channels.rows.pop();
+  result.operational_evidence.channels.truncated = result.operational_evidence.channels.rows.length < channelRows.length;
+  console.log(`[overview-todo] 补充事实：商品 ${result.operational_evidence.products.rows.length} 条，渠道 ${result.operational_evidence.channels.rows.length} 条`);
+  return result;
+}
+/**
+ * 调用用户配置的 Dify Workflow 并校验待办结构。
+ * @param {object} snapshot 总览快照，不含凭据。
+ * @returns {Promise<object>} 仅返回校验后的 tasks。
+ * @throws {Error} 配置、上游执行或输出结构异常时抛出安全提示。
+ */
+async function generateOverviewTasks(snapshot) {
+  const configPath = path.join(__dirname, '.env.dify');
+  const local = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
+  const key = process.env.DIFY_API_KEY || local.match(/^DIFY_API_KEY=(.+)$/m)?.[1]?.trim();
+  if (!key) throw new Error('尚未配置运营诊断服务');
+  if (!snapshot || snapshot.module !== 'overview' || !Array.isArray(snapshot.metrics) || !snapshot.metrics.length) throw new Error('请先加载经营总览数据');
+  console.log('[overview-todo] 开始生成');
+  const response = await fetch('https://api.dify.ai/v1/workflows/run', {
+    method: 'POST', headers: {'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json'},
+    body: JSON.stringify({inputs: {business_context: JSON.stringify(snapshot)}, response_mode: 'streaming', user: 'lsou-local-overview'}),
+    signal: AbortSignal.timeout(360000),
+  });
+  if (!response.ok) throw new Error(`诊断服务请求失败（HTTP ${response.status}），请检查应用发布状态及模型配置`);
+  const payload = await readOverviewWorkflowResponse(response);
+  if (payload.data?.status !== 'succeeded') throw new Error('Workflow 未成功完成，请检查 Dify 运行记录');
+  const result = validateOverviewTaskOutputs(payload.data.outputs);
+  validateOverviewDiagnosisClaims(result.tasks);
+  return result;
+}
+
+/**
+ * 消费 Dify SSE，避免 blocking 请求在网关等待完整推理时触发 504。
+ * 只读取 workflow_finished 的最终输出，不保存或展示模型推理与中间节点文本。
+ * @param {Response} response 上游响应。@returns {Promise<object>} 与 blocking 相同的 data 对象。
+ * @throws {Error} 流中断、事件异常、输出过大或缺少完成事件时抛出；不会自动重发付费请求。
+ */
+async function readOverviewWorkflowResponse(response) {
+  if (!response.headers?.get('content-type')?.includes('text/event-stream')) return response.json();
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  try {
+    while (true) {
+      const {value, done} = await reader.read();
+      buffer += decoder.decode(value, {stream: !done});
+      if (buffer.length > 2 * 1024 * 1024) throw new Error('诊断输出超过限制');
+      // 先按完整事件拆分，保留跨网络分片的行和 UTF-8 字符。
+      let boundary;
+      while ((boundary = /\r?\n\r?\n/.exec(buffer))) {
+        const block = buffer.slice(0, boundary.index);
+        buffer = buffer.slice(boundary.index + boundary[0].length);
+        const data = block.split(/\r?\n/).filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
+        if (!data || data === '[DONE]') continue;
+        let event;
+        try { event = JSON.parse(data); } catch { throw new Error('诊断服务返回了无效事件'); }
+        if (event.event === 'error') throw new Error('Workflow 执行失败，请检查 Dify 运行记录');
+        if (event.event === 'workflow_finished') return {data:event.data};
+      }
+      if (done) throw new Error('待办连接已中断，旧结果已保留；请先检查 Dify 运行记录');
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+}
+
+/**
+ * 校验结构化结果；有备用最终文本时优先校验该 JSON，防止结构化提取把有效任务误判为空。
+ * @param {object} outputs Workflow 的 result 与可选 raw_result。@returns {object} 过滤后的 tasks。
+ * @throws {Error} JSON 或任务字段不满足契约时抛出，绝不把格式异常保存为空待办。
+ */
+function validateOverviewTaskOutputs(outputs) {
+  let result = outputs?.result ?? outputs;
+  if (typeof outputs?.raw_result === 'string' && outputs.raw_result.trim()) {
+    // 老版本节点可能夹带 think 标签，只允许闭合标签之后的最终回答参与 JSON 校验。
+    result = outputs.raw_result.split('</think>').pop().trim().replace(/^```(?:json)?\s*|\s*```$/g, '');
+  }
+  if (typeof result === 'string') { try { result = JSON.parse(result); } catch { throw new Error('诊断输出不是有效 JSON'); } }
+  // 部分模型将最终对象多包在单项tasks中；仅展开明确的一层，仍逐字段校验。
+  if (Array.isArray(result?.tasks) && result.tasks.length === 1 && Array.isArray(result.tasks[0]?.tasks)) result = {tasks:result.tasks[0].tasks};
+  if (!Array.isArray(result?.tasks) || result.tasks.length > 5) throw new Error('诊断输出不符合约定');
+  // 严格检查显示字段；拒绝异常结果，避免把格式错误当成没有待办。
+  const tasks = result.tasks.map(task => {
+    if (!task || !['high','normal','low'].includes(task.priority) ||
+        typeof task.title !== 'string' || !task.title.trim() || task.title.length > 80 ||
+        typeof task.basis !== 'string' || !task.basis.trim() || task.basis.length > 500 ||
+        !Array.isArray(task.steps) || !task.steps.length || task.steps.length > 5 ||
+        !Array.isArray(task.acceptance_criteria) || !task.acceptance_criteria.length || task.acceptance_criteria.length > 3 ||
+        [...task.steps, ...task.acceptance_criteria].some(value => typeof value !== 'string' || !value.trim() || value.length > 200)) throw new Error('诊断字段不符合约定，请重新生成');
+    return {title: task.title, priority: task.priority, basis: task.basis, steps: task.steps, acceptance_criteria: task.acceptance_criteria};
+  });
+  console.log(`[overview-todo] 生成完成：${tasks.length}条`);
+  return {tasks};
+}
+
+/**
+ * 拦截实跑发现的两类无依据推断，避免把结构合法但明显越界的诊断自动保存。
+ * 这只是确定性错误校验，不声称能代替完整的业务语义审核。
+ * @param {Array<object>} tasks 已通过结构校验的诊断。@returns {void}。@throws 已知越界推断时保留旧结果。
+ */
+function validateOverviewDiagnosisClaims(tasks) {
+  const invalid = tasks.some(task => {
+    const text = [task.title,task.basis,...task.steps,...task.acceptance_criteria].join('\n');
+    return /(?:曝光.{0,4}点击|点击.{0,4}曝光).{0,8}(?:折算|相除|计算点击率)/.test(text)
+      || /(?:即|就|即可|足以)(?:证明|证实)(?:因果|原因)/.test(text)
+      || /(?:提升|上涨|回升).{0,8}(?:说明|证明).{0,15}假设成立/.test(text);
+  });
+  if (invalid) throw new Error('诊断包含未获数据支持的比率或因果推断，已保留原结果，请核查模型输出');
+}
+
+// 保存的是用户待办，而非五分钟查询缓存；刷新经营数据或清缓存不删除此文件。
+const OVERVIEW_TODO_FILE = path.join(
+  process.env.OVERVIEW_TODO_STATE_DIR || path.join(os.homedir(), 'Library', 'Application Support', 'com.lsou.workctl-dashboard'),
+  `overview-todo-${PUBLISH_IMAGE_LIBRARY_SCOPE}.json`
+);
+let overviewTodoState;
+let overviewTodoPending = null;
+
+/** 获取北京时间自然日。@param {string|number} value 时间。@returns {string} 日期。@throws 无效时间时抛出 RangeError。 */
+function overviewTodoDay(value = Date.now()) {
+  return new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit'}).format(new Date(value));
+}
+
+/** 恢复当前账号待办。@returns {object} 最近结果及尝试日期。@throws 文件损坏或无法读取时停止自动生成，避免意外重复计费。 */
+function readOverviewTodoState() {
+  if (overviewTodoState) return overviewTodoState;
+  try {
+    const saved = JSON.parse(fs.readFileSync(OVERVIEW_TODO_FILE, 'utf8'));
+    if (saved.version !== 1 || (saved.result && (!Array.isArray(saved.result.tasks) || !Number.isFinite(Date.parse(saved.result.generatedAt))))) throw new Error('invalid state');
+    overviewTodoState = saved;
+    console.log('[overview-todo] 已恢复本地待办');
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw new Error('已保存诊断无法读取，请检查本地存储后重试');
+    overviewTodoState = {version: 1, result: null, lastAttemptDay: null};
+  }
+  return overviewTodoState;
+}
+
+/** 原子保存待办状态，不记录输入正文或凭据。@param {object} state 状态。@returns {void} 无返回值。@throws 落盘失败时抛出安全提示。 */
+function saveOverviewTodoState(state) {
+  try {
+    fs.mkdirSync(path.dirname(OVERVIEW_TODO_FILE), {recursive: true, mode: 0o700});
+    const temporary = `${OVERVIEW_TODO_FILE}.${process.pid}.tmp`;
+    fs.writeFileSync(temporary, JSON.stringify(state), {mode: 0o600});
+    fs.renameSync(temporary, OVERVIEW_TODO_FILE);
+    overviewTodoState = state;
+  } catch {
+    console.log('[overview-todo] 本地保存失败');
+    throw new Error('待办保存失败，请检查本地存储权限');
+  }
+}
+
+/** 读取展示信息，不调用模型。@returns {object} 结果、周期及自动更新标记。@throws 本地读取异常。 */
+function overviewTodoStatus() {
+  const state = readOverviewTodoState();
+  const today = overviewTodoDay();
+  const fresh = !!state.result && overviewTodoDay(state.result.generatedAt) === today;
+  return {result: state.result, stale: !fresh, generating: !!overviewTodoPending,
+    shouldGenerate: !fresh && state.lastAttemptDay !== today,
+    notice: state.status === 'failed' ? '上次更新失败，点击“更新诊断”重试。'
+      : state.status === 'running' && !overviewTodoPending ? '上次更新中断，点击“更新诊断”重试。' : ''};
+}
+
+/**
+ * 每账号每天最多自动尝试一次，手动更新可绕过日期；并发请求复用同一 Promise。
+ * 先保存尝试日期再调用模型，进程重启或生成失败都不会因刷新页面重复花费。
+ * @param {object} snapshot 当前经营快照。@param {boolean} force 是否为用户手动更新。
+ * @returns {Promise<object>} 已保存结果与元数据。@throws 生成或保存失败，旧结果保留。
+ */
+async function getOrGenerateOverviewTasks(snapshot, force = false) {
+  if (overviewTodoPending) return overviewTodoPending;
+  const status = overviewTodoStatus();
+  if (!force && !status.shouldGenerate) return status;
+  if (!snapshot || snapshot.module !== 'overview' || !Array.isArray(snapshot.metrics) || !snapshot.metrics.length) throw new Error('请先加载经营总览数据');
+  saveOverviewTodoState({...readOverviewTodoState(), lastAttemptDay: overviewTodoDay(), status: 'running'});
+  overviewTodoPending = (async () => {
+    try {
+      const enriched = await enrichOverviewTaskSnapshot(snapshot);
+      const generated = await generateOverviewTasks(enriched);
+      const result = {...generated, diagnosisVersion:2, benchmarks:enriched.benchmark_comparisons};
+      const next = {...readOverviewTodoState(), status: 'saved', result: {...result, generatedAt: new Date().toISOString(), period: snapshot.period || null}};
+      // 即使磁盘写入失败，也先留住本进程已付费取得的结果。
+      overviewTodoState = next;
+      saveOverviewTodoState(next);
+      console.log('[overview-todo] 待办已保存');
+    } catch (error) {
+      saveOverviewTodoState({...readOverviewTodoState(), status: 'failed'});
+      throw error;
+    } finally {
+      overviewTodoPending = null;
+    }
+    return overviewTodoStatus();
+  })();
+  return overviewTodoPending;
+}
+
+const aiAdvisor = createAiAdvisor({root:__dirname,scope:PUBLISH_IMAGE_LIBRARY_SCOPE});
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${HOST}:${PORT}`);
   const p = url.pathname;
 
   try {
+    // 桌面首次导航交换会话 cookie，后续请求不携带 URL 凭据，也不接受外站访问。
+    if (DESKTOP_TOKEN) {
+      if (req.headers.host !== `${HOST}:${PORT}`) return sendJSON(res, 403, { ok: false, error: '请求来源不匹配' });
+      if (p === '/' && url.searchParams.get('desktopTicket') === DESKTOP_TOKEN) {
+        res.writeHead(302, { 'Location': '/', 'Set-Cookie': `lsou_session=${DESKTOP_TOKEN}; HttpOnly; SameSite=Lax; Path=/`, 'Cache-Control': 'no-store' });
+        return res.end();
+      }
+      const authenticated = String(req.headers.cookie || '').split(';').some(part => part.trim() === `lsou_session=${DESKTOP_TOKEN}`);
+      if (!authenticated || !isAllowedPublishOrigin(req) || (p.startsWith('/api/') && req.headers['sec-fetch-site'] === 'cross-site')) return sendJSON(res, 403, { ok: false, error: '请通过来搜桌面窗口访问' });
+    }
+    // 六页共用AI服务。Key仅在后端读取；所有问答都绑定已经登记的当前账号快照。
+    if(p.startsWith('/api/advisor/')) {
+      if(!isAllowedPublishOrigin(req))return sendJSON(res,403,{ok:false,error:'请求来源不匹配'});
+      if(p==='/api/advisor/config'&&req.method==='GET')return sendJSON(res,200,{ok:true,...aiAdvisor.status()});
+      if(req.method!=='POST')return sendJSON(res,405,{ok:false,error:'仅支持POST'});
+      if(!String(req.headers['content-type']||'').startsWith('application/json'))return sendJSON(res,415,{ok:false,error:'请使用JSON请求'});
+      try {
+        const input=await readJsonBody(req,2*1024*1024);
+        if(p==='/api/advisor/cache')return sendJSON(res,200,{ok:true,...aiAdvisor.cached(input)});
+        if(p==='/api/advisor/context')return sendJSON(res,200,{ok:true,...aiAdvisor.context(input)});
+        if(p==='/api/advisor/analysis')return sendJSON(res,200,{ok:true,result:await aiAdvisor.analyze(input.snapshot_id,input.refresh===true)});
+        if(p==='/api/advisor/chat') {
+          aiAdvisor.getSnapshot(input.snapshot_id);
+          if(!aiAdvisor.status().chatConfigured)return sendJSON(res,503,{ok:false,error:'页面问答暂未启用。'});
+          res.writeHead(200,{'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-store','Connection':'keep-alive','X-Accel-Buffering':'no'});
+          const controller=new AbortController();res.on('close',()=>controller.abort());
+          const heartbeat=setInterval(()=>{if(!res.destroyed)res.write(': keepalive\n\n');},15000);
+          const emit=event=>{if(!res.destroyed)res.write('data: '+JSON.stringify(event)+'\n\n');};
+          try {await aiAdvisor.chat(input,emit,controller.signal);}catch(error){if(!controller.signal.aborted)emit({type:'error',message:error.message||'问答中断，请手动重试。'});}
+          finally {clearInterval(heartbeat);res.end();}
+          return;
+        }
+        return sendJSON(res,404,{ok:false,error:'未知AI接口'});
+      } catch(error) {console.log('[advisor] 请求未完成');return sendJSON(res,502,{ok:false,error:error.name==='TimeoutError'?'AI处理超时，请手动重试。':error.message});}
+    }
+    // 主动刷新只清查询快照，不清任务、图片库或发布引用。
+    if(p === '/api/cache/refresh' && req.method === 'POST'){
+      if(!isAllowedPublishOrigin(req))return sendJSON(res,403,{ok:false,error:'请求来源不匹配'});
+      endpointQueries.clear();workspaceQueries.clear();cache.clear();workspaceCache.clear();advertising.clear();operations.clear();capabilities.clear();
+      return sendJSON(res,200,{ok:true});
+    }
+    if (p.startsWith('/api/capabilities/')) return capabilities.handle(req, res, url);
+    // 广告业务路由只接受固定查询；不开放通用entityType、任意SQL或投放写操作。
+    if (p.startsWith('/api/advertising/')) {
+      if(req.method !== 'GET') return sendJSON(res,405,{ok:false,error:'广告工作台仅支持查询'});
+      if(!isAllowedPublishOrigin(req)) return sendJSON(res,403,{ok:false,error:'请求来源不匹配'});
+      try {
+        const data = await advertising.read(p.slice('/api/advertising/'.length),Object.fromEntries(url.searchParams));
+        return sendJSON(res,200,{ok:true,data});
+      } catch(error) { return sendJSON(res,502,{ok:false,error:error.message}); }
+    }
+    if (p === '/api/overview-tasks') {
+      if (!['GET', 'POST'].includes(req.method)) return sendJSON(res, 405, {ok:false,error:'仅支持GET或POST'});
+      if (req.headers.origin && req.headers.origin !== `http://${HOST}:${PORT}`) return sendJSON(res, 403, {ok:false,error:'请求来源不匹配'});
+      try {
+        if (req.method === 'GET') return sendJSON(res, 200, {ok:true,...overviewTodoStatus()});
+        const snapshot = await readJsonBody(req, 100 * 1024);
+        const result = await getOrGenerateOverviewTasks(snapshot, url.searchParams.get('refresh') === '1');
+        return sendJSON(res, 200, {ok:true,...result});
+      } catch (error) {
+        console.log('[overview-todo] 生成失败');
+        return sendJSON(res, 502, {ok:false,error:error.name === 'TimeoutError' ? '生成超时，请重试' : error.message});
+      }
+    }
     if (p.startsWith('/api/operations/')) {
       await operations.handle(req, res, url);
       return;
@@ -3350,6 +3857,13 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // 只更新发品参考资料；不清空本地编辑中的商品或发布队列。
+    if (p === '/api/publish/cache/refresh' && req.method === 'POST') {
+      if (!isAllowedPublishOrigin(req)) return sendJSON(res, 403, { ok: false, error: '拒绝非同源更新请求' });
+      try { return sendJSON(res, 200, { ok: true, ...await refreshPublishSourceData() }); }
+      catch (error) { return sendJSON(res, 502, { ok: false, error: publishText(error?.message || error, 600) }); }
+    }
+
     // --- API: 当前账号商品到类目的自动匹配上下文（只读、已脱敏）
     if (p === '/api/publish/account-context' && req.method === 'GET') {
       try {
@@ -3392,11 +3906,15 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // --- API: 发品图片存储能力。只说明是否已配置，不向浏览器暴露 bucket 或 endpoint。
+    // --- API: 本机上传会话是否已配置；不代表上游上传已成功，不暴露网关地址或凭据。
     if (p === '/api/publish/upload-capability' && req.method === 'GET') {
+      let configured = false;
+      let error = '';
+      try { publishImageGateway(); configured = true; } catch (issue) { error = issue.message; }
       return sendJSON(res, 200, {
         ok: true,
-        configured: Boolean(PUBLISH_IMAGE_BUCKET),
+        configured,
+        ...(error ? { error } : {}),
         acceptedTypes: ['image/jpeg', 'image/png', 'image/webp'],
         maxBytes: MAX_PUBLISH_IMAGE_BYTES,
       });
@@ -3405,15 +3923,12 @@ const server = http.createServer(async (req, res) => {
     // --- API: 用户主动选择图片后上传到发品可用的远程地址。
     if (p === '/api/publish/images' && req.method === 'POST') {
       if (!isAllowedPublishOrigin(req)) return sendJSON(res, 403, { ok: false, error: '拒绝非同源图片上传请求' });
-      if (!PUBLISH_IMAGE_BUCKET) {
-        return sendJSON(res, 503, { ok: false, error: '图片上传服务尚未由管理员配置' });
-      }
       try {
         const body = await readJsonBody(req, 12 * 1024 * 1024);
         const image = await uploadPublishImage(body);
         return sendJSON(res, 201, { ok: true, image });
       } catch (error) {
-        return sendJSON(res, 400, { ok: false, error: publishText(error?.message || error, 600) });
+        return sendJSON(res, error.statusCode || 400, { ok: false, error: publishText(error?.message || error, 600) });
       }
     }
 
@@ -3435,10 +3950,11 @@ const server = http.createServer(async (req, res) => {
       try {
         const body = await readJsonBody(req, 16 * 1024);
         const productId = resolvePublishAccountReferenceKey(body?.referenceKey);
-        const [reference, images, sourceMaterial] = await Promise.all([
-          queryPublishReference(productId),
+        const [[reference, sourceMaterial], images] = await Promise.all([
+          publishReadCache.read(`reference:${productId}`, () => Promise.all([
+            queryPublishReference(productId), queryPublishAccountProductMaterial(productId),
+          ])),
           getPublishAccountImageLibrary(productId),
-          queryPublishAccountProductMaterial(productId),
         ]);
         return sendJSON(res, 200, {
           ok: true,
@@ -3483,6 +3999,12 @@ const server = http.createServer(async (req, res) => {
           } : null,
         });
       } catch (error) {
+        if (error.ruleRead) {
+          pushLog({ ts: new Date().toISOString(), label: '发布前校验未完成', cmd: 'publish preflight', ms: 0,
+            cached: false, ok: false, err: error.message, stage: error.stage });
+          return sendJSON(res, error.statusCode, { ok: false, submitted: false, retryable: error.retryable,
+            code: error.code, stage: error.stage, error: `提交前校验未完成，商品尚未提交。${error.message}已上传图片可继续使用。` });
+        }
         return sendJSON(res, 400, { ok: false, error: publishText(error?.message || error, 600) });
       }
     }
@@ -3533,18 +4055,14 @@ const server = http.createServer(async (req, res) => {
 
     // --- API: 缓存清空
     if (p === '/api/cache/clear') {
-      const n = cache.size + publishCategorySchemaCache.size +
-        (publishCategoryCache.categories.length ? 1 : 0) + (publishBusinessOptionsCache.value ? 1 : 0) +
-        (publishAccountCatalogCache.value ? 1 : 0) + publishImageLibraryState.records.size;
+      await publishReadCache.initialize();
+      const n = cache.size + publishReadCache.entries.size + publishImageLibraryState.records.size;
+      await publishReadCache.invalidate(true);
       cache.clear();
+      endpointQueries.clear();workspaceQueries.clear();
+      operations.clear();capabilities.clear();
+      advertising.clear();
       workspaceCache.clear();
-      publishCategorySchemaCache.clear();
-      publishCategoryCache.at = 0;
-      publishCategoryCache.categories = [];
-      publishBusinessOptionsCache.at = 0;
-      publishBusinessOptionsCache.value = null;
-      publishAccountCatalogCache.at = 0;
-      publishAccountCatalogCache.value = null;
       publishAccountReferenceTokens.clear();
       publishAccountReferenceKeysByProductId.clear();
       publishImageLibraryState.records.clear();
@@ -3566,17 +4084,13 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, { ok: true, cleared: n });
     }
 
-    // --- API: 本轮 WorkCTL 实跑后的脱敏 Demo 快照
-    if (p === '/api/demo') {
-      const demoPath = path.join(__dirname, 'demo-data', 'workctl-demo.json');
-      const demo = JSON.parse(fs.readFileSync(demoPath, 'utf8'));
-      return sendJSON(res, 200, demo);
-    }
+    // 旧版演示入口永久停用；即使开发目录保留历史文件也不能通过服务读取。
+    if (p === '/api/demo') return sendJSON(res, 410, { ok: false, error: '演示数据入口已停用' });
 
     // --- API: 商品经营组合诊断
     if (p === '/api/dashboard/product-analysis') {
-      const analysis = await getProductAnalysis();
-      return sendJSON(res, analysis.ok ? 200 : 502, analysis);
+      const analysis = await getProductAnalysis(Object.fromEntries(url.searchParams.entries()));
+      return sendJSON(res, analysis.ok ? 200 : (analysis.status || 502), analysis);
     }
 
     // --- API: 数据查询
@@ -3584,13 +4098,13 @@ const server = http.createServer(async (req, res) => {
       const name = p.slice('/api/q/'.length);
       const query = Object.fromEntries(url.searchParams.entries());
       const out = await callEndpoint(name, query);
-      return sendJSON(res, out.ok ? 200 : 502, out);
+      return sendJSON(res, out.ok ? 200 : (out.status || 502), out);
     }
 
     // --- 静态文件
     let rel = p === '/' ? '/index.html' : p;
-    const file = path.join(__dirname, 'public', path.normalize(rel).replace(/^(\.\.[/\\])+/, ''));
-    if (!file.startsWith(path.join(__dirname, 'public'))) {
+    const file = path.join(PUBLIC_DIR, path.normalize(rel).replace(/^(\.\.[/\\])+/, ''));
+    if (!file.startsWith(PUBLIC_DIR + path.sep)) {
       res.writeHead(403); return res.end('forbidden');
     }
     if (!fs.existsSync(file)) { res.writeHead(404); return res.end('not found'); }
@@ -3604,9 +4118,14 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
+  PORT = server.address().port;
+  if (process.send) process.send({ type: 'lsou:ready', port: PORT });
   console.log(`[workctl-dashboard] http://${HOST}:${PORT}`);
   console.log(`[workctl-dashboard] binary: ${WORKCTL}`);
   console.log(`[workctl-dashboard] endpoints: ${Object.keys(ENDPOINTS).join(', ')}`);
   // 全店历史图库会在用户真正进入产品发布页、请求 account-context 后再同步。
   // 启动时不抢占 WorkCTL，保证账号、知识和店铺等只读页面可以优先返回。
 });
+
+// 父级启动器退出后结束服务；仅启用 IPC 子进程模式，避免影响普通开发启动。
+if (process.send) process.on('disconnect', () => { server.close(); process.exit(0); });

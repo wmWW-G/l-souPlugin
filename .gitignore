@@ -18,3 +18,12 @@ node_modules/
 coverage/
 __pycache__/
 *.pyc
+
+# React / Tauri 可重复构建产物与平台运行时。
+dist/
+src-tauri/target/
+src-tauri/payload/
+src-tauri/runtime/
+release/
+.build-cache/
+.env.advisor

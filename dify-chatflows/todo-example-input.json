@@ -1,0 +1,9 @@
+{
+  "inputs": {
+    "business_context": "{\"schema_version\": \"2.0\", \"module\": \"product\", \"snapshot_id\": \"test-snapshot-1\", \"as_of\": \"2026-09-10T09:00:00+08:00\", \"period\": {\"startDate\": \"2026-09-01\", \"endDate\": \"2026-09-09\"}, \"source\": \"合成测试\", \"data_status\": \"ready\", \"limitations\": [\"仅测试数据\"], \"entities\": [{\"ref\": \"product-a\", \"label\": \"测试商品A\", \"type\": \"product\"}], \"facts\": [{\"id\": \"fact-a\", \"label\": \"测试效果\", \"text\": \"曝光1000，点击20，询盘2；仅合成测试。\", \"source\": \"合成测试\", \"observed_at\": \"2026-09-10T09:00:00+08:00\", \"scope\": \"测试商品A / 9月1日至9月9日\", \"entity_ref\": \"product-a\"}]}"
+  },
+  "query": "这个商品的数据说明了什么，下一步该怎么做？",
+  "response_mode": "streaming",
+  "conversation_id": "",
+  "user": "lsou-synthetic-example"
+}

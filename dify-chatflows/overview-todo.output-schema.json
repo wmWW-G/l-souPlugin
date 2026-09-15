@@ -1,0 +1,158 @@
+{
+  "title": "来搜六页运营分析 · V2.0",
+  "description": "用于六个页面的顾问分析LLM节点。只生成业务解读；版本、页面、快照、时间、状态、来源和安全入口由后续代码绑定。所有声明字段必须存在，无内容的可空列表返回[]，整页entity_ref返回空字符串，不使用null。",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400,
+      "description": "整页经营摘要，先说已知现象和业务含义，再说优先关注点。1至400字；数据不足时说明缺项，不编造结论。"
+    },
+    "tasks": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "诊断主题标题，1至80字，写清具体关注对象和现象，避免空泛标题。"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "high",
+              "normal",
+              "low"
+            ],
+            "description": "建议处理优先级，仅high/normal/low；依据影响、紧迫性与当前证据判断，不虚构损失或收益。"
+          },
+          "basis": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "已确认的现象、比较口径及业务含义，1至500字。引用当前facts；未确认原因放hypotheses，不用SOP或知识片段冒充本店事实。"
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "1至5项可操作的检查、优化或验证建议，每项不超过200字；具体到对象和做法。仅建议，不声称已经修改、发布、投放或联系客户。"
+          },
+          "acceptance_criteria": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "1至3项验收与复查标准，每项不超过200字；分别说明交付检查和同口径效果复查，不承诺增长或平台晋级。"
+          },
+          "hypotheses": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 3,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "0至3项待验证的可能原因，每项不超过200字；明确是假设，无需猜测时返回[]。"
+          },
+          "missing_data": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 4,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "0至4项会改变本项判断的关键缺失资料，每项不超过200字；没有则返回[]，不要求重复提供已存在的页面数据。"
+          },
+          "follow_up_questions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": "针对本条诊断的1至3个具体追问，每项不超过100字，可用于后续Chatflow展开解释或生成草稿。"
+          },
+          "entity_ref": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 120,
+            "description": "只引用当前entities中的真实ref；整页级诊断固定返回空字符串。不得输出商品原始ID、URL或杜撰引用。"
+          },
+          "evidence_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": "1至8个真正支持本项诊断的当前facts.id，不能重复或跨对象错配；知识库片段ID不能放在这里。"
+          },
+          "action_ids": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 3,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": "0至3个当前available_actions.id，必须与对象匹配；仅用于安全导航或查看已有资料，不代表执行。没有合适入口返回[]。"
+          }
+        },
+        "required": [
+          "title",
+          "priority",
+          "basis",
+          "steps",
+          "acceptance_criteria",
+          "hypotheses",
+          "missing_data",
+          "follow_up_questions",
+          "entity_ref",
+          "evidence_ids",
+          "action_ids"
+        ]
+      },
+      "description": "可展开的诊断主题列表，最多5项，总览优先不超过3项。沿用tasks字段兼容现有界面，每项都是AI建议，不是已经创建或执行的任务；无证据支持的独立诊断时返回空数组。"
+    },
+    "suggested_questions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100
+      },
+      "description": "围绕当前页面可继续讨论的1至3个具体问题，每个不超过100字；数据不足时可问口径或最关键缺项。"
+    }
+  },
+  "required": [
+    "summary",
+    "tasks",
+    "suggested_questions"
+  ]
+}

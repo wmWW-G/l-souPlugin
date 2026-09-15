@@ -2,11 +2,13 @@
 
 const assert = require('node:assert/strict');
 const { execFile } = require('node:child_process');
-const { chmod, mkdir, mkdtemp, rm, writeFile } = require('node:fs/promises');
+const { chmod, copyFile, mkdir, mkdtemp, rm, writeFile } = require('node:fs/promises');
 const { tmpdir } = require('node:os');
 const path = require('node:path');
 const { promisify } = require('node:util');
 const test = require('node:test');
+const http = require('node:http');
+const { once } = require('node:events');
 
 const execFileAsync = promisify(execFile);
 
@@ -43,9 +45,10 @@ test('start.sh 从 Accio 当前运行态解析凭据和 Workctl 后再启动服�
     'bin',
     'workctl'
   );
-  const fakeCurl = path.join(fakeBinDirectory, 'curl');
-  const fakeNode = path.join(fakeBinDirectory, 'fake-node.js');
-  const preload = path.join(temporaryDirectory, 'preload.js');
+  const sandbox = path.join(temporaryDirectory, 'app');
+  await mkdir(path.join(sandbox, 'desktop'), { recursive: true });
+  await copyFile(path.resolve(__dirname, '../start.sh'), path.join(sandbox, 'start.sh'));
+  await copyFile(path.resolve(__dirname, '../desktop/runtime.cjs'), path.join(sandbox, 'desktop/runtime.cjs'));
 
   // 测试结束时只删除本测试创建的临时账号树，不接触用户真实 Accio 文件。
   t.after(async () => {
@@ -64,9 +67,11 @@ test('start.sh 从 Accio 当前运行态解析凭据和 Workctl 后再启动服�
   await writeFile(cliManifest, JSON.stringify({
     tools: [{ id: 'workctl', source: { version: workctlVersion } }],
   }));
-  await writeFile(fakeCurl, `#!/bin/sh
-printf '%s\\n' '{"bootTiming":{"stages":[{"stage":"resource_identity_gate","detail":{"storageKey":"${accountId}"}},{"stage":"resource_identity_gate","detail":{"storageKey":"${activeSpace}"}}]}}'
-`);
+  const health = http.createServer((req, res) => res.end(JSON.stringify({ bootTiming: { stages: [
+    { stage: 'resource_identity_gate', detail: { storageKey: accountId } },
+    { stage: 'resource_identity_gate', detail: { storageKey: activeSpace } },
+  ] } })));
+  health.listen(0, '127.0.0.1'); await once(health, 'listening'); t.after(() => health.close());
   await writeFile(expectedWorkctl, `#!/bin/sh
 # publishflow --help 使用普通文本，其余健康检查和动态 schema 使用 JSON。
 # 这个分支确保启动脚本确实核对正式发布和参考商品两条编排命令。
@@ -76,40 +81,27 @@ else
   printf '%s\\n' '{"success":true}'
 fi
 `);
-  await writeFile(fakeNode, `#!/usr/bin/env node
+  await writeFile(path.join(sandbox, 'server.js'), `
 'use strict';
 process.stdout.write(JSON.stringify({
   tokenMatches: process.env.ACCIO_GATEWAY_TOKEN === 'test-only-token',
   gatewayUrl: process.env.ACCIO_LOCAL_GATEWAY_URL,
   workctlBin: process.env.WORKCTL_BIN,
   activeSpace: process.env.ACCIO_ACTIVE_SPACE,
-  argv: process.argv.slice(2)
+  runtimeSource: process.env.LSOU_WORKCTL_SOURCE
 }));
 `);
 
-  // 旧 start.sh 会直接执行 node server.js。预加载器让旧行为立即退出，
-  // 从而让测试以清晰断言失败，而不是留下一个悬挂的测试服务器。
-  await writeFile(preload, `
-'use strict';
-if (String(process.argv[1] || '').endsWith('/server.js')) {
-  process.stdout.write(JSON.stringify({ legacyStart: true }));
-  process.exit(0);
-}
-`);
-  await Promise.all([
-    chmod(fakeCurl, 0o700),
-    chmod(expectedWorkctl, 0o700),
-    chmod(fakeNode, 0o700),
-  ]);
-
-  const startScript = path.resolve(__dirname, '..', 'start.sh');
+  await chmod(expectedWorkctl, 0o700);
+  const startScript = path.join(sandbox, 'start.sh');
   const { stdout } = await execFileAsync('/bin/bash', [startScript], {
     cwd: path.resolve(__dirname, '..'),
     env: {
       ...process.env,
       ACCIO_ACCOUNTS_ROOT: accountsRoot,
-      NODE_BIN: fakeNode,
-      NODE_OPTIONS: `--require=${preload}`,
+      NODE_BIN: process.execPath,
+      NODE_OPTIONS: '',
+      ACCIO_HEALTH_URL: `http://127.0.0.1:${health.address().port}`,
       PATH: `${fakeBinDirectory}:${process.env.PATH}`,
     },
     timeout: 3000,
@@ -121,6 +113,6 @@ if (String(process.argv[1] || '').endsWith('/server.js')) {
     gatewayUrl: 'http://localhost:4097',
     workctlBin: expectedWorkctl,
     activeSpace,
-    argv: ['server.js'],
+    runtimeSource: 'versions',
   });
 });

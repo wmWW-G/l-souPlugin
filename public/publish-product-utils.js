@@ -6,6 +6,8 @@
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.LsouPublishUtils = api;
 })(typeof window !== 'undefined' ? window : globalThis, function createPublishProductUtils() {
+  // 商品主副图的统一上限；前端选择、批量导入和服务端提交共用，规格图/商详图不在此限额内。
+  const MAX_PRODUCT_IMAGES = 6;
   /**
    * 将任意值转换为有限数字；缺失或非法值保持为空，避免给参考商品编造参数。
    *
@@ -14,7 +16,7 @@
    * @throws {Error} 不主动抛出异常。
    */
   function finiteNumberOrNull(value) {
-    if (value === null || value === undefined || value === '') return null;
+    if (value === null || value === undefined || (typeof value === 'string' && !value.trim())) return null;
     const number = Number(value);
     return Number.isFinite(number) ? number : null;
   }
@@ -80,7 +82,7 @@
       Array.isArray(reference?.images?.[type]) ? reference.images[type] : []
     ).filter(isRemoteImage);
     const fallbackImage = isRemoteImage(options.fallbackImage) ? options.fallbackImage : '';
-    const gallery = [...new Set(selectedImages.length ? selectedImages : [...responseImages, fallbackImage])].slice(0, 10);
+    const gallery = [...new Set(selectedImages.length ? selectedImages : [...responseImages, fallbackImage])].slice(0, MAX_PRODUCT_IMAGES);
 
     const trade = reference?.trade || {};
     const fulfillment = reference?.fulfillment || {};
@@ -100,6 +102,9 @@
       imageCount: gallery.length,
       keywords: [...new Set((Array.isArray(reference?.keywords) ? reference.keywords : [])
         .map(value => String(value || '').trim()).filter(Boolean))].slice(0, 5),
+      // 标记真实参考来源；平台未提供关键词时页面应解释空白，不能从标题猜词冒充原词。
+      keywordSource: 'reference',
+      referenceKeywordsEmpty: !(Array.isArray(reference?.keywords) && reference.keywords.some(value => String(value || '').trim())),
       attributes: mapReferenceAttributes(reference?.attributes, categoryConfig),
       saleType: ['normal', 'batch'].includes(trade.saleType) ? trade.saleType : 'normal',
       batchNum: finiteNumberOrNull(trade.batchNum) ?? 1,
@@ -107,6 +112,7 @@
       inventory: finiteNumberOrNull(trade.inventory) ?? '',
       priceUnitId: finiteNumberOrNull(trade.priceUnit),
       priceTiers,
+      skus: JSON.parse(JSON.stringify(Array.isArray(trade.sku) ? trade.sku : [])),
       leadTimeTiers,
       package: {
         length: finiteNumberOrNull(fulfillment.pkgLength) ?? '',
@@ -146,5 +152,32 @@
     return clone;
   }
 
-  return { mapReferenceProductToDraft, clonePublishProductDraft };
+  /**
+   * 创建待填写的规格，不虚构颜色、型号、编码、价格或库存。
+   * @returns {object} 独立空规格，数字为空时由服务端按单规格/阶梯价规则处理。
+   * @throws {Error} 不主动抛出异常。
+   */
+  function createEmptyPublishSku() {
+    return { skuCode: '', skuAttributes: [{ attrNameId: null, attrName: '', attrValueId: null, attrValue: '', imageUrl: null }], stock: null, unitPrice: null };
+  }
+
+  /**
+   * 生成队列与结果弹窗共用的说明；失败优先显示原因，未知评分不会显示成零。
+   * @param {object} job - 服务端任务摘要。
+   * @param {string[]} [fieldLabels=[]] - 已翻译的待检查区域。
+   * @returns {string} 供调用方 HTML 转义的纯文本。
+   * @throws {Error} 不主动抛出异常。
+   */
+  function publishResultDetail(job, fieldLabels = []) {
+    if (job.status === 'failed') {
+      const codes = { JSON_VAL_EMPTY_SKU: '商品规格列表为空，请补齐规格资料', JSON_VAL_SKU_NO_ATTR: '商品规格缺少名称或值，请补齐规格资料' };
+      const message = codes[job.errorCode] || job.message || '任务失败，请检查商品资料';
+      return `${message}${fieldLabels.length ? `；请检查：${fieldLabels.join('、')}` : ''}${job.errorCode ? `（${job.errorCode}）` : ''}`;
+    }
+    const score = finiteNumberOrNull(job.finalScore);
+    if (score !== null) return `质量分 ${score}${job.deductReasons?.length ? ` · ${job.deductReasons.slice(0, 2).join('；')}` : ''}`;
+    return ['saved_draft', 'submitted'].includes(job.status) ? (job.qualityScoreMessage || '质量分暂未返回') : (job.message || '');
+  }
+
+  return { MAX_PRODUCT_IMAGES, mapReferenceProductToDraft, clonePublishProductDraft, finiteNumberOrNull, createEmptyPublishSku, publishResultDetail };
 });

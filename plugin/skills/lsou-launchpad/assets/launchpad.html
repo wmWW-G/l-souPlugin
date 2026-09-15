@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>来搜 · 开工啦</title>
+<style>
+/* 单文件、无外部资源，保证 Accio 的隔离 HTML 环境也能完整呈现。 */
+*{box-sizing:border-box}body{margin:0;background:transparent;color:#26251f;font-family:"Avenir Next","PingFang SC","Microsoft YaHei",sans-serif}
+button{font:inherit}button:focus-visible{outline:3px solid #292820;outline-offset:5px}
+.launchpad{max-width:840px;margin:0 auto;background:#f8f7f2;border:1px solid #e8e5db;border-radius:24px;overflow:hidden;position:relative}
+.top{display:flex;align-items:center;justify-content:space-between;padding:26px 32px 0;gap:16px}.brand{display:flex;align-items:center;gap:10px}.mark{width:30px;height:30px;background:#ff650a;border-radius:9px;display:grid;place-items:center;color:#fff;font-weight:850;font-size:21px;transform:rotate(-8deg)}.wordmark{font-size:21px;font-weight:850;letter-spacing:-1px}.edition{font-size:10px;letter-spacing:1.5px;color:#747267}
+.hero{display:grid;grid-template-columns:1.1fr .9fr;align-items:center;padding:38px 32px 28px;gap:14px}.eyebrow{margin:0 0 15px;font-size:11px;font-weight:650;letter-spacing:2px;color:#a14610}h1{font-size:clamp(31px,5.2vw,43px);letter-spacing:-1.8px;line-height:1.27;font-weight:800;margin:0}h1 span{color:#d94c00}.intro{margin:17px 0 26px;font-size:13px;line-height:1.85;color:#6d6a60}.launch{display:inline-flex;justify-content:space-between;align-items:center;gap:28px;min-height:54px;min-width:215px;padding:0 22px;border:0;border-radius:13px;background:#ff650a;color:#251d0b;cursor:pointer;font-weight:750;font-size:15px;box-shadow:0 4px 0 #da4d00;transition:transform .18s,box-shadow .18s,background .18s}.launch:hover{background:#ff7626;transform:translateY(-2px);box-shadow:0 6px 0 #da4d00}.launch:active{transform:translateY(3px);box-shadow:0 1px 0 #da4d00}.launch:disabled{cursor:wait;transform:none;box-shadow:0 2px 0 #da4d00}.launch svg{width:22px;height:22px;transition:transform .2s}.launch:hover svg{transform:translateX(4px)}
+.art{position:relative;min-width:0;aspect-ratio:1;display:grid;place-items:center}.orbit{position:absolute;width:91%;height:91%;border:1px solid #dad6c8;border-radius:50%;transform:rotate(-20deg)}.orbit:before{content:"";position:absolute;width:9px;height:9px;background:#27271f;border-radius:50%;top:17%;left:10%}.orbit:after{content:"";position:absolute;width:7px;height:7px;border:1px solid #aba694;border-radius:50%;bottom:7%;right:19%}.disc{width:77%;height:77%;border-radius:50%;background:#ff650a;display:grid;place-items:center;position:relative;transform:rotate(-12deg);animation:arrive .7s cubic-bezier(.2,.8,.2,1) both}.disc svg{width:58%;height:58%;overflow:visible}.rays{position:absolute;right:4%;top:2%;width:38px;height:38px;transform:rotate(12deg)}.sticker{position:absolute;bottom:8%;left:1%;padding:10px 14px;background:#e6efb0;border:1px solid #cbda85;border-radius:8px;transform:rotate(-9deg);font-size:11px;font-weight:800;letter-spacing:1px}.hello{position:absolute;right:0;bottom:11%;font-size:10px;writing-mode:vertical-rl;letter-spacing:2px;color:#777365}
+.foot{margin:0 32px;padding:18px 0 22px;border-top:1px solid #e3dfd2;display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.feedback{margin:0;font-size:12px;line-height:1.7;color:#727063;max-width:390px}.feedback:before{content:"";width:6px;height:6px;display:inline-block;border-radius:50%;background:#aaa58d;margin-right:7px;vertical-align:2px}.sent .feedback:before{background:#d94c00}.links{display:flex;gap:16px;flex-shrink:0}.link{border:0;background:transparent;padding:0;min-height:25px;color:#615e52;font-size:12px;text-decoration:underline;text-underline-offset:4px;cursor:pointer}.link:hover{color:#c64400}.link:disabled{opacity:.55;cursor:wait}.sent .disc svg{animation:nudge .65s cubic-bezier(.2,.8,.2,1)}
+@keyframes arrive{from{opacity:0;transform:rotate(-22deg) scale(.88)}to{opacity:1;transform:rotate(-12deg) scale(1)}}@keyframes nudge{0%,100%{transform:translate(0,0)}50%{transform:translate(9px,-9px)}}
+@media(max-width:560px){.top{padding:22px 22px 0}.hero{padding:30px 22px 26px;grid-template-columns:1fr .66fr;gap:0}h1{font-size:32px}.art{align-self:start;margin-top:25px;margin-left:-12px}.intro{font-size:12px;max-width:230px}.launch{min-width:205px}.sticker{font-size:8px;padding:7px 8px;bottom:3%}.rays{width:25px}.hello{display:none}.foot{margin:0 22px;flex-direction:column;gap:10px}.edition{font-size:9px}.eyebrow{font-size:9px}.links{gap:22px}}
+@media(max-width:370px){.hero{grid-template-columns:1fr}.art{display:none}.edition{letter-spacing:.5px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main class="launchpad" id="launchpad" aria-label="来搜工作台启动页">
+  <header class="top"><div class="brand"><span class="mark" aria-hidden="true">↗</span><span class="wordmark">L-SOU<span style="margin-left:8px;font-size:14px;letter-spacing:0">来搜</span></span></div><span class="edition">YOUR DAILY LIFT</span></header>
+  <section class="hero">
+    <div><p class="eyebrow">NEW DAY. NEW POSSIBILITIES.</p><h1>准备好了？<br><span>开工，来搜！</span></h1><p class="intro">店铺、商品、流量与商机，<br>在你的经营工作台里，一起看清。</p>
+      <button class="launch" id="launch" type="button"><span id="launch-label">启动工作台</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 12h15M13 5l7 7-7 7"/></svg></button>
+    </div>
+    <div class="art" aria-hidden="true"><div class="orbit"></div><div class="disc"><svg viewBox="0 0 100 100" fill="none"><path d="M22 78L76 24M24 24h52v52" stroke="#fff8e7" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></svg></div><svg class="rays" viewBox="0 0 40 40" fill="none" stroke="#2b2b21" stroke-width="2.3"><path d="M20 0v40M0 20h40M6 6l28 28M6 34L34 6"/></svg><span class="sticker">LET’S GET TO WORK ↗</span><span class="hello">HELLO, OPPORTUNITY</span></div>
+  </section>
+  <footer class="foot"><p class="feedback" id="feedback" role="status" aria-live="polite">点击后，将打开来搜桌面工作台。</p><div class="links"><button class="link" id="check" type="button">查看状态</button><button class="link" id="help" type="button">帮我排查</button></div></footer>
+</main>
+<script>
+(function () {
+  'use strict';
+  var root = document.getElementById('launchpad');
+  var feedback = document.getElementById('feedback');
+  var buttons = ['launch', 'check', 'help'].map(function (id) { return document.getElementById(id); });
+  var pending = false;
+  /** 向 Accio 当前对话发送用户点击的请求。text/label 为字符串，无返回值；桥接异常就地显示。 */
+  function request(text, label) {
+    if (pending) return;
+    // 独立浏览器仅供预览；没有 Accio 桥接时绝不假报已发送或本机已启动。
+    if (typeof window.__widgetSendMessage !== 'function') {
+      feedback.textContent = '请在 Accio Work 对话中打开这张启动页，再点击按钮。';
+      return;
+    }
+    pending = true;
+    buttons.forEach(function (button) { button.disabled = true; });
+    try {
+      window.__widgetSendMessage(text);
+      root.classList.add('sent');
+      feedback.textContent = label + '请求已发送，请查看 Accio 的执行结果。';
+    } catch (error) {
+      feedback.textContent = '请求未能发送，请直接在 Accio 中说：“' + text + '”。';
+    }
+    // 这只是防连点，不是启动计时或成功反馈。实际状态以工具返回为准。
+    window.setTimeout(function () {
+      pending = false;
+      buttons.forEach(function (button) { button.disabled = false; });
+    }, 2400);
+  }
+  document.getElementById('launch').addEventListener('click', function () { request('启动来搜工作台', '启动'); });
+  document.getElementById('check').addEventListener('click', function () { request('查看来搜工作台启动状态', '状态查询'); });
+  document.getElementById('help').addEventListener('click', function () { request('帮我排查来搜工作台启动问题', '排查'); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "lsou-workbench",
+  "displayName": "来搜国际站经营工作台",
+  "version": "1.0.9",
+  "description": "来搜经营工作台：在 Accio 对话中打开来搜启动页，点击启动独立 Tauri 窗口及 Node.js 后端。包含经营总览、商品、流量、客户询盘和广告分析，内置启动排障与 WorkCTL 命令兼容 Skills。分别支持 Mac M 芯片、Intel Mac、Windows x64，依赖当前空间国际站生意助手。",
+  "icon": "icon.png",
+  "category": "marketing",
+  "tags": [
+    "国际站",
+    "经营分析",
+    "Tauri"
+  ],
+  "connectors": "connectors/connectors.json"
+}

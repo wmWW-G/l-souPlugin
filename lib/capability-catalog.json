@@ -1,0 +1,3228 @@
+{
+  "version": 1,
+  "verifiedAt": "2026-09-08",
+  "workctlVersion": "0.1.55",
+  "registry": "stale",
+  "tools": [
+    {
+      "id": "ccf150e0555e",
+      "command": "icbu ads get-behaviors-semantic-for",
+      "page": "ads",
+      "section": "客户与商品",
+      "mode": "read",
+      "title": "站内行为序列",
+      "description": "查询阿里巴巴国际站客户在站内的行为序列数据",
+      "params": []
+    },
+    {
+      "id": "fbfd8e427e01",
+      "command": "icbu ads list-customer-goods-cate-summary",
+      "page": "ads",
+      "section": "客户与商品",
+      "mode": "read",
+      "title": "商品行业分布",
+      "description": "查询客户店铺商品所属行业",
+      "params": []
+    },
+    {
+      "id": "18fe3c0aa4cf",
+      "command": "icbu ads list-goods-goods-id-list",
+      "page": "ads",
+      "section": "客户与商品",
+      "mode": "read",
+      "title": "广告商品详情",
+      "description": "基于商品id查询客户店铺商品详情",
+      "params": [
+        {
+          "agent_flag": "--goods-id-list",
+          "description": "",
+          "name": "goodsIdList",
+          "required": true,
+          "type": "array"
+        }
+      ]
+    },
+    {
+      "id": "89ffdf725636",
+      "command": "icbu ads search-main-catelv2-id",
+      "page": "ads",
+      "section": "客户与商品",
+      "mode": "read",
+      "title": "主营类目",
+      "description": "何时使用：需要获取主营二级类目以进行维度分析或数据筛选时。何时不使用：查询非主营类目或明细SKU数据时。输入：必须传 custId(当前登录卖家的公司ID companyId,纯数字)。输出：返回类目ID与处理状态，失败返回错误码与提示。",
+      "params": [
+        {
+          "agent_flag": "--cust-id",
+          "description": "卖家公司ID(companyId),即当前登录卖家自己的公司ID,纯数字。示例:231465246",
+          "name": "custId",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "84ea58acb574",
+      "command": "icbu ads update-reserve",
+      "page": "ads",
+      "section": "品牌关键词",
+      "mode": "write",
+      "title": "预订品牌关键词",
+      "description": "用于批量预定品牌广告关键词",
+      "params": [
+        {
+          "agent_flag": "--prod-id",
+          "description": "品牌广告业务线",
+          "name": "productId",
+          "required": true,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--resource-list",
+          "description": "",
+          "name": "resourceList",
+          "required": true,
+          "type": "array"
+        }
+      ]
+    },
+    {
+      "id": "ed3ff5bc0015",
+      "command": "icbu member list",
+      "page": "access",
+      "section": "成员目录",
+      "mode": "read",
+      "title": "查询成员身份",
+      "description": "根据阿里国际站主账号查询所有子账号信息（包含子账号firstname, lastname, isAdmin等）",
+      "params": []
+    },
+    {
+      "id": "f4bd4fbb9c7f",
+      "command": "icbu product ai-image-generate-facade",
+      "page": "assets",
+      "section": "图片创作",
+      "mode": "write",
+      "title": "综合图片创作",
+      "description": "AI图片生成统一门面，支持不同类型AI图片的生成",
+      "params": [
+        {
+          "agent_flag": "--ability-code",
+          "description": "AI能力Code",
+          "name": "abilityCode",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--information",
+          "description": "AI生成请求参数负载",
+          "name": "information",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "3922fd1f73bd",
+      "command": "icbu product analyze-merge-optimize-material",
+      "page": "product-publish",
+      "section": "素材导入",
+      "mode": "write",
+      "title": "解析并优化素材",
+      "description": "当客户上传完发品的素材后调用此工具，根据用户提供的素材 OSS 地址解析商品所需的主图、属性、价格等内容，并完成 AI 优化、业务逻辑补充和素材合并。适用于商品发布流程中素材处理环节。不适用于非 OSS 来源的素材或无需 AI 优化的场景。输入：素材文件的 OSS 地址（ossUrl）。输出：解析并优化后的商品主图、属性、价格等结构化数据。",
+      "params": [
+        {
+          "agent_flag": "--ext-info",
+          "description": "JSON字符串，标识拓展信息",
+          "name": "extInfo",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--oss-url",
+          "description": "素材文件的 OSS 访问地址，用于获取用户上传的商品素材内容",
+          "name": "ossUrl",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--unique-request-id",
+          "description": "当前请求的唯一标识，用于幂等和链路追踪，无需传入时可设为 null",
+          "name": "uniqueRequestId",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "3b186424bf13",
+      "command": "icbu product batch-upgrade-product-detail",
+      "page": "product",
+      "section": "详情优化",
+      "mode": "write",
+      "title": "批量升级商品详情",
+      "description": "批量升级商品详情",
+      "params": [
+        {
+          "agent_flag": "--products",
+          "description": "待优化商品列表",
+          "name": "products",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--request",
+          "description": "",
+          "name": "request",
+          "required": false,
+          "type": "object"
+        }
+      ]
+    },
+    {
+      "id": "1eeb3858f0bb",
+      "command": "icbu product command-video-generate-storyboard-nologin-4-accio",
+      "page": "assets",
+      "section": "视频创作·扩展",
+      "mode": "write",
+      "title": "免登录版视频分镜",
+      "description": "指令视频生成分镜工具，根据用户上传的图片列表和选择的提示词，调用 AI 生成指令视频的分镜脚本。输入为图片 URL 列表和用户选择的提示词（必填），输出为分镜列表（storyboardList，含每帧文案和时长）、原始图片列表及视频比例。无需国际站用户登录态。",
+      "params": [
+        {
+          "agent_flag": "--input-img-urls",
+          "description": "用户输入图片数组（可选）",
+          "name": "inputImgUrls",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--user-input",
+          "description": "用户输入的文本提示词（必填），用于描述期望生成的视频内容与分镜要求",
+          "name": "userInput",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "c90008af24fc",
+      "command": "icbu product command-video-prompt-recommend",
+      "page": "assets",
+      "section": "视频创作",
+      "mode": "write",
+      "title": "推荐视频描述",
+      "description": "指令视频获取推荐提示词工具，根据用户上传的图片列表和输入提示词，调用 AI 生成多条推荐的视频描述提示词。输入为图片 URL 列表和用户初始提示词（可选），输出为推荐提示词列表（recommendPrompts）。用户可从中选择一条作为后续生成指令视频的 prompt 输入。",
+      "params": [
+        {
+          "agent_flag": "--input-img-urls",
+          "description": "输入图片的 URL 数组",
+          "name": "inputImgUrls",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--user-input",
+          "description": "用户提供的原始文本描述，建议包含画面主体、动作意图与风格要求，支持自然语言",
+          "name": "userInput",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "2b5fca20e84b",
+      "command": "icbu product command-video-prompt-recommend-nologin-4-accio",
+      "page": "assets",
+      "section": "视频创作·扩展",
+      "mode": "write",
+      "title": "免登录版描述推荐",
+      "description": "指令视频获取推荐提示词工具，根据用户上传的图片列表和输入提示词，调用 AI 生成多条推荐的视频描述提示词。输入为图片 URL 列表和用户初始提示词（可选），输出为推荐提示词列表（recommendPrompts）。用户可从中选择一条作为后续生成指令视频的 prompt 输入。无需国际站用户登录态。",
+      "params": [
+        {
+          "agent_flag": "--input-img-urls",
+          "description": "输入图片的 URL 数组",
+          "name": "inputImgUrls",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--user-input",
+          "description": "用户提供的原始文本描述，建议包含画面主体、动作意图与风格要求，支持自然语言",
+          "name": "userInput",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "b900a0e976e2",
+      "command": "icbu product data-advisor-category-infer",
+      "page": "product-publish",
+      "section": "类目推荐",
+      "mode": "read",
+      "title": "按描述推断类目",
+      "description": "根据自然语言描述的类目预测对应的类目id，支持中英文描述",
+      "params": [
+        {
+          "agent_flag": "--category-desc",
+          "description": "类目描述",
+          "name": "categoryDesc",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "7b60d4440037",
+      "command": "icbu product data-advisor-category-prediction",
+      "page": "product-publish",
+      "section": "类目推荐",
+      "mode": "read",
+      "title": "类目预测扩展",
+      "description": "根据自然语言描述的类目预测对应的类目id，支持中英文描述",
+      "params": [
+        {
+          "agent_flag": "--category-desc",
+          "description": "类目描述",
+          "name": "categoryDesc",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "684bfd0c0daa",
+      "command": "icbu product data-advisor-product-selection",
+      "page": "flow",
+      "section": "热门商品与供应商",
+      "mode": "read",
+      "title": "行业热门商品",
+      "description": "根据条件（类目、AB、实收GMV等条件筛选）查询特定行业的热门商品，包含商品id、标题、主图等字段",
+      "params": [
+        {
+          "agent_flag": "--ab-cnt-max",
+          "description": "ab人数上限",
+          "name": "abCntMax",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--ab-cnt-min",
+          "description": "ab人数下限",
+          "name": "abCntMin",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--cate-id",
+          "description": "类目id",
+          "name": "cateId",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--country-id",
+          "description": "国家编码",
+          "name": "countryId",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--moq-max",
+          "description": "最小起订量moq上限",
+          "name": "moqMax",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--moq-min",
+          "description": "最小起订量moq下限",
+          "name": "moqMin",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--moq-price-max",
+          "description": "价格上限",
+          "name": "moqPriceMax",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "agent_flag": "--moq-price-min",
+          "description": "价格下限",
+          "name": "moqPriceMin",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "agent_flag": "--order",
+          "description": "排序类型，升序时传入asc，降序时传入desc",
+          "name": "order",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--order-by",
+          "description": "排序列，如果需要按挂帐订单量排序，传入prepay_ord_cnt；如果需要按询盘量排序，传入ab_cnt；如果需要按实收GMV排序，传入rec_ord_amt；如果需要按Detail UV排序，传入uv_detail",
+          "name": "orderBy",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--prepay-ord-cnt-max",
+          "description": "挂账订单数上限",
+          "name": "prepayOrdCntMax",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--prepay-ord-cnt-min",
+          "description": "挂账订单数下限",
+          "name": "prepayOrdCntMin",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--rec-ord-amt-max",
+          "description": "gmv上限",
+          "name": "recOrdAmtMax",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "agent_flag": "--rec-ord-amt-min",
+          "description": "gmv下限",
+          "name": "recOrdAmtMin",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "agent_flag": "--statistics-type",
+          "description": "时间周期，可选值为1d（日）、7d（7天汇总）、30d（30天汇总）",
+          "name": "statisticsType",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--uv-detail-max",
+          "description": "访问UV上限",
+          "name": "uvDetailMax",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--uv-detail-min",
+          "description": "访问UV下限",
+          "name": "uvDetailMin",
+          "required": false,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "2bcd09202096",
+      "command": "icbu product data-advisor-supplier-selection",
+      "page": "flow",
+      "section": "热门商品与供应商",
+      "mode": "read",
+      "title": "寻找供应商",
+      "description": "根据多种筛选条件（类目、国家、卖家评分、订单量、评价数等）查询符合条件的供应商列表，适用于供应商筛选与发现场景。输入为各类筛选阈值和排序条件，输出为符合条件的供应商基础信息列表。",
+      "params": [
+        {
+          "agent_flag": "--ab-cnt-max",
+          "description": "ab人数上限",
+          "name": "abCntMax",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--ab-cnt-min",
+          "description": "ab人数下限",
+          "name": "abCntMin",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--cate-id",
+          "description": "类目id",
+          "name": "cateId",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--country-id",
+          "description": "国家编码",
+          "name": "countryId",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--domain-id",
+          "description": "店铺域名ID，如果输入为https://bosing.m.en.alibaba.com/，需要抽取出bosing作为domainId传入",
+          "name": "domainId",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--order",
+          "description": "排序类型，升序时传入asc，降序时传入desc",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "name": "order",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--order-by",
+          "description": "排序列，如果需要按挂帐订单量排序，传入prepay_ord_cnt；如果需要按询盘量排序，传入ab_cnt；如果需要按实收GMV排序，传入rec_ord_amt；如果需要按Detail UV排序，传入uv_detail",
+          "name": "orderBy",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--prepay-ord-cnt-max",
+          "description": "挂账订单数上限",
+          "name": "prepayOrdCntMax",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--prepay-ord-cnt-min",
+          "description": "挂账订单数下限",
+          "name": "prepayOrdCntMin",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--rec-ord-amt-max",
+          "description": "gmv上限",
+          "name": "recOrdAmtMax",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "agent_flag": "--rec-ord-amt-min",
+          "description": "gmv下限",
+          "name": "recOrdAmtMin",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "agent_flag": "--review-cnt-max",
+          "description": "评论数上限",
+          "name": "reviewCntMax",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--review-cnt-min",
+          "description": "评论数下限",
+          "name": "reviewCntMin",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--slr-score-max",
+          "description": "商家评分上限",
+          "name": "slrScoreMax",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "agent_flag": "--slr-score-min",
+          "description": "商家评分下限",
+          "name": "slrScoreMin",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "agent_flag": "--statistics-type",
+          "description": "时间周期，可选值为1d（日）、7d（7天汇总）、30d（30天汇总）",
+          "name": "statisticsType",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--uv-detail-max",
+          "description": "访问UV上限",
+          "name": "uvDetailMax",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--uv-detail-min",
+          "description": "访问UV下限",
+          "name": "uvDetailMin",
+          "required": false,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "88c7447d004c",
+      "command": "icbu product get-attr",
+      "page": "product-publish",
+      "section": "类目推荐",
+      "mode": "read",
+      "title": "查询类目属性",
+      "description": "根据类目id，查询该类目下的属性信息",
+      "params": [
+        {
+          "agent_flag": "--category-id",
+          "description": "类目id",
+          "name": "categoryId",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "c6408368e9b3",
+      "command": "icbu product icbu-product-3d-eligibility-query",
+      "page": "assets",
+      "section": "3D模型",
+      "mode": "read",
+      "title": "检查3D资格与额度",
+      "description": "查询指定店铺当前能否生成3D模型及今日剩余额度。是发起生成(icbu_product_3d_generate_from_video_url)的强制前置。返回 eligible 是否可生成、ineligibleReason(NOT_IN_GRAY 功能未开放/DAILY_LIMIT_EXCEEDED 今日额度用完/BLACKLISTED 账号不可用)、dailyLimit 每日上限、usedToday 今日已用(含失败与已删除的模型)、remaining 剩余次数、quotaResetHint 重置说明(美东0点)、galleryVisible 是否可见画廊、consumesCredits 是否消耗积分(恒false)。",
+      "params": []
+    },
+    {
+      "id": "23bb2888ebb8",
+      "command": "icbu product icbu-product-3d-generate-from-video-url",
+      "page": "assets",
+      "section": "3D模型",
+      "mode": "write",
+      "title": "用视频生成3D模型",
+      "description": "由视频直链发起 3D 模型生成。调用前必须先调 icbu_product_3d_eligibility_query 且 eligible=true。视频要求：https 直链、可公网访问、.mp4 结尾、≥60 秒、≤200MB。AW 附件上传后宓主已给出 url，直接用即可，无需单独上传工具。返回成功仅表示已入队，需后续轮询状态，不要在单轮对话内循环等待。",
+      "params": [
+        {
+          "agent_flag": "--cover-url",
+          "description": "视频封面 URL，可空。不传时系统自动从视频首帧截取",
+          "name": "coverUrl",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--title",
+          "description": "视频标题，可空",
+          "name": "title",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--video-url",
+          "description": "视频直链，要求 https、可公网访问、路径以 .mp4 结尾、时长不少于 60 秒、不超过 200MB",
+          "name": "videoUrl",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "3215a85583bd",
+      "command": "icbu product icbu-product-3d-model-detail",
+      "page": "assets",
+      "section": "3D模型",
+      "mode": "read",
+      "title": "查看3D模型详情",
+      "description": "查询单个 3D 模型的完整信息，含可直接加载的 viewerUrl、可切换机位 alternativeModels、关联商品等。返回结构同时就是 3D 卡片/查看器的渲染数据。仅 status=success 的模型可渲染；processing/failed 时用文字说明不要开卡片。",
+      "params": [
+        {
+          "agent_flag": "--model-id",
+          "description": "模型 id，纯数字字符串，原样传递不要做数字运算或格式化",
+          "name": "modelId",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "f4d10fa5ebc4",
+      "command": "icbu product icbu-product-3d-product-model-query",
+      "page": "assets",
+      "section": "3D模型",
+      "mode": "read",
+      "title": "查看商品模型绑定",
+      "description": "批量查询一批商品各自的 3D 模型绑定情况（一次最多 20 个），常接在搜品之后。未命中的商品同样返回一条 hasModel=false 的记录，用于区分“没有模型”和“漏查了”。",
+      "params": [
+        {
+          "agent_flag": "--product-ids",
+          "description": "要查询的商品 id 列表，每个都是纯数字字符串，最多 20 个",
+          "name": "productIds",
+          "required": true,
+          "type": "array"
+        }
+      ]
+    },
+    {
+      "id": "ff4a204d16a6",
+      "command": "icbu product icbu-product-3d-relate-product",
+      "page": "assets",
+      "section": "3D模型",
+      "mode": "write",
+      "title": "关联模型与商品",
+      "description": "把 3D 模型关联到商品，买家就能在该商品详情页旋转查看。模型必须是 success 状态；一个商品同时只能关联一个模型。productUrl/coverUrl/title 必须取自搜品结果原文，不可编造。同一模型挂第二个商品时会返回新 modelId(isNewModelCreated=true)，需告知用户。",
+      "params": [
+        {
+          "agent_flag": "--cover-url",
+          "description": "商品主图，必须取自搜品结果原文",
+          "name": "coverUrl",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--model-id",
+          "description": "模型 id，纯数字字符串，必须是 success 状态",
+          "name": "modelId",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品 id，纯数字字符串",
+          "name": "productId",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--product-url",
+          "description": "商品详情页地址，必须取自搜品结果原文，不可自行拼造",
+          "name": "productUrl",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--title",
+          "description": "商品标题，必须取自搜品结果原文",
+          "name": "title",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "9d558663b834",
+      "command": "icbu product icbu-product-3d-select-angle",
+      "page": "assets",
+      "section": "3D模型",
+      "mode": "write",
+      "title": "调整模型展示角度",
+      "description": "切换模型默认展示的机位（可选加底托），决定买家在商品详情页首先看到的角度。modelKey 必须来自 queryModelDetail 返回的 alternativeModels 实际 key，不要猜。可逆操作、不消耗额度，可直接执行并告知用户改了什么。",
+      "params": [
+        {
+          "agent_flag": "--bottom-tray",
+          "description": "是否使用带底托的变体，空或 false 表示原始模型。并非每个机位都有底托变体",
+          "name": "bottomTray",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "agent_flag": "--model-id",
+          "description": "模型 id，纯数字字符串",
+          "name": "modelId",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--model-key",
+          "description": "机位 key，必须是 queryModelDetail 返回的 alternativeModels 里实际存在的 key（如 top/bottom/left/right/front/back），不要猜",
+          "name": "modelKey",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "ccf76ed6cfe2",
+      "command": "icbu product icbu-product-3d-status-query",
+      "page": "assets",
+      "section": "3D模型",
+      "mode": "read",
+      "title": "查询3D生成状态",
+      "description": "批量轮询 3D 模型生成状态（一次最多 10 个）。生成是异步且无进度，耗时分钟级到十几分钟。距发起生成至少 90 秒后再首次查询，且每轮对话只查一次，不要在单轮对话内循环轮询。status 为 processing 时告知用户仍在处理并结束本轮。",
+      "params": [
+        {
+          "agent_flag": "--model-ids",
+          "description": "要查询状态的模型 id 列表，每个都是纯数字字符串，最多 10 个",
+          "name": "modelIds",
+          "required": true,
+          "type": "array"
+        }
+      ]
+    },
+    {
+      "id": "8089b8ada2f5",
+      "command": "icbu product icbu-product-3d-unrelate-product",
+      "page": "assets",
+      "section": "3D模型",
+      "mode": "write",
+      "title": "解除模型关联",
+      "description": "解除模型与商品的关联（模型本身不删除）。买家会立即看不到该商品详情页的 3D 视图，因此执行前需用户明确确认是哪个商品、哪个模型。",
+      "params": [
+        {
+          "agent_flag": "--model-id",
+          "description": "模型 id，纯数字字符串",
+          "name": "modelId",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品 id，纯数字字符串",
+          "name": "productId",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "0d28a8ff642c",
+      "command": "icbu product icbu-product-generate-by-material",
+      "page": "product-publish",
+      "section": "素材导入",
+      "mode": "restricted",
+      "title": "专属Skill素材发品",
+      "description": "该工具仅可以在icbu-product-publish skill内部使用，其他场景不可以使用。",
+      "params": [
+        {
+          "agent_flag": "--product-info-for-material",
+          "description": "实际发品数据",
+          "name": "productInfoForMaterial",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "df6b1a0e4394",
+      "command": "icbu product list",
+      "page": "product",
+      "section": "商品目录",
+      "mode": "read",
+      "title": "查询商品目录",
+      "description": "根据商品ID、商品名称等查询商品信息",
+      "params": [
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品ID",
+          "name": "productId",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--product-name",
+          "description": "商品名称",
+          "name": "productName",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "1a505ce1ef2f",
+      "command": "icbu product list-id",
+      "page": "product",
+      "section": "商品目录",
+      "mode": "read",
+      "title": "按选中商品查询属性",
+      "description": "当需要查询特定商品的详细属性、主图及类目时调用；若仅需商品基础列表或名称检索请勿使用。输入参数为商品ID（Long），输出为包含状态码、提示信息及业务数据的对象。",
+      "params": [
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品唯一标识（Long类型，必填）",
+          "name": "productId",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "42dd652d672f",
+      "command": "icbu product list-material-analysis-result",
+      "page": "product-publish",
+      "section": "素材导入",
+      "mode": "read",
+      "title": "查看素材解析结果",
+      "description": "【何时使用】素材异步解析任务执行完毕，需获取最终结果时调用。【何时不使用】解析任务尚未创建、处于处理中或已确认失败时调用。【输入】素材解析任务下发的唯一请求标识（uniqueRequestId）。【输出】成功返回包含标题、属性、价格的结构化数据对象，失败返回错误码与详细信息。",
+      "params": [
+        {
+          "agent_flag": "--unique-request-id",
+          "description": "素材解析任务的唯一标识（通常由创建解析接口返回，需确保传入的 ID 已关联完成态任务，不可为空）",
+          "name": "uniqueRequestId",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "8bea5ec114fd",
+      "command": "icbu product list-name",
+      "page": "product",
+      "section": "商品目录",
+      "mode": "read",
+      "title": "按商品名称查找",
+      "description": "当用户需要根据商品名称查找或筛选商品时调用；若需按商品ID、库存状态或价格范围精确查询则不应使用。输入：商品名称字符串；输出：包含状态、提示信息及商品对象数组的结构化结果。",
+      "params": [
+        {
+          "agent_flag": "--product-name",
+          "description": "用于检索的商品名称关键字（通常支持模糊匹配，建议传入非空字符串）",
+          "name": "productName",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "169205699bac",
+      "command": "icbu product list-risk-brand-name",
+      "page": "risk",
+      "section": "品牌与规则",
+      "mode": "read",
+      "title": "检查风险品牌词",
+      "description": "当需要按业务类目批量排查潜在风险品牌词时调用本工具。若无需按类目过滤或仅需查询全局品牌库时请勿使用。输入：有效类目ID列表。输出：归属于指定类目的风险品牌词完整列表。",
+      "params": [
+        {
+          "agent_flag": "--cat-id-list",
+          "description": "类目ID列表（Long类型）",
+          "name": "catIdList",
+          "required": true,
+          "type": "array"
+        }
+      ]
+    },
+    {
+      "id": "de1c006e2123",
+      "command": "icbu product list-score",
+      "page": "product",
+      "section": "商品目录",
+      "mode": "read",
+      "title": "按质量分筛选",
+      "description": "何时使用：当需要根据商品质量分范围过滤商品列表时调用。何时不使用：当需要查询单个商品详情或执行商品发布与修改操作时不使用。输入：包含最低分、最高分与分页页号。输出：返回查询是否成功、错误码、提示信息及商品数据对象。",
+      "params": [
+        {
+          "agent_flag": "--max-score",
+          "description": "查询评分上限，取值范围 0-100，单位：分",
+          "name": "maxScore",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "agent_flag": "--min-score",
+          "description": "查询评分下限，取值范围 0-100，单位：分",
+          "name": "minScore",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "agent_flag": "--page",
+          "description": "分页页码，从 1 开始递增，默认值为 1",
+          "name": "page",
+          "required": false,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "67c015b6de4b",
+      "command": "icbu product list-task-list",
+      "page": "product-publish",
+      "section": "发布任务",
+      "mode": "read",
+      "title": "查看发品子任务",
+      "description": "【何时使用】客户发起发品任务后，需要获取该任务下所有子任务的执行状态与结果时调用。【何时不使用】无需查询进度，或仅需创建/修改任务时不应调用。【输入】需提供有效的鉴权 accessToken 和目标父任务 taskId。【输出】返回包含 success 标识、code 错误码及 data 业务数据（子任务列表）的响应。",
+      "params": [
+        {
+          "agent_flag": "--task-id",
+          "description": "发品父任务ID，Long类型。由创建发品任务接口返回，需确保该任务已存在且状态可查询。",
+          "name": "taskId",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "48fe02d04bf6",
+      "command": "icbu product material-analysis",
+      "page": "product-publish",
+      "section": "素材导入",
+      "mode": "write",
+      "title": "解析商品素材",
+      "description": "当客户上传完发品的素材，根据用户提供的素材解析商品所需的主图、属性、价格等内容。",
+      "params": [
+        {
+          "agent_flag": "--material",
+          "description": "用户上传的素材neiro",
+          "name": "material",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--unique-request-id",
+          "description": "当前请求的唯一标识，没有的话就传null",
+          "name": "uniqueRequestId",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "b71648db10a1",
+      "command": "icbu product merge-material",
+      "page": "product-publish",
+      "section": "素材导入",
+      "mode": "write",
+      "title": "合并补充素材",
+      "description": "当需要整合用户手动调整的商品信息与系统存量素材时调用此工具。若原始 TairKey 缺失或修改内容为空则不应调用。输入需提供原始缓存键、商品序号及修改后的内容字符串；输出为合并后的结构化商品数据及执行状态。",
+      "params": [
+        {
+          "agent_flag": "--fixed-material",
+          "description": "用户修改的商品内容（可以修改标题、图片、价格等信息）",
+          "name": "fixedMaterial",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--material-index",
+          "description": "修改商品的序号（比如第 1 个商品，materialIndex=1）",
+          "name": "materialIndex",
+          "required": true,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--material-tair-key",
+          "description": "原始商品内容对应的tairkey",
+          "name": "materialTairKey",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "90b31d0eeef9",
+      "command": "icbu product new-publish-product",
+      "page": "product-publish",
+      "section": "发布执行",
+      "mode": "write",
+      "title": "从结构化素材发布",
+      "description": "根据素材信息发布商品，适用于通过已有素材快速创建并发布商品的场景。当需要基于已有素材创建新商品时使用；不适用于无素材的直接创建或修改已有商品信息。输入素材ID、素材类型，输出商品发布结果",
+      "params": [
+        {
+          "agent_flag": "--material",
+          "description": "用来发品的素材，可以是一个tair的key，也可以是一个商品素材完整的json",
+          "name": "material",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--publish-type",
+          "description": "发布类型，可以是draft（发布草稿）或者product（发布商品）",
+          "name": "publishType",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "8a9b5eec5d31",
+      "command": "icbu product optimize-product-detail",
+      "page": "product",
+      "section": "详情优化",
+      "mode": "write",
+      "title": "优化单品详情",
+      "description": "用于优化商品详情页内容。适用场景：商品上架前提升图文质量。何时不使用：商品未创建、素材仅含非文本内容或网络异常。输入：商品ID、装修等级、装修类型。输出：优化状态布尔值、业务返回码、提示语及完整数据。",
+      "params": [
+        {
+          "agent_flag": "--detail-type",
+          "description": "装修类型",
+          "name": "detailType",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--plan-type",
+          "description": "装修级别",
+          "name": "planType",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品id",
+          "name": "productId",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "1cab251b6b54",
+      "command": "icbu product precheck-url-product-generate",
+      "page": "product-publish",
+      "section": "链接导入",
+      "mode": "read",
+      "title": "检查参考链接",
+      "description": "在通过URL生成商品前进行预检查，验证URL有效性及相关条件是否满足发布要求。适用于URL商品发布流程的前置校验场景，不适用于已发布商品的编辑或非URL方式的商品创建。输入源URL地址、URL标识ID和渠道ID，输出预检查结果，包含校验是否通过及失败原因。",
+      "params": [
+        {
+          "agent_flag": "--source",
+          "default": "aw",
+          "description": "调用场景",
+          "name": "source",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--total-count",
+          "description": "需要发品的url数量",
+          "name": "totalCount",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "769e5e64495e",
+      "command": "icbu product predict-category",
+      "page": "product-publish",
+      "section": "类目推荐",
+      "mode": "read",
+      "title": "按标题推荐类目",
+      "description": "根据商品标题和描述预测商品所属分类，适用于电商平台商品发布时的智能分类推荐场景。输入：商品ID、商品标题列表、商品描述列表；输出：分类预测结果；何时使用：商品发布时需要智能分类推荐；何时不使用：已有明确分类的商品无需使用。",
+      "params": [
+        {
+          "agent_flag": "--image-info",
+          "description": "商品图片列表，用于分类预测",
+          "name": "imageInfo",
+          "required": true,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--text-info",
+          "description": "商品描述列表，辅助分类预测",
+          "name": "textInfo",
+          "required": true,
+          "type": "array"
+        }
+      ]
+    },
+    {
+      "id": "7caf17e393c4",
+      "command": "icbu product product-ai-image-custom-logo",
+      "page": "assets",
+      "section": "图片创作",
+      "mode": "write",
+      "title": "生成品牌Logo图",
+      "description": "AI创作Logo图，通过输入原始图片URL、logo图片URL、prompt,，发起一次Logo图片创作请求",
+      "params": [
+        {
+          "agent_flag": "--image-url",
+          "description": "主体图片URL",
+          "name": "imageUrl",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--logo-image-url",
+          "description": "Logo图片URL",
+          "name": "logoImageUrl",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--prompt",
+          "description": "AI图片创作prompt",
+          "name": "prompt",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "d68da7b0fe1a",
+      "command": "icbu product product-edit-draft-certificate",
+      "page": "product",
+      "section": "商品服务编辑",
+      "mode": "write",
+      "title": "编辑商品证书",
+      "description": "编辑商品草稿的证书信息模块，支持关联或取消关联商品证书。适用于 Agent 需要为商品绑定已有的资质证书（如 CE、FDA 等）或移除不再适用的证书关联等场景。仅负责证书关联关系的编辑，不涉及证书本身的创建与管理（证书需在证书管理模块中预先创建）。编辑数据将保存到草稿，不会直接影响线上商品。本接口幂等，相同参数多次调用结果一致。需具备商品发布权限。",
+      "params": [
+        {
+          "agent_flag": "--certificates",
+          "description": "证书列表",
+          "name": "certificates",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品ID",
+          "name": "productId",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "450d29920097",
+      "command": "icbu product product-edit-draft-customization",
+      "page": "product",
+      "section": "商品服务编辑",
+      "mode": "write",
+      "title": "编辑定制服务",
+      "description": "编辑商品草稿的定制服务模块，包括轻定制和深度定制两种类型。适用于 Agent 需要为商品配置定制化服务选项，如设置定制项名称、定制值、加价金额、起订量等场景。仅负责定制服务相关字段的编辑，不涉及样品/质保等其他服务模块。注意：轻定制不支持新增\"logo/图文定制工艺\"类型。编辑数据将保存到草稿，不会直接影响线上商品。本接口幂等，相同参数多次调用结果一致。",
+      "params": [
+        {
+          "agent_flag": "--deep-customizations",
+          "description": "深度定制服务编辑列表",
+          "name": "deepCustomizations",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--light-customizations",
+          "description": " 轻定制服务编辑列表",
+          "name": "lightCustomizations",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品ID",
+          "name": "productId",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "c6211e67d44e",
+      "command": "icbu product product-edit-draft-fulfillment",
+      "page": "product",
+      "section": "交易与履约编辑",
+      "mode": "write",
+      "title": "编辑履约信息",
+      "description": "编辑商品草稿的履约信息模块，包括发货期、包裹重量与尺寸、物流属性、物流提供方式、运费模板、HS 编码等。适用于 Agent 需要调整发货周期承诺、更新包裹规格信息、切换物流方案、填入 HS 编码等场景。仅负责履约物流相关字段的编辑，不涉及价格/详情/服务等模块。编辑数据将保存到草稿，不会直接影响线上商品。本接口幂等，相同参数多次调用结果一致。需具备商品发布权限。",
+      "params": [
+        {
+          "agent_flag": "--ladder-period",
+          "description": "发货期列表",
+          "name": "ladderPeriod",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--logistics-property",
+          "description": " 物流属性编码列表（例如 battery_0_0）",
+          "name": "logisticsProperty",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--pkg-height",
+          "description": "包装高度（CM/件），与pkgLength、pkgWidth构成一个整体，要么都填，要么都不填",
+          "name": "pkgHeight",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "agent_flag": "--pkg-length",
+          "description": "包装长度（CM/件），与pkgWidth、pkgHeight构成一个整体，要么都填，要么都不填",
+          "name": "pkgLength",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "agent_flag": "--pkg-weight",
+          "description": "毛重（KG/件）",
+          "name": "pkgWeight",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "agent_flag": "--pkg-width",
+          "description": "包装宽度（CM/件），与pkgLength、pkgHeight构成一个整体，要么都填，要么都不填",
+          "name": "pkgWidth",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品ID",
+          "name": "productId",
+          "required": true,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--shipping-template-id",
+          "description": "物流模版ID。",
+          "name": "shippingTemplateId",
+          "required": false,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "b8941ae9c97b",
+      "command": "icbu product product-edit-draft-sample",
+      "page": "product",
+      "section": "商品服务编辑",
+      "mode": "write",
+      "title": "编辑样品服务",
+      "description": "编辑商品草稿的样品服务模块，包括整体样品服务配置和 SKU 维度的样品服务配置。适用于 Agent 需要为商品开启或关闭样品服务、设置样品价格与最大样品量、为特定 SKU 配置独立样品价格等场景。仅负责样品服务相关字段的编辑，不涉及定制/质保等其他服务模块。编辑数据将保存到草稿，不会直接影响线上商品。本接口幂等，相同参数多次调用结果一致。需具备商品发布权限。",
+      "params": [
+        {
+          "agent_flag": "--max-sample-quantity",
+          "description": "最大样品量",
+          "name": "maxSampleQuantity",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品ID",
+          "name": "productId",
+          "required": true,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--sample-price",
+          "description": "样品价格，币种是美元",
+          "name": "samplePrice",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "agent_flag": "--sku-sample-services",
+          "description": "SKU样品服务编辑列表",
+          "name": "skuSampleServices",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--support-sample",
+          "description": "是否支持拿样：true=开启 / false=关闭 / null=不显式指定",
+          "name": "supportSample",
+          "required": false,
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "652693084803",
+      "command": "icbu product product-edit-draft-special-service",
+      "page": "product",
+      "section": "商品服务编辑",
+      "mode": "write",
+      "title": "编辑特殊服务",
+      "description": "编辑商品草稿的特殊服务模块，包括质保服务、售后服务、样品间服务、私域品（客群管理）、一件代发、出图出样服务等。适用于 Agent 需要为商品开启或关闭各类增值服务、配置服务模板、设置私域品买家白名单等场景。仅负责特殊服务相关字段的编辑，不涉及价格/物流/详情等核心商品信息模块。各服务之间相互独立，可按需只传部分字段。编辑数据将保存到草稿，不会直接影响线上商品。本接口幂等，相同参数多次调用结果一致。需具备商品发布权限。",
+      "params": [
+        {
+          "agent_flag": "--after-sale-enabled",
+          "description": "是否支持本地售后",
+          "name": "afterSaleEnabled",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "agent_flag": "--after-sale-template-id",
+          "description": "售后模版ID，当 afterSaleEnabled=true 时必填",
+          "name": "afterSaleTemplateId",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--buyer-ids",
+          "description": "当 privateProductEnabled=true 时必填且至少包含 1 项；privateProductEnabled=false 时禁止传入",
+          "name": "buyerIds",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--design-enabled",
+          "description": "是否启用出图服务",
+          "name": "designEnabled",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "agent_flag": "--dropshipping-enabled",
+          "description": "是否启用一件代发",
+          "name": "dropshippingEnabled",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "agent_flag": "--private-product-enabled",
+          "description": "是否启用私域品",
+          "name": "privateProductEnabled",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品ID",
+          "name": "productId",
+          "required": true,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--sample-enabled",
+          "description": "是否启用出样服务",
+          "name": "sampleEnabled",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "agent_flag": "--showroom-enabled",
+          "description": "是否启用样品间服务",
+          "name": "showroomEnabled",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "agent_flag": "--showroom-template-id",
+          "description": "样品间模版ID，当 showroomEnabled=true 时必填",
+          "name": "showroomTemplateId",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--warranty-enabled",
+          "description": "是否支持质保服务",
+          "name": "warrantyEnabled",
+          "required": false,
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "a6ba78cee9f6",
+      "command": "icbu product product-edit-draft-trade",
+      "page": "product",
+      "section": "交易与履约编辑",
+      "mode": "write",
+      "title": "编辑商品交易信息",
+      "description": "用于代理或系统编辑已有的商品交易信息。何时使用：商品管理后台或交易流程中对未完结订单/草稿进行修改。何时不使用：新建交易、已支付/已关闭的订单、仅支持读取的场景。输入：交易唯一标识及待修改内容配置。输出：操作执行结果、状态码、错误信息及完整业务响应数据。需具备商品发布权限。",
+      "params": [
+        {
+          "agent_flag": "--batch-num",
+          "description": "当 saleType=batch 时必填且 ≥1；saleType=normal 时禁止传入",
+          "name": "batchNum",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--inventory",
+          "description": "可售数量",
+          "name": "inventory",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--ladder-prices",
+          "description": "阶梯价列表",
+          "name": "ladderPrices",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--moq",
+          "description": "最小起订量",
+          "name": "moq",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--price-unit",
+          "description": "计量单位编码",
+          "name": "priceUnit",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--prod-id",
+          "description": "关联的商品ID",
+          "name": "productId",
+          "required": true,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--sale-type",
+          "description": "基础销售方式：normal（按件卖）/ batch（按批卖）",
+          "enum": [
+            "normal",
+            "batch"
+          ],
+          "name": "saleType",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--sku",
+          "description": "规格编辑列表（SKU 维度",
+          "name": "sku",
+          "required": false,
+          "type": "array"
+        }
+      ]
+    },
+    {
+      "id": "168f8aeadd31",
+      "command": "icbu product product-generate-precheck",
+      "page": "product-publish",
+      "section": "发布执行",
+      "mode": "read",
+      "title": "检查发品额度与空间",
+      "description": "在素材包发品之前，调用该工具进行商品发布预检(校验 i 豆是否充足、图片银行空间是否充足)",
+      "params": [
+        {
+          "agent_flag": "--ability-code",
+          "description": "能力码",
+          "name": "abilityCode",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--total-count",
+          "description": "商品数量",
+          "name": "totalCount",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "ea91726230f9",
+      "command": "icbu product product-scene-video-generate-v2",
+      "page": "assets",
+      "section": "视频创作",
+      "mode": "write",
+      "title": "生成动态场景视频",
+      "description": "根据提供的商品图片生成一个商品的动态场景展示视频。输入为一张商品图片和商品视频描述prompt，输出动态展示商品的视频路径。当用户需要生成商品视频时使用。",
+      "params": [
+        {
+          "agent_flag": "--aspect-ratio",
+          "description": "视频画面的宽高比",
+          "name": "aspectRatio",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--category-id",
+          "description": "商品所属类目ID",
+          "name": "categoryId",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--duration",
+          "description": "生成视频的时长，单位：秒",
+          "name": "duration",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--image",
+          "description": "商品图片的URL地址",
+          "name": "image",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品ID",
+          "name": "productId",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--prompt",
+          "description": "商品视频的场景描述文本（prompt），用于指导AI生成视频的画面内容、风格和场景，如「商品放在阳光下的木桌上，背景是花园」",
+          "name": "prompt",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--re-generate",
+          "description": "是否重新生成视频，true表示重新生成，false表示复用已有结果",
+          "name": "reGenerate",
+          "required": false,
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "538c8c0669d0",
+      "command": "icbu product publish-draft",
+      "page": "product",
+      "section": "草稿管理",
+      "mode": "write",
+      "title": "发布选中草稿",
+      "description": "当用户完成商品信息编辑且商品处于草稿状态时使用。商品已处于待审核、审核通过或已发布状态时请勿使用。入参为商品ID，出参包含发布成功状态与业务数据。",
+      "params": [
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品唯一标识ID，Long类型，必填。需传入系统中当前处于草稿状态的商品主键值。",
+          "name": "productId",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "4b8f8feee24f",
+      "command": "icbu product publish-product",
+      "page": "product-publish",
+      "section": "发布执行",
+      "mode": "write",
+      "title": "素材发布扩展",
+      "description": "用于接收商品素材并自动执行上架流程。当用户需要发布全新商品且素材准备就绪时使用；若仅查询库存或修改已发布商品请勿调用。输入需包含完整的素材文本或 JSON 结构，输出包含发布执行结果、状态码及业务数据对象。",
+      "params": [
+        {
+          "agent_flag": "--ext-info",
+          "description": "扩展上下文容器，类型为 Map<String, Object>，当前为空结构预留，无需传入具体 Key-Value 对",
+          "name": "extInfo",
+          "required": true,
+          "type": "object"
+        },
+        {
+          "agent_flag": "--material",
+          "description": "商品发布所需的完整素材内容，通常为符合平台规范的 JSON 结构或包含图文描述的纯文本，最大支持 50KB",
+          "name": "material",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--publish-type",
+          "description": "发布方式，包括发布到草稿和发布到正式两种类型",
+          "name": "publishType",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "37418bd8f09b",
+      "command": "icbu product query-product-by-id",
+      "page": "product",
+      "section": "商品目录",
+      "mode": "read",
+      "title": "查看商品完整信息",
+      "description": "根据商品ID查询商品详细信息，用于商品详情展示等场景。支持查询单个商品的基本信息、价格、库存等数据。输入参数：productId（商品ID，Long类型）；输出：包含商品详情的对象数据。",
+      "params": [
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品唯一标识ID，用于定位需要查询的商品记录，正整数类型",
+          "name": "productId",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "89ee7fecf39a",
+      "command": "icbu product query-product-diagnosis-optimize-result",
+      "page": "product",
+      "section": "优化任务",
+      "mode": "read",
+      "title": "查看诊断优化结果",
+      "description": "商品诊断优化场景下，根据提交的优化任务requestkey,查询对应的商品优化结果。输入：商品id、requestKey。输出：返回查询是否成功、错误码、提示信息及优化后需要修改的内容",
+      "params": [
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品id",
+          "name": "productId",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--request-key",
+          "description": "商品诊断优化请求key",
+          "name": "requestKey",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "872abc6de165",
+      "command": "icbu product search",
+      "page": "product",
+      "section": "草稿管理",
+      "mode": "read",
+      "title": "查找草稿商品",
+      "description": "判断并查询草稿品数据",
+      "params": [
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品id",
+          "name": "productId",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "76b04f9d4cd4",
+      "command": "icbu product start-url-product-generate",
+      "page": "product-publish",
+      "section": "链接导入",
+      "mode": "write",
+      "title": "从链接生成商品资料",
+      "description": "根据提供的商品URL列表，发起商品数据生成任务。适用于批量从URL采集并生成商品信息的场景。输入：公司ID和商品URL列表，可选指定语言地区。输出：任务创建结果，包含业务状态码和任务数据。不适用于单个商品的手动录入或非URL来源的商品创建。",
+      "params": [
+        {
+          "agent_flag": "--publish-type",
+          "description": "发布类型，是直发还是草稿（草稿：draft，直发：product）",
+          "name": "publishType",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--url-list",
+          "description": "商品URL列表，每个元素为一个商品详情页的完整URL",
+          "name": "urlList",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "65c743284f9b",
+      "command": "icbu product update-edit",
+      "page": "product",
+      "section": "批量编辑",
+      "mode": "write",
+      "title": "批量编辑商品",
+      "description": "【何时使用】商家或运营需集中更新多个商品基础信息（标题/价格/卖点/属性）时调用。【何时不使用】单件商品微调、需修改库存/上下架状态或调用方无批量更新权限时不调用。【输入】JSON数组，每项必须包含商品ID及待更新字段。【输出】包含 success 成功标识、code 状态码、msg 错误提示及 data 业务结果的对象。",
+      "params": [
+        {
+          "agent_flag": "--edit-list",
+          "description": "列表类型参数，数组元素为对象，必须包含 productId(Long)，可选包含 productTitle(String)、priceCalcParam(Object)、productSellingPoint(String) 及 attr(List) 等子结构",
+          "name": "editList",
+          "required": true,
+          "type": "array"
+        }
+      ]
+    },
+    {
+      "id": "119321892877",
+      "command": "icbu product update-edit-optimize",
+      "page": "product",
+      "section": "批量编辑",
+      "mode": "write",
+      "title": "批量优化标题与图片",
+      "description": "【何时使用】需同时或批量更新商品标题、主图、卖点时使用；【何时不使用】单商品编辑、仅查询或需复杂校验时使用；【输入】类目ID、主图URL（必填），标题、卖点（选填）；【输出】包含操作成功状态、错误码/信息及优化后的数据模型。",
+      "params": [
+        {
+          "agent_flag": "--cate-id",
+          "description": "商品所属的一级/二级类目ID，Long类型，需为平台有效类目",
+          "name": "cateId",
+          "required": true,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--main-image-url",
+          "description": "商品主图访问链接，需为公网可访问的 HTTPS 图片地址",
+          "name": "mainImageURL",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--selling-point",
+          "description": "商品核心营销卖点文案，String类型，建议突出关键属性且不超过 30 字",
+          "name": "sellingPoint",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--title",
+          "description": "优化后的商品标题文本，String类型，建议不超过 60 个字符",
+          "name": "title",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "2633c4070edf",
+      "command": "icbu product video-image-style-generate",
+      "page": "assets",
+      "section": "视频创作",
+      "mode": "write",
+      "title": "推荐视频风格",
+      "description": "视频图片风格生成工具，根据商品图片 URL 分析并返回推荐的视频风格模板列表。适用于用户准备生成商品视频、需要先选择视频风格的场景。当用户提供了一张商品图片 URL 并希望获取推荐风格时触发。期望产出为一组视频风格模板，包含风格名称和风格提示词，用户可从中选择一个风格的 stylePrompt 作为后续视频生成的 prompt 输入。",
+      "params": [
+        {
+          "agent_flag": "--generate-type",
+          "description": "风格生成类型标识",
+          "name": "generateType",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--image-url",
+          "description": "商品图片的 URL 链接，需为可公开访问的有效 HTTP/HTTPS 地址，支持常见图片格式（如 JPG、PNG）",
+          "name": "imageUrl",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "6edd1ac60092",
+      "command": "icbu product video-image-style-generate-nologin-4-accio",
+      "page": "assets",
+      "section": "视频创作·扩展",
+      "mode": "write",
+      "title": "免登录版风格推荐",
+      "description": "视频图片风格生成工具，根据商品图片 URL 分析并返回推荐的视频风格模板列表。适用于用户准备生成商品视频、需要先选择视频风格的场景。当用户提供了一张商品图片 URL 并希望获取推荐风格时触发。期望产出为一组视频风格模板，包含风格名称和风格提示词，用户可从中选择一个风格的 stylePrompt 作为后续视频生成的 prompt 输入。无需国际站用户登录态。",
+      "params": [
+        {
+          "agent_flag": "--generate-type",
+          "description": "风格生成类型标识",
+          "name": "generateType",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--image-url",
+          "description": "商品图片的 URL 链接，需为可公开访问的有效 HTTP/HTTPS 地址，支持常见图片格式（如 JPG、PNG）",
+          "name": "imageUrl",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "ba6e2b12cccf",
+      "command": "icbu recruitment-topic deduplicate-image-urls",
+      "page": "product-publish",
+      "section": "定向征品",
+      "mode": "read",
+      "title": "整理重复图片",
+      "description": "对图片进行去重",
+      "params": [
+        {
+          "agent_flag": "--image-urls",
+          "description": "",
+          "name": "image_urls",
+          "required": true,
+          "type": "array"
+        }
+      ]
+    },
+    {
+      "id": "09b0c91288d3",
+      "command": "icbu recruitment-topic image-generation",
+      "page": "product-publish",
+      "section": "定向征品",
+      "mode": "write",
+      "title": "生成征品图片",
+      "description": "定招发品专用图片生成MCP工具",
+      "params": [
+        {
+          "agent_flag": "--class",
+          "description": "轮询回调",
+          "name": "class",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--payload",
+          "description": "请求体",
+          "name": "payload",
+          "required": true,
+          "type": "object"
+        }
+      ]
+    },
+    {
+      "id": "73b44ca54fa4",
+      "command": "icbu recruitment-topic image-generation-result",
+      "page": "product-publish",
+      "section": "定向征品",
+      "mode": "read",
+      "title": "查看征品图片结果",
+      "description": "定招发品图片生成MCP轮询查询结果工具",
+      "params": [
+        {
+          "agent_flag": "--req-id",
+          "description": "任务查询id",
+          "name": "reqId",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "97105921f4d6",
+      "command": "icbu recruitment-topic list-user-valid-category",
+      "page": "product-publish",
+      "section": "定向征品",
+      "mode": "read",
+      "title": "查询可用经营类目",
+      "description": "查询商家有效经营类目",
+      "params": [
+        {
+          "agent_flag": "--language",
+          "description": "当前登录用户language，如\"en\",\"zh\"",
+          "name": "language",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "2dd0e30d7a34",
+      "command": "icbu recruitment-topic listing-product-draft-by-topic",
+      "page": "product-publish",
+      "section": "定向征品",
+      "mode": "write",
+      "title": "生成主题商品草稿",
+      "description": "根据定招主题发布草稿品（将品存入草稿箱，非直接发品）",
+      "params": [
+        {
+          "agent_flag": "--topic-id",
+          "description": "定招主题id",
+          "name": "topicId",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "e90481c1212b",
+      "command": "icbu recruitment-topic product-topic-detect",
+      "page": "product-publish",
+      "section": "定向征品",
+      "mode": "read",
+      "title": "检查商品主题适配",
+      "description": "根据商品ID和主题ID检测商品是否符合定向征品（定招）主题的要求。支持已发布商品与草稿品：通过可选入参 productVersion 指定，\"trunk\" 或缺省检测已发布商品，\"draft\" 检测草稿箱中的草稿品。",
+      "params": [
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品id",
+          "name": "productId",
+          "required": true,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--product-version",
+          "description": "商品版本：draft=草稿品，trunk=已发布商品；检测已发布商品时省略或传 trunk",
+          "name": "productVersion",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--topic-id",
+          "description": "主题id",
+          "name": "topicId",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "99c7bcdb92cd",
+      "command": "icbu recruitment-topic search",
+      "page": "product-publish",
+      "section": "定向征品",
+      "mode": "read",
+      "title": "查找征品主题",
+      "description": "定招主题查询",
+      "params": [
+        {
+          "agent_flag": "--scene",
+          "description": "查询场景。可选值 topicRecommendScene 推荐 topicSearchScene 搜索。默认 topicRecommendScene。当 title 或 topicIds 非空时应传 topicSearchScene",
+          "name": "scene",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--topic-scene-query",
+          "description": "推荐/查找详细参数",
+          "name": "topicSceneQuery",
+          "required": true,
+          "type": "object"
+        }
+      ]
+    },
+    {
+      "id": "a79d6755114e",
+      "command": "icbu rfq rfq-detail-search-batch",
+      "page": "rfq",
+      "section": "商机与报价详情",
+      "mode": "read",
+      "title": "批量查看商机",
+      "description": "根据RFQ ID和URL批量查询RFQ详情信息，适用于需要同时获取多个RFQ详细数据的场景。当需要批量获取RFQ详情时使用，单次最多支持20个ID或URL。输入为RFQ ID列表、URL列表和语言参数，输出包含成功标识、错误信息和业务数据。",
+      "params": [
+        {
+          "agent_flag": "--enc-rfq-ids",
+          "description": "RFQ 密文 ID列表，服务端解密后得到 rfqId列表",
+          "name": "encRfqIds",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--language",
+          "description": "语言类型，用于指定返回内容的语言，如 zh、en 等",
+          "name": "language",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--rfq-ids",
+          "description": "RFQ ID列表，用于批量查询RFQ详情，最多支持20个ID",
+          "name": "rfqIds",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--rfq-urls",
+          "description": "RFQ URL列表，用于批量查询RFQ详情，最多支持20个URL",
+          "name": "rfqUrls",
+          "required": false,
+          "type": "array"
+        }
+      ]
+    },
+    {
+      "id": "48c9cb9c9730",
+      "command": "icbu rfq rfq-quote-detail",
+      "page": "rfq",
+      "section": "商机与报价详情",
+      "mode": "read",
+      "title": "查看报价详情",
+      "description": "根据rfqId、RFQ链接、报价ID、报价链接、encRfqId（密文RFQ ID）查询RFQ报价详情。何时使用：当需要通过rfqId、RFQ链接、报价ID、报价链接或密文RFQ ID查询报价详情时调用。何时不使用：当需要创建、修改或删除RFQ或报价数据时不应调用本工具，本工具仅用于查询操作。输入：rfqId（RFQ ID）、rfqUrl（RFQ链接）、quoteId（报价ID）、quoteUrl（报价链接）、encRfqId（密文RFQ ID，如RFQ搜索工具返回的加密rfqId），查询时必须且只能输入其中1个字段。输出：返回匹配的报价详情数据。",
+      "params": [
+        {
+          "agent_flag": "--enc-rfq-id",
+          "description": "密文RFQ ID，用于查询报价详情",
+          "name": "encRfqId",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--quote-id",
+          "description": "报价ID，用于查询报价详情，需为有效的数值型ID",
+          "name": "quoteId",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--quote-url",
+          "description": "报价链接，用于查询报价详情，需为有效的URL格式",
+          "name": "quoteUrl",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--rfq-id",
+          "description": "RFQ ID，用于查询报价详情，需为有效的数值型ID",
+          "name": "rfqId",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--rfq-url",
+          "description": "RFQ链接，用于查询报价详情，需为有效的URL格式",
+          "name": "rfqUrl",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "58708ef9ad73",
+      "command": "icbu rfq rfq-quote-detail-batch",
+      "page": "rfq",
+      "section": "商机与报价详情",
+      "mode": "read",
+      "title": "批量查看报价",
+      "description": "批量查询RFQ报价详情，单次1~10条。何时使用：需一次查询多条报价时调用，多条查询应优先使用本工具，而非多次调用单条查询工具。何时不使用：本工具仅用于查询，不用于创建、修改或删除RFQ及报价数据。输入：rfqIds、rfqUrls、quoteIds、quoteUrls、encRfqIds五个数组参数必须且只能填写1个（一批只能用同一种标识，不支持混合），encRfqIds为密文RFQ ID列表（如RFQ搜索工具返回的加密rfqId）；服务端自动过滤空元素并去重，去重后最多10条，超过则整批失败。输出：successMap为成功结果（key为输入标识原样回显，value为报价详情），failedMap为失败结果（key同上，value为\"错误码: 错误描述\"），每个输入标识必在两个map之一，单条失败不影响其他条目。",
+      "params": [
+        {
+          "agent_flag": "--enc-rfq-ids",
+          "description": "密文RFQ ID列表，元素类型为String，即RFQ搜索工具返回的加密rfqId或RFQ详情页URL的p参数值，服务端自动解密后查询；与其他四个数组五选一",
+          "name": "encRfqIds",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--quote-ids",
+          "description": "报价ID列表，元素类型为Long，需为有效的数值型ID；与其他四个数组五选一",
+          "name": "quoteIds",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--quote-urls",
+          "description": "报价链接列表，元素类型为String，需为有效的URL格式；与其他四个数组五选一",
+          "name": "quoteUrls",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--rfq-ids",
+          "description": "RFQ ID列表，元素类型为Long，需为有效的数值型ID；与其他四个数组五选一",
+          "name": "rfqIds",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--rfq-urls",
+          "description": "RFQ链接列表，元素类型为String，需为有效的URL格式；与其他四个数组五选一",
+          "name": "rfqUrls",
+          "required": false,
+          "type": "array"
+        }
+      ]
+    },
+    {
+      "id": "1538be8b3d84",
+      "command": "icbu storefront ai-minisite-acciowork-create-page",
+      "page": "storefront",
+      "section": "页面制作",
+      "mode": "write",
+      "title": "新建店铺页面",
+      "description": "Ai旺铺acciowork创建页面主版本，如果超出最大版本数量，提示超出，适用场景：店铺创建页面场景。输入：页面名称。输出：创建完成的页面id。副作用：会创建多个装修页面，无副作用。",
+      "params": [
+        {
+          "agent_flag": "--page-name",
+          "description": "页面名称，表示要创建版本的页面",
+          "name": "pageName",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "dde909c2ee3a",
+      "command": "icbu storefront ai-minisite-acciowork-publish-page",
+      "page": "storefront",
+      "section": "页面发布",
+      "mode": "write",
+      "title": "发布页面主版本",
+      "description": "Ai旺铺acciowork创建历史版本，并发布页面。适用场景：店铺页面发布场景，会创建一个备份的历史版本，并发布。输入：主页面的id。输出：发布成功状态，创建完成的版本信息。副作用：会创建多个历史备份，无副作用。",
+      "params": [
+        {
+          "agent_flag": "--html-data",
+          "description": "要发布的页面 HTML 内容",
+          "name": "htmlData",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--page-id",
+          "description": "目标页面的 ID，可通过 ai_minisite_acciowork_create_page 或 ai_minisite_get_acciowork_page_list 获取",
+          "name": "pageId",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--publish-type",
+          "description": "发布类型",
+          "name": "publishType",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--source-file-oss-path",
+          "description": "源文件在OSS上的路径",
+          "name": "sourceFileOssPath",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "56dc623a2782",
+      "command": "icbu storefront aw-edit-website-cloud",
+      "page": "storefront",
+      "section": "页面制作",
+      "mode": "write",
+      "title": "修改现有页面",
+      "description": "Process file editing requests for an existing website project remotely. The tool handles edit logic on the cloud side and returns an async task for polling.",
+      "params": [
+        {
+          "agent_flag": "--changelog-oss-url",
+          "description": "changelog oss url",
+          "name": "changelog_oss_url",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--instruction",
+          "description": "网页修改命令",
+          "name": "instruction",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "d001b8d26f47",
+      "command": "icbu storefront create-complete-cloud",
+      "page": "storefront",
+      "section": "页面制作",
+      "mode": "write",
+      "title": "生成完整页面",
+      "description": "Generate a complete, production-ready website from an approved preview. The cloud service automatically fetches the existing preview results and produces a fully optimized website with responsive design, SEO metadata, performance optimization, and accessibility features. This is an async task that requires polling.",
+      "params": [
+        {
+          "agent_flag": "--instruction",
+          "description": "instruction for create website",
+          "name": "instruction",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--text-zip-url",
+          "description": "text zip url",
+          "name": "text_zip_url",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "672a99a3f971",
+      "command": "icbu storefront create-preview-cloud",
+      "page": "storefront",
+      "section": "页面制作",
+      "mode": "write",
+      "title": "生成页面预览",
+      "description": "Generate a website preview for user review. Creates a preview version of a website page with core layout and key visual elements based on the provided instruction and optional text assets. This is an async task that requires polling.",
+      "params": [
+        {
+          "agent_flag": "--instruction",
+          "description": "intruction for creating website",
+          "name": "instruction",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--text-zip-url",
+          "description": "text zip oss url",
+          "name": "text_zip_url",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "ebec6e360b3f",
+      "command": "icbu storefront get-company-id",
+      "page": "storefront",
+      "section": "资料与模板",
+      "mode": "read",
+      "title": "读取公司身份",
+      "description": "获取 companyId",
+      "params": []
+    },
+    {
+      "id": "a3a93142b943",
+      "command": "icbu storefront get-task-status",
+      "page": "storefront",
+      "section": "制作任务",
+      "mode": "read",
+      "title": "查看页面制作状态",
+      "description": "Poll the status of an asynchronous task submitted by website generation or editing tools (e.g., aw_create_website_preview_cloud, aw_create_complete_website_cloud, aw_edit_website_cloud). Returns the current task execution status and, upon completion, the response URL containing the generated results.",
+      "params": [
+        {
+          "agent_flag": "--task-id",
+          "description": "task_id",
+          "name": "task_id",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "a23eef104b7e",
+      "command": "icbu storefront get-template-files",
+      "page": "storefront",
+      "section": "资料与模板",
+      "mode": "read",
+      "title": "获取建站模板",
+      "description": "获取建站模板代码",
+      "params": [
+        {
+          "agent_flag": "--template-id",
+          "description": "template id",
+          "name": "template_id",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "83dfc792683f",
+      "command": "icbu storefront list",
+      "page": "storefront",
+      "section": "资料与模板",
+      "mode": "read",
+      "title": "查询云端网页",
+      "description": "AI旺铺-AW-获取网页信息-云端",
+      "params": []
+    },
+    {
+      "id": "de5589cab086",
+      "command": "icbu storefront publish-cloud",
+      "page": "storefront",
+      "section": "页面发布",
+      "mode": "write",
+      "title": "发布云端预览",
+      "description": "AI旺铺 accio work 发布网页预览云端版本",
+      "params": [
+        {
+          "agent_flag": "--filemap-oss-url",
+          "description": "filemap oss url",
+          "name": "filemap_oss_url",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--page-id",
+          "description": "page id to be published, optional",
+          "name": "page_id",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--publish-type",
+          "description": "publish_type must be one of desktop, wireless, all",
+          "name": "publish_type",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "89f9e075d711",
+      "command": "icbu storefront publish-gui",
+      "page": "storefront",
+      "section": "页面发布",
+      "mode": "write",
+      "title": "发布GUI页面",
+      "description": "AI旺铺 accio work GUI网站发布",
+      "params": [
+        {
+          "agent_flag": "--filemap-data",
+          "description": "filemap data",
+          "name": "filemap_data",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--page-id",
+          "description": "page id to be published, optional",
+          "name": "page_id",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--publish-type",
+          "description": "publish_type must be one of desktop, wireless, all",
+          "name": "publish_type",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "01c7ce76f23a",
+      "command": "icbu tm bgcheck-judge",
+      "page": "visitor",
+      "section": "客户背调",
+      "mode": "write",
+      "title": "核对并保存背调结论",
+      "description": "对买家背调结果进行多源语义仲裁并落库。输入公网背调结论+关联锚点+证据留痕，MCP内部关联平台buyer_id、拉取采买/DNB/画像、拼judge_input做LLM语义仲裁，落ODPS三表(result/detail/judge)，返回脱敏后的身份/风险/平台标签/建议(visible桶)与置信度/推理(hidden桶)。当完成公网背调需要平台数据校准与GT沉淀时调用。",
+      "params": [
+        {
+          "agent_flag": "--anchors",
+          "description": "关联锚点，用户未给buyer_id时用于自动匹配平台买家",
+          "name": "anchors",
+          "required": true,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--bgcheck-result",
+          "description": "Step2 公网背调精简结论",
+          "name": "bgcheck_result",
+          "required": true,
+          "type": "object"
+        },
+        {
+          "agent_flag": "--buyer-id",
+          "description": "用户显式提供的平台买家ID，若给则优先采信关联(可选)",
+          "name": "buyer_id",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--input-quality-signal",
+          "description": "输入质量：sufficient/low_confidence/need_clarification",
+          "name": "input_quality_signal",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--options",
+          "description": "选项",
+          "name": "options",
+          "required": false,
+          "type": "object"
+        },
+        {
+          "agent_flag": "--web-evidence",
+          "description": "证据留痕(写入detail表)",
+          "name": "web_evidence",
+          "required": false,
+          "type": "object"
+        }
+      ]
+    },
+    {
+      "id": "56bcef30f854",
+      "command": "icbu tm card-parse-chat-card",
+      "page": "visitor",
+      "section": "消息查看",
+      "mode": "read",
+      "title": "解析聊天卡片",
+      "description": "新版中台聊天卡片解析接口：根据用户 aliId、卡片类型、发送/接收方、URL 参数等，解析出聊天消息卡片的动态渲染数据列表（fbCardList）。适用于产品卡片、询盘卡片、订单卡片、公司卡片等多种卡片类型的解析。调用要求：fromAliId/toAliId（或 fromLoginId/toLoginId）至少有一组；cardTypeValue 必传。",
+      "params": [
+        {
+          "agent_flag": "--appkey",
+          "description": "客户端应用标识",
+          "name": "appkey",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--card-type-value",
+          "description": "卡片类型值，对应 TemplateCardTypeEnum",
+          "name": "cardTypeValue",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--chat-token",
+          "description": "会话 token",
+          "name": "chatToken",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--cna",
+          "description": "cna",
+          "name": "cna",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--from-ali-id",
+          "description": "发送者 aliId",
+          "name": "fromAliId",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--from-login-id",
+          "description": "发送者 loginId（已废弃）",
+          "name": "fromLoginId",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--language",
+          "description": "语言标识，如 EN、ZH",
+          "name": "language",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--params-map",
+          "description": "卡片 URL 参数键值对",
+          "name": "paramsMap",
+          "required": false,
+          "type": "object"
+        },
+        {
+          "agent_flag": "--to-ali-id",
+          "description": "接收者 aliId",
+          "name": "toAliId",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--to-login-id",
+          "description": "接收者 loginId（已废弃）",
+          "name": "toLoginId",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--use-agent-description",
+          "description": "是否返回卡片 Agent 描述",
+          "name": "useAgentDescription",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "agent_flag": "--version-code",
+          "description": "客户端版本号",
+          "name": "versionCode",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "4f4da16ea7c6",
+      "command": "icbu tm delete-reception-strategy",
+      "page": "knowledge",
+      "section": "接待策略管理",
+      "mode": "write",
+      "title": "删除接待策略",
+      "description": "当需要删除沟通接待策略时调用。输入需包含策略ID、租户标识及策略类型；输出返回操作成功状态、业务状态码及提示信息。适用于自动接待和辅助接待场景下的策略维护与删除场景。",
+      "params": [
+        {
+          "agent_flag": "--scene-type",
+          "description": "策略类型（String类型，代表策略的业务分类标识，CHAT_RECEPTION表示辅助接待，AUTO_RECEPTION表示自动接待）",
+          "name": "sceneType",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--strategy-id",
+          "description": "策略唯一标识（String类型，对应策略文件的id）",
+          "name": "strategyId",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "4c50cda31142",
+      "command": "icbu tm distribute-chat-accio",
+      "page": "visitor",
+      "section": "会话分配",
+      "mode": "write",
+      "title": "分配会话给客服",
+      "description": "触发IM分流，将买家聊天分配到对应卖家客服。需要提供业务类型、业务ID、接收者aliId。分配成功后返回目标客服分配结果。",
+      "params": [
+        {
+          "agent_flag": "--biz-id",
+          "description": "业务ID，与业务类型对应，分别表示产品ID、公司ID、订单ID等",
+          "name": "bizId",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--biz-type",
+          "description": "业务类型，1表示产品，2表示店铺，3表示订单",
+          "name": "bizType",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--device-id",
+          "description": "设备id",
+          "name": "deviceId",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--language",
+          "description": "语种",
+          "name": "language",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--owner-ali-id",
+          "description": "默认分配的aliId，商详场景为商品的owner",
+          "name": "ownerAliId",
+          "required": false,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "278af60ca871",
+      "command": "icbu tm fetch-offline-message",
+      "page": "visitor",
+      "section": "历史消息",
+      "mode": "read",
+      "title": "读取离线消息",
+      "description": "通过account_id获取该账号及其下挂账号在igraph离线表中近30天的消息数据",
+      "params": [
+        {
+          "agent_flag": "--account-id",
+          "description": "商家id（查询人accountId）",
+          "name": "account_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--number",
+          "description": "查询的切片number",
+          "name": "number",
+          "required": false,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "c3670e91daf5",
+      "command": "icbu tm fetch-offline-shardcount",
+      "page": "visitor",
+      "section": "历史消息",
+      "mode": "read",
+      "title": "检查历史消息分片",
+      "description": "通过aliId获取该账号及其下挂账号的近30天的消息数据的分片数量",
+      "params": []
+    },
+    {
+      "id": "1105e407f5a6",
+      "command": "icbu tm get-communication-chat-token",
+      "page": "visitor",
+      "section": "连接能力",
+      "mode": "internal",
+      "title": "聊天关系验证",
+      "description": "获取聊天Token并进行关系校验。何时使用：当需要验证用户间关系后获取聊天凭证时调用。何时不使用：如果仅需获取Token而无需关系校验，不应使用本工具。输入：对方的aliId。输出：聊天Token信息或错误提示。",
+      "params": [
+        {
+          "agent_flag": "--target-ali-id",
+          "description": "对方的aliId",
+          "name": "targetAliId",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "657dc6b7b28c",
+      "command": "icbu tm get-token",
+      "page": "visitor",
+      "section": "连接能力",
+      "mode": "internal",
+      "title": "IM连接凭据",
+      "description": "获取 IM 即时通讯系统的登录 Token，用于客户端建立 IM 连接时的身份验证。当前用户身份从 accessToken 自动注入，无需手动传入。需提供设备ID和应用Key，返回 accessToken、refreshToken 及 Token 过期时间（毫秒）。domain 可选，默认 icbu。",
+      "params": [
+        {
+          "agent_flag": "--app-key",
+          "description": "应用Key，用于标识调用方应用",
+          "name": "appKey",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--device-id",
+          "description": "设备唯一标识ID",
+          "name": "deviceId",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--domain",
+          "default": "icbu",
+          "description": "IM域标识：icbu(国际站ICBU域)/accio(Accio域)/cntaobao(淘宝域)。不传则默认icbu",
+          "name": "domain",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "fe552556ba76",
+      "command": "icbu tm list-active-conversation-msg",
+      "page": "visitor",
+      "section": "历史消息",
+      "mode": "read",
+      "title": "查询期间活跃消息",
+      "description": "查询某时间段内有消息会话用户的消息记录，适用于消息历史查询、会话分析等场景。支持按时间范围过滤消息，可通过 count 参数限制查询数量，默认有最大查询数量限制。当需要获取特定用户的会话消息历史时使用此接口，不适合用于实时消息推送场景。输入参数包括用户阿里ID、域标识、时间范围和查询数量限制，输出包含业务状态码、成功标志、提示信息和业务数据。",
+      "params": [
+        {
+          "agent_flag": "--active-end-time",
+          "description": "活跃会话查询结束时间",
+          "name": "activeEndTime",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--active-start-time",
+          "description": "活跃会话查询开始时间",
+          "name": "activeStartTime",
+          "required": true,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--domain",
+          "default": "icbu",
+          "description": "域标识，可以不填，默认icbu",
+          "enum": [
+            "icbu",
+            "accio"
+          ],
+          "name": "domain",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--msg-end-time",
+          "description": "消息结束时间",
+          "name": "msgEndTime",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--msg-start-time",
+          "description": "消息开始时间",
+          "name": "msgStartTime",
+          "required": true,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--self-ali-id",
+          "description": "用户阿里ID",
+          "name": "selfAliId",
+          "required": false,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "cb5fbf018c36",
+      "command": "icbu tm list-card",
+      "page": "visitor",
+      "section": "消息查看",
+      "mode": "read",
+      "title": "查看消息卡片内容",
+      "description": "查询 IM 聊天卡片的渲染描述信息（产品卡片、询盘卡片、订单卡片、公司卡片等），用于 AI 理解卡片内容做后续处理（如翻译、摘要、推荐回复）。传入参数需要将 useAgentDescription设置为true\nwhen_to_use: 收到 IM 会话内的卡片消息，需要让 AI 理解卡片业务含义；或基于卡片信息生成自动回复 / 翻译 / 客服建议。\nwhen_not_to_use: 查询会话内消息列表请用 query_conversation_msg；查询会话列表用 query_recent_conversation；本工具仅做单条卡片 metadata 解析。\nside_effect_summary: 只读，无副作用。",
+      "params": [
+        {
+          "agent_flag": "--appkey",
+          "description": "app key",
+          "name": "appkey",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--base-request",
+          "description": "基础请求参数",
+          "name": "baseRequest",
+          "required": false,
+          "type": "object"
+        },
+        {
+          "agent_flag": "--language",
+          "description": "当前用户的语言",
+          "name": "language",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--version-code",
+          "description": "版本编码",
+          "name": "versionCode",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "5a3490667198",
+      "command": "icbu tm list-contact",
+      "page": "visitor",
+      "section": "客户资料",
+      "mode": "read",
+      "title": "补充联系人资料",
+      "description": "根据加密的联系人 aliId 或 accountId 列表，批量查询当前登录用户最近会话中联系人的详细信息（姓名、备注名、公司、所在国家、时区、星标等级、头像、是否被对方拉黑等）。当前登录用户身份从 accessToken 自动注入到 mcp-ali-id 请求头，silkroad 接口需配套改造从该 header 读取登录态后才能正常工作。一次最多查询 50 个联系人，contactEncryptAliIdList 与 contactEncryptAccountIdList 至少二选一。",
+      "params": [
+        {
+          "agent_flag": "--chat-tokens",
+          "description": "单聊会话 token 列表，多个用英文逗号分隔。仅当 groupCid 为空时使用",
+          "name": "chatTokens",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--contact-encrypt-account-id-list",
+          "description": "加密后的联系人 accountId 字符串列表，与 contactEncryptAliIdList 至少二选一；两者合计 ≤ 50",
+          "name": "contactEncryptAccountIdList",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--contact-encrypt-ali-id-list",
+          "description": "加密后的联系人 aliId 字符串列表，与 contactEncryptAccountIdList 至少二选一；两者合计 ≤ 50",
+          "name": "contactEncryptAliIdList",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--group-cid",
+          "description": "群聊会话 ID。传值走群聊关系校验；不传走单聊 chatTokens 校验",
+          "name": "groupCid",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "6fa8ee5370ab",
+      "command": "icbu tm list-conversation-msg-time-range",
+      "page": "visitor",
+      "section": "历史消息",
+      "mode": "read",
+      "title": "按日期查询会话",
+      "description": "根据时间范围查询指定会话的聊天消息记录，适用于需要检索特定时间段内IM会话消息的场景。输入需指定会话ID、用户ID、业务域及起止时间戳（毫秒），可选指定查询数量。输出返回该时间段内的会话消息列表，包含业务状态码、成功标识及消息数据。只支持查询最近30天的消息",
+      "params": [
+        {
+          "agent_flag": "--conversation-id",
+          "description": "会话 ID，可从 query_recent_conversation 返回的 conversations[].conversationId 获取。",
+          "name": "conversationId",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--domain",
+          "default": "icbu",
+          "description": "租户类型。不确定时使用默认值 icbu。",
+          "enum": [
+            "icbu",
+            "accio"
+          ],
+          "name": "domain",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--end-time",
+          "description": "查询结束时间戳（Unix 毫秒）。",
+          "name": "endTime",
+          "required": true,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--self-ali-id",
+          "description": "必须使用 conversationId 对应会话的 sellerAliId。仅当该 sellerAliId 等于通过 workctl workflow chat-analysis resolve-id 生成的 account_identity.json 中 CURRENT_SELF_ALIID 时可省略，省略后自动注入当前账号；否则必须显式传入会话记录中的 sellerAliId。不要从 conversationId 拆解或猜测。",
+          "name": "selfAliId",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--start-time",
+          "description": "查询起始时间戳（Unix 毫秒）。",
+          "name": "startTime",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "21d3e2ac734e",
+      "command": "icbu tm query-conversation-info",
+      "page": "visitor",
+      "section": "客户资料",
+      "mode": "read",
+      "title": "查看买家沟通阶段",
+      "description": "根据联系人阿里ID批量查询会话中买家的相关信息，包括买家的loginId，买家名称、国家和沟通阶段等，适用于获取IM场景下的买卖家会话对扩展信息",
+      "params": [
+        {
+          "agent_flag": "--chat-tokens",
+          "description": "对方的chatToken列表",
+          "name": "chatTokens",
+          "required": true,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--self-ali-id",
+          "description": "自己的阿里ID",
+          "name": "selfAliId",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "0b9a7a37a75e",
+      "command": "icbu tm save-reception-strategy",
+      "page": "knowledge",
+      "section": "接待策略管理",
+      "mode": "write",
+      "title": "新建或修改接待策略",
+      "description": "创建或更新聊天接待策略。当需要新建或修改接待策略规则时使用；当仅需查询策略详情或查看权限配置时请使用对应查询接口。输入需包含策略主题(topic)与内容(content)，可选传入 strategyId 以执行更新；输出返回操作结果状态码(code)、提示信息(msg)、成功标识(success)及保存后的策略ID(data)",
+      "params": [
+        {
+          "agent_flag": "--content",
+          "description": "策略内容",
+          "name": "content",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--description",
+          "description": "策略描述，必填，1-1000 字符（不计空格）",
+          "name": "description",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--scene-type",
+          "description": "指定操作策略的场景类型，CHAT_RECEPTION辅助接待场景，AUTO_RECEPTION自动接待场景",
+          "enum": [
+            "CHAT_RECEPTION",
+            "AUTO_RECEPTION"
+          ],
+          "name": "sceneType",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--strategy-id",
+          "description": "策略 ID，传入时为更新，不传时为新建",
+          "name": "strategyId",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--topic",
+          "description": "策略主题",
+          "name": "topic",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "3daf527b753a",
+      "command": "icbu tm send-file",
+      "page": "visitor",
+      "section": "回复与附件",
+      "mode": "write",
+      "title": "附件上传前检查",
+      "description": "客户端上传文件到云盘前的前置接口。功能：1) 通过 md5 判断文件是否已在云盘中存在（fileIsExist=true 可秒传跳过实际上传）；2) 返回个人云盘的总容量/已用/剩余空间及单文件最大允许大小；3) 根据 isToken 返回上传凭证——app 侧传 isToken=true 获取 STS Token，web 侧传 isToken=false 获取 OSS Policy。当前登录用户身份（fromAliId、SceneDTO.from）从 accessToken 自动注入，调用方无需关心。",
+      "params": [
+        {
+          "agent_flag": "--file-name",
+          "description": "上传文件名（md5+后缀格式，如 89dffa42d5d680843d55d1b8d225a3fa.png）",
+          "name": "fileName",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--from",
+          "description": "发送方 id（按 idType 解释为 loginId 或 aliId）",
+          "name": "from",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--from-ali-id",
+          "description": "发送方的aliId",
+          "name": "fromAliId",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--id-type",
+          "default": 2,
+          "description": "id 类型：1=loginId, 2=aliId（默认 2）",
+          "name": "idType",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--is-token",
+          "default": false,
+          "description": "上传凭证类型：true=app 端 STS Token，false=web 端 Policy（默认 false）",
+          "name": "isToken",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "agent_flag": "--scene-type",
+          "description": "业务场景类型（常见：1-单聊，2-群聊，3-个人云盘）",
+          "name": "sceneType",
+          "required": true,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--to",
+          "description": "接收方 id（按 idType 解释为 loginId 或 aliId）",
+          "name": "to",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "c65b77bf002c",
+      "command": "icbu tm send-file-relation",
+      "page": "visitor",
+      "section": "回复与附件",
+      "mode": "write",
+      "title": "关联附件与会话",
+      "description": "在群聊/单聊场景下，将已上传到OSS的文件与会话建立关联关系，生成云盘文件节点。node需包含：nodeName(文件名)、nodeSize(文件大小)、materialType(文件类型)、md5(文件MD5)、ossKey(OSS地址)。scene需包含：sceneType(场景类型)、from(发送方ID)、to(接收方ID)。",
+      "params": [
+        {
+          "agent_flag": "--node",
+          "description": "文件节点信息（Map），需包含 nodeName/nodeSize/materialType/md5/ossKey",
+          "name": "node",
+          "required": true,
+          "type": "object"
+        },
+        {
+          "agent_flag": "--params",
+          "description": "额外扩展字段JSON，特殊需求时使用，可不传",
+          "name": "params",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--scene",
+          "description": "场景信息（Map），需包含 sceneType/from/to，可选 idType",
+          "name": "scene",
+          "required": true,
+          "type": "object"
+        }
+      ]
+    },
+    {
+      "id": "1e4bec1c6cf5",
+      "command": "icbu tm send-msg",
+      "page": "visitor",
+      "section": "回复与附件",
+      "mode": "unverified",
+      "title": "发送消息",
+      "description": "用于在 IM 沟通场景中向指定用户或会话发送文本或卡片消息。适用于客服代回复、系统通知推送、双边会话初始化等场景；不适用于高频批量广播、需复杂模板渲染或需实时流式输出的场景。输入需包含消息接收方aliId、会话类型、消息类型与正文、业务域标识，输出返回处理状态码、成功标识及消息唯一回执ID。",
+      "params": []
+    },
+    {
+      "id": "2268ed8e7a6b",
+      "command": "icbu tm translate-im-accio",
+      "page": "visitor",
+      "section": "消息查看",
+      "mode": "read",
+      "title": "翻译聊天消息",
+      "description": "IM消息接收翻译，需要提供消息id、消息内容和目标语种，是批量接口",
+      "params": [
+        {
+          "agent_flag": "--contents",
+          "description": "待翻译的消息数组",
+          "name": "contents",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--target-language",
+          "default": "en",
+          "description": "翻译目标语种",
+          "name": "targetLanguage",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "30a8e43dec28",
+      "command": "icbu trade chargeback-material-with-ai",
+      "page": "orders",
+      "section": "拒付处理",
+      "mode": "write",
+      "title": "拒付详情与材料辅助",
+      "description": "适用场景：用于阿里巴巴国际站（Alibaba.com）跨境订单的拒付（Chargeback）申诉处理，帮助商家查询某笔订单的拒付详情并获取 AI 智能生成的抗辩申诉材料，支撑商家完成从信息核对到正式申诉的全流程。\n触发条件：当用户输入包含具体订单号且涉及拒付申诉意图时调用，例如「订单 292734439001028893 需要拒付申诉」「帮我为订单 123456 提交抗辩」「订单 123456 的拒付处理得怎么样了」。入参为字符串格式的 orderId（订单号必须以 string 传入，不可用数字格式）。\n期望产出：返回该订单的拒付核心信息，包括拒付单编号（chargebackProcessId）、卖家总结（sellerSummarize）、AVS 验证结果（avsResult）、物流面单 / 物流轨迹截图 / 物流送达证明等文件列表，以及 AI 自动撰写的抗辩信下载链接（chargebackMaterialAi.url），供商家直接提交或微调后用于拒付申诉。",
+      "params": [
+        {
+          "agent_flag": "--order-id",
+          "description": "跨境交易订单号（String类型，必须为纯数字字符串，长度通常为16-24位）",
+          "name": "orderId",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "4a3c8fff24bf",
+      "command": "icbu trade list",
+      "page": "risk",
+      "section": "品牌与规则",
+      "mode": "read",
+      "title": "读取禁限售分析结果",
+      "description": "用于查询商品或订单的禁限售规则AI分析与解读结果。何时使用：当需要获取特定业务对象在目标国家的禁限售合规判定详情及规则依据时调用。何时不使用：非禁限售合规场景或仅需基础风控结果无需规则解读时不调用。输入：业务唯一标识（如商品ID或订单号）。输出：是否匹配国家规则、商品品类词、销售目的国以及匹配到的规则ID、标题、内容和链接等详细信息。",
+      "params": [
+        {
+          "agent_flag": "--unique-key",
+          "description": "提交ai链路处理uniqueKey用于查询ai处理结果",
+          "name": "uniqueKey",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "aa574f42827a",
+      "command": "icbu trade list-product-page",
+      "page": "risk",
+      "section": "接口待核验",
+      "mode": "unverified",
+      "title": "商品风险页面接口",
+      "description": "https://icbu-open-gateway.alibaba-inc.com/#/services",
+      "params": [
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品ID",
+          "name": "productId",
+          "required": false,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "7029cc053974",
+      "command": "icbu trade list-product-punish-result",
+      "page": "risk",
+      "section": "违规详情",
+      "mode": "read",
+      "title": "查看商品处罚详情",
+      "description": "查询指定商品在风控系统中的违规判定结果及详情数据，适用于商家合规审核、风控策略排查与违规处理等运营场景。",
+      "params": [
+        {
+          "agent_flag": "--limit",
+          "description": "查询返回条数",
+          "name": "limit",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--prod-id",
+          "description": "商品id",
+          "name": "productId",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--violation-type",
+          "description": "违规类型",
+          "name": "violationType",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "0623c1b4d031",
+      "command": "icbu trade list-shop-violation-result",
+      "page": "risk",
+      "section": "违规详情",
+      "mode": "read",
+      "title": "查看店铺违规记录",
+      "description": "查询店铺违规结果",
+      "params": [
+        {
+          "agent_flag": "--limit",
+          "description": "查询数量",
+          "name": "limit",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "agent_flag": "--violation-type",
+          "description": "违规类型",
+          "name": "violationType",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "015efc090e3d",
+      "command": "icbu trade prohibited-rule-interpretation",
+      "page": "risk",
+      "section": "品牌与规则",
+      "mode": "write",
+      "title": "分析目的国禁限售规则",
+      "description": "当需要针对特定国家和商品进行禁限售风险AI分析时调用；若仅需查询静态规则或处理已明确合规订单时请勿使用；输入需包含destination、from、productInfo的完整对象；输出为包含成功标识、状态码、提示语及分析数据的标准响应结构。",
+      "params": [
+        {
+          "agent_flag": "--destination",
+          "description": "销售目的国",
+          "name": "destination",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--product-info",
+          "description": "商品信息",
+          "name": "productInfo",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "eb666f544b7f",
+      "command": "icbu trade supplier-verification-detail",
+      "page": "risk",
+      "section": "供应商核验",
+      "mode": "read",
+      "title": "查看供应商核验报告",
+      "description": "Fetch the full supplier verification report detail by company_id list.\n\nSTEP 2 of 2 in the supplier verification flow. This tool maps to RLab app\n`ICBU_P0715_314218C67`.\n\nDifference from `supplier_verification_recall`:\n  - `supplier_verification_recall` INPUT is a fuzzy company name/URL and\n    OUTPUT is a LIST of candidate suppliers to search/choose from.\n  - This tool (detail) INPUT is exact company_id(s) returned by recall and\n    OUTPUT is the detailed verification report for those specific suppliers.\n\nArgs:\n    comp_id_list: Supplier company_id list (e.g. [\"231465246\"]), obtained\n                  from supplier_verification_recall candidates. A single id\n                  string or JSON-encoded array string is also tolerated.\n    company_id: Optional single-id alias; merged into comp_id_list.\n\nReturns:\n    JSON string including filtered `payload.res` fields only.",
+      "params": [
+        {
+          "agent_flag": "--comp-id-list",
+          "description": "List of supplier company_id strings to fetch detail for. Each item is a company_id obtained from supplier_verification_recall candidates. Example: [\"231465246\", \"987654321\"]. Required, non-empty. A single id string is also accepted and will be wrapped automatically.",
+          "name": "comp_id_list",
+          "required": false,
+          "type": "array"
+        },
+        {
+          "agent_flag": "--company-id",
+          "description": "Alias for a single company_id, accepted for convenience. Example: \"231465246\". Prefer comp_id_list for multiple ids.",
+          "name": "company_id",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "ffb9a1adb39e",
+      "command": "icbu trade supplier-verification-recall",
+      "page": "risk",
+      "section": "供应商核验",
+      "mode": "read",
+      "title": "查找待核验供应商",
+      "description": "Recall (search) supplier candidates by name/URL for a verification report.\n\nSTEP 1 of 2 in the supplier verification flow. Use this tool when the user\nwants to generate a supplier verification report. Call this FIRST, then pass\nthe returned company_id values to `supplier_verification_detail`.\n\nDifference from `supplier_verification_detail`:\n  - This tool (recall) INPUT is a fuzzy company name or storefront URL and\n    OUTPUT is a LIST of candidate suppliers (each with a company_id) for the\n    user to pick from. It performs a search/match and has no report detail.\n  - `supplier_verification_detail` INPUT is exact company_id(s) obtained from\n    this tool and OUTPUT is the full verification report detail for them.\n\nArgs:\n    supplier_name: The supplier/company name or Alibaba storefront URL to look up.\n                   Pass the complete name as a single string; keep any legal\n                   suffix (\"Co., Ltd.\" / \"Limited\" / \"Inc.\") inline and do not\n                   split it into separate arguments.\n                   Example: \"Qingdao Etrip Smart Home\" or\n                   \"https://cnetriphome.en.alibaba.com/contactinfo.html\".\n                   URLs are automatically normalized to extract the company token.\n    top_k: Max number of candidates to recall (default 50, range 1-100).\n    candidates_only: If true, only payload.candidates is returned; recall_icbu\n                     and recall_out are omitted to reduce token usage.\n\nReturns:\n    JSON with payload.candidates (list of matched suppliers with company_id,\n    company_name_en, company_name_cn, company_minisite_url, seller_score).\n    When candidates_only is false, payload may also include recall_icbu and\n    recall_out for backward-compatible full recall context.\n    Use company_id from candidates to call supplier_verification_detail.",
+      "params": [
+        {
+          "agent_flag": "--candidates-only",
+          "default": false,
+          "description": "When true, return only payload.candidates and omit recall_icbu/recall_out to reduce token usage. Default false preserves the legacy full recall context.",
+          "name": "candidates_only",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "agent_flag": "--supplier-name",
+          "description": "The supplier/company name or Alibaba storefront URL to look up. Pass the COMPLETE company name as a SINGLE string value for this one parameter; if the name contains a legal suffix such as 'Co., Ltd.' / 'Limited' / 'Inc.', keep it inline inside this same string and do NOT split it into separate arguments. Example: \"Qingdao Etrip Smart Home\" or \"https://cnetriphome.en.alibaba.com/contactinfo.html\". URLs are automatically normalized to extract the company token.",
+          "name": "supplier_name",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "agent_flag": "--top-k",
+          "default": 50,
+          "description": "Max number of candidate suppliers to recall. Range 1-100, default 50. Example: 10.",
+          "name": "top_k",
+          "required": false,
+          "type": "integer"
+        }
+      ]
+    }
+  ]
+}
