@@ -10,14 +10,49 @@ const test = require('node:test');
 
 // 只加载现有后端中的纯转换函数，不启动服务器，也不执行任何写商品命令。
 const source = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-const context = vm.createContext({ URL, Buffer, MAX_PRODUCT_IMAGES: require('../public/publish-product-utils').MAX_PRODUCT_IMAGES });
-for (const name of ['publishText', 'isRemotePublishImage', 'publishReferenceNumber', 'normalizePublishSkus',
+const context = vm.createContext({ URL, Buffer, MAX_PRODUCT_IMAGES: require('../public/publish-product-utils').MAX_PRODUCT_IMAGES,
+  normalizePublishDetail: require('../public/publish-product-utils').normalizePublishDetail });
+for (const name of ['publishText', 'localizedTitle', 'readPublishSkuNames', 'isRemotePublishImage', 'publishReferenceNumber', 'normalizePublishSkus',
   'normalizePublishAttributes', 'normalizePublishProduct', 'findPublishResponseField', 'parseEmbeddedWorkctlData', 'hasPublishFailureSignal',
   'publishWorkctlOutcome', 'normalizeQualityReasons', 'inferPublishFailureFields', 'publishFlowOutcome']) {
   const match = source.match(new RegExp(`function ${name}\\([^]*?\\n}`));
   assert.ok(match, `Missing pure function: ${name}`);
   vm.runInContext(match[0], context);
 }
+
+test('规格名称只来自目标商品销售属性，冲突与推荐商品不能覆盖', () => {
+  const attr = (propertyId, name) => ({ propertyId, propertyText: { defaultText: name } });
+  const data = { productQueryResult: JSON.stringify({ productId: 123, skuList: [
+    { salePropertyPairList: [attr(10, 'Color'), attr(20, 'Size'), attr(30, 'p-30')] },
+    { salePropertyPairList: [attr(10, 'Color'), attr(20, 'Conflicting Size')] },
+  ], description: { skuList: [{ salePropertyPairList: [attr(10, 'Wrong recommended item')] }] } }) };
+  assert.deepEqual(JSON.parse(JSON.stringify(context.readPublishSkuNames(JSON.stringify(data), '123'))), [[10, 'Color']]);
+  assert.throws(() => context.readPublishSkuNames(data, '456'), /读取失败/);
+  assert.throws(() => context.readPublishSkuNames('Record does not exist.', '123'), /读取失败/);
+});
+
+test('旧参考补齐规格名且保留零库存和空值，正常名称不发起额外查询', async () => {
+  const cache = new Map(); let reads = 0;
+  const isolated = vm.createContext({ ...context, Date,
+    publishReadCache: { read: async (key, read) => { if (!cache.has(key)) cache.set(key, await read()); return cache.get(key); } },
+    pushLog: () => {}, runWorkctl: async () => { reads += 1; return { ok: true, durationMs: 1,
+      parsed: { success: true, data: { productQueryResult: { productId: 123, skuList: [
+        { salePropertyPairList: [{ propertyId: 10, propertyText: { defaultText: 'color' } }] },
+      ] } } } }; },
+  });
+  vm.runInContext(source.match(/async function completePublishSkuNames\([^]*?\n}/)[0], isolated);
+  const material = { trade: { sku: [{ skuCode: '', stock: 0, unitPrice: null,
+    skuAttributes: [{ attrNameId: 10, attrName: 'p-10', attrValue: 'Black' }] }] } };
+  const result = await isolated.completePublishSkuNames('123', material);
+  assert.equal(result.trade.sku[0].skuAttributes[0].attrName, 'color');
+  assert.equal(material.trade.sku[0].skuAttributes[0].attrName, 'p-10');
+  assert.equal(result.trade.sku[0].stock, 0);
+  assert.equal(result.trade.sku[0].unitPrice, null);
+  assert.equal(result.trade.sku[0].skuCode, '');
+  await isolated.completePublishSkuNames('123', material);
+  await isolated.completePublishSkuNames('456', result);
+  assert.equal(reads, 1);
+});
 
 /**
  * 生成有真实字段结构的合成商品输入，仅用于本地校验，不提交平台。
@@ -130,8 +165,13 @@ test('当前安装 WorkCTL 的 validate-only 接受修复后的实际 material',
   const good = context.normalizePublishProduct(product(), 'draft').material;
   const multiple = JSON.parse(JSON.stringify(good));
   multiple.trade.sku.push({ skuCode: 'BLUE', stock: 20, unitPrice: 12, skuAttributes: [{ attrName: 'Color', attrValue: 'Blue', attrNameId: null, attrValueId: null, imageUrl: null }] });
+  const withDetail = product();
+  withDetail.detail = { detailImage: Array.from({ length: 10 }, (_, i) => ({ url: `https://example.com/detail-${i}.jpg`, text: `Caption ${i}`, imageSetId: i < 4 ? '200' : '350' })),
+    companyDesc: 'Company introduction', companyImage: [{ url: 'https://example.com/factory.jpg', text: 'Factory' }],
+    faqs: [{ question: 'MOQ?', answer: '10 pieces' }] };
+  const detailed = context.normalizePublishProduct(withDetail, 'draft').material;
   const old = JSON.parse(JSON.stringify(good)); delete old.trade.sku;
-  for (const [name, material] of [['single', good], ['multiple', multiple], ['old-missing-sku', old]]) {
+  for (const [name, material] of [['single', good], ['multiple', multiple], ['with-detail', detailed], ['old-missing-sku', old]]) {
     const file = path.join(dir, `${name}.json`);
     fs.writeFileSync(file, JSON.stringify(material), { mode: 0o600 });
     // --validate-only 是必带参数：真实 CLI 仅校验/修正此临时 JSON，不创建商品。
@@ -141,6 +181,28 @@ test('当前安装 WorkCTL 的 validate-only 接受修复后的实际 material',
     const result = JSON.parse(stdout);
     assert.equal(result.success, true);
     if (name === 'old-missing-sku') assert.equal(result.data.details[0].code, 'JSON_VAL_EMPTY_SKU');
-    else assert.equal(result.data.status, 'validated', JSON.stringify(result.data));
+    else {
+      assert.equal(result.data.status, 'validated', JSON.stringify(result.data));
+      if (name === 'with-detail') assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')).detail, JSON.parse(JSON.stringify(detailed.detail)));
+    }
   }
+});
+
+
+test('图集选择进入真实 material，各图集独立编号，未勾选内容不提交', () => {
+  const input = product();
+  input.detail = { detailImage: [
+    { url: 'https://example.com/a', text: 'A', imageSetId: '200' },
+    { url: 'https://example.com/b', text: 'B', imageSetId: '350' },
+    { url: 'https://example.com/c', text: 'C', imageSetId: '200' },
+    { url: 'https://example.com/d', text: 'D', imageSetId: 'original-set' },
+  ], imageGroupSelection: { detailImage: ['200', 'original-set'] } };
+  const detail = context.normalizePublishProduct(input, 'draft').material.detail;
+  assert.deepEqual(JSON.parse(JSON.stringify(detail.detailImage)), [
+    { imageIndex: 0, newImageUrl: 'https://example.com/a', imageText: 'A', imageSetId: '200' },
+    { imageIndex: 1, newImageUrl: 'https://example.com/c', imageText: 'C', imageSetId: '200' },
+    { imageIndex: 0, newImageUrl: 'https://example.com/d', imageText: 'D', imageSetId: 'original-set' },
+  ]);
+  assert.equal(detail.imageGroupSelection, undefined);
+  assert.equal(input.detail.detailImage.length, 4);
 });

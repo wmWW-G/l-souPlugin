@@ -1407,7 +1407,7 @@ function publishAttributeProgress(product) {
 }
 
 /**
- * 生成一条本地产品草稿。统一入口让从零创建、参考商品和图片文件夹导入保持相同字段结构。
+ * 生成一条本地产品草稿。统一入口让从零创建和参考商品保持相同字段结构。
  *
  * @param {object} overrides - 需要覆盖的商品标题、图片、完整度、状态；blank=true 时不注入演示内容。
  * @returns {object} 可直接进入批量矩阵和右侧编辑器的本地草稿。
@@ -1467,6 +1467,7 @@ function createPublishProduct(overrides = {}) {
     shippingTemplate: '使用国际站默认运费设置',
     shippingTemplateId: null,
     sellingPoints: ['', '', '', '', ''],
+    detail: window.LsouPublishUtils.createPublishDetail(),
   };
   const result = { ...base, ...overrides, categoryKey, categoryId: categoryConfig.categoryId, category: categoryConfig.label, attributes };
   const progress = publishAttributeProgress(result);
@@ -1952,45 +1953,27 @@ async function refreshPublishSourceData() {
   }
 }
 
-/** 无参数；返回 void，显示本地缓存的实际保存状态及时间，绑定更新按钮；缺少节点时不抛错。 */
+/** 无参数；返回 void，仅在刷新或读取失败时显示状态，正常缓存时间放在操作栏提示中；缺少节点不抛错。 */
 function renderPublishCacheStatus() {
   const label = $('#publishCacheStatus');
-  const button = $('#publishRefreshSources');
-  if (!label || !button) return;
+  if (!label) return;
   const cache = publishState.sourceCache;
   const time = cache?.fetchedAt ? new Date(cache.fetchedAt).toLocaleString('zh-CN', { hour12: false }) : '';
   label.textContent = publishState.sourceRefreshing ? '正在更新店铺资料，已填写的商品会保留…'
     : publishState.sourceRefreshError ? `更新未完成，仍可使用已加载资料：${publishState.sourceRefreshError}`
     : cache ? `${cache.savedLocally ? '店铺资料已本地缓存' : '店铺资料已加载'}${time ? ` · 更新于 ${time}` : ''}`
-    : publishState.accountContextError ? '店铺资料暂不可用，可点击更新重试' : '首次读取后自动保存到本地';
-  button.disabled = publishState.sourceRefreshing || publishState.accountContextLoading || publishState.businessOptionsLoading ||
-    publishState.creationLoading || publishState.creationReferenceImagesLoading ||
-    publishState.products.some(product => product.schemaLoading || isPublishProductBusy(product));
-  button.textContent = publishState.sourceRefreshing ? '正在更新…' : '更新店铺资料';
-  button.onclick = refreshPublishSourceData;
+    : publishState.accountContextError ? '店铺资料暂不可用，可点击右上角“刷新数据”重试' : '首次读取后自动保存到本地';
+  label.hidden = !publishState.sourceRefreshing && !publishState.sourceRefreshError && !publishState.accountContextError;
+  $('.publish-top-bar')?.setAttribute('title', label.textContent);
 }
 
 /**
- * 初始化产品发布页面并绑定一次性的拖放行为。
+ * 初始化产品发布页面，读取参考资料、上传能力和已有发布任务。
  *
  * @returns {void} 首次进入页面时渲染全部本地草稿。
  * @throws {Error} 页面结构缺失时可能抛出 DOM 访问异常。
  */
 function initProductPublish() {
-  const panel = $('.publish-batch-panel');
-  if (panel && !panel.dataset.dropBound) {
-    panel.dataset.dropBound = 'true';
-    panel.addEventListener('dragover', event => {
-      event.preventDefault();
-      panel.classList.add('is-dragging');
-    });
-    panel.addEventListener('dragleave', () => panel.classList.remove('is-dragging'));
-    panel.addEventListener('drop', event => {
-      event.preventDefault();
-      panel.classList.remove('is-dragging');
-      handlePublishFolderFiles(event.dataTransfer?.files || []);
-    });
-  }
   renderProductPublish();
   // 账号级计价单位与物流方案和类目 Schema 相互独立，可以并行加载。
   // 两者都只读，用户无需等待或手工填写平台内部编码。
@@ -2011,39 +1994,17 @@ function initProductPublish() {
 /**
  * 重绘发布页全部联动区域。所有数值均来自 publishState，避免不同区域口径不一致。
  *
- * @returns {void} 完成状态条、表格、编辑器、队列和底部操作栏的同步渲染。
+ * @returns {void} 完成表格、编辑器、队列和底部操作栏的同步渲染。
  * @throws {Error} 页面关键容器缺失时可能抛出 DOM 访问异常。
  */
 function renderProductPublish() {
   renderPublishCacheStatus();
-  renderPublishStatus();
   renderPublishCreatePanel();
   renderPublishTable();
   renderPublishEditor();
   renderPublishQueue();
   renderPublishOperationProgress();
   renderPublishBottomBar();
-}
-
-/**
- * 渲染上传、待补全、检查通过和队列四项流程状态。
- *
- * @returns {void} 直接更新状态带与顶部发布按钮。
- * @throws {Error} 不主动抛出异常。
- */
-function renderPublishStatus() {
-  const counts = publishState.products.reduce((result, product) => {
-    const status = publishProductStatus(product);
-    result[status] = (result[status] || 0) + 1;
-    return result;
-  }, { ready: 0, needs_attention: 0, recognizing: 0 });
-  const activeQueue = publishState.queue.filter(job => ['queued', 'running'].includes(job.status)).length;
-  $('#publishStatusStrip').innerHTML = [
-    ['待发布', publishState.products.length, ''],
-    ['待补全', counts.needs_attention + counts.recognizing, 'attention'],
-    ['发布前检查通过', counts.ready, 'ready'],
-    ['队列中', activeQueue, 'queue'],
-  ].map(([label, value, tone]) => `<article class="${tone}"><span>${label}</span><strong>${value}</strong></article>`).join('');
 }
 
 /**
@@ -2382,6 +2343,11 @@ function duplicatePublishProduct(productId) {
     toast('没有找到需要复制的商品', true);
     return;
   }
+  const blockedReason = window.LsouPublishUtils.publishCopyBlockedReason(source);
+  if (blockedReason) {
+    toast(blockedReason, true);
+    return;
+  }
   try {
     const newId = `publish-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const clone = window.LsouPublishUtils.clonePublishProductDraft(source, newId);
@@ -2477,6 +2443,7 @@ function renderPublishTable() {
     const tradeClass = product.tradeReady ? 'publish-cell-ok' : 'publish-cell-warn';
     const logisticsClass = product.logisticsReady ? 'publish-cell-ok' : 'publish-cell-warn';
     const displayTitle = String(product.title || '').trim() || '未填写商品标题';
+    const copyBlockedReason = window.LsouPublishUtils.publishCopyBlockedReason(product);
     return `<tr data-publish-id="${esc(product.id)}" class="${product.id === publishState.activeId ? 'active' : ''}">
       <td><input type="checkbox" data-publish-select="${esc(product.id)}" ${product.selected ? 'checked' : ''} aria-label="选择 ${esc(displayTitle)}"></td>
       <td>${product.image ? `<img class="publish-product-image" src="${esc(product.image)}" alt="${esc(displayTitle)}" loading="lazy" referrerpolicy="no-referrer">` : '<span class="publish-product-image-placeholder"><i class="ri-image-add-line" aria-hidden="true"></i></span>'}</td>
@@ -2486,7 +2453,7 @@ function renderPublishTable() {
       <td class="${tradeClass}">${product.tradeReady ? '已填写' : '待填写'}</td>
       <td class="${logisticsClass}">${product.logisticsReady ? '已填写' : '待填写'}</td>
       <td><span class="publish-row-status ${product.status}">${statusLabel[product.status]}</span></td>
-      <td><div class="publish-row-actions"><button type="button" class="publish-copy-similar" data-publish-duplicate="${esc(product.id)}"><i class="ri-file-copy-2-line" aria-hidden="true"></i>复制同类</button><button type="button" class="publish-remove-product" data-publish-remove="${esc(product.id)}" aria-label="删除 ${esc(displayTitle)}" title="${isPublishProductBusy(product) ? '上传或提交完成后可以删除' : '从待发布列表删除，可撤销'}" ${isPublishProductBusy(product) ? 'disabled' : ''}><i class="ri-delete-bin-line" aria-hidden="true"></i>删除</button></div></td>
+      <td><div class="publish-row-actions"><button type="button" class="publish-copy-similar" data-publish-duplicate="${esc(product.id)}" title="${esc(copyBlockedReason || '复制商品资料，复用已上传图片')}" ${copyBlockedReason ? 'disabled' : ''}><i class="ri-file-copy-2-line" aria-hidden="true"></i>复制同类</button><button type="button" class="publish-remove-product" data-publish-remove="${esc(product.id)}" aria-label="删除 ${esc(displayTitle)}" title="${isPublishProductBusy(product) ? '上传或提交完成后可以删除' : '从待发布列表删除，可撤销'}" ${isPublishProductBusy(product) ? 'disabled' : ''}><i class="ri-delete-bin-line" aria-hidden="true"></i>删除</button></div></td>
     </tr>`;
   }).join('') : '<tr><td colspan="9"><div class="empty">没有符合筛选条件的商品</div></td></tr>';
   const selected = publishState.products.filter(product => product.selected).length;
@@ -2683,27 +2650,77 @@ function renderPublishPriceTiers(product) {
   </div>`).join('');
 }
 
+// 仅保存当前页面的展开状态，按规格对象隔离；不写入商品 JSON，复制商品也不会共享状态。
+const publishSkuEditorStates = new WeakMap();
+
 /**
- * 渲染可逐条核对的商品规格，参考商品的属性、商家编码与独立报价原样供编辑。
+ * 判断规格字段是否实际有值；0 是有效库存，不能用真假值判断为空。
+ * @param {*} value - 接口或用户输入的字段值。
+ * @returns {boolean} 非 null/undefined/空白文本时为 true。
+ * @throws {Error} 不主动抛出异常。
+ */
+function hasPublishSkuValue(value) {
+  return value !== null && value !== undefined && String(value).trim() !== '';
+}
+
+/**
+ * 取得规格的显示状态，已显示或用户编辑过的输入框不会因清空而突然消失。
+ * @param {object} sku - 当前草稿中的规格对象。
+ * @returns {{visible:Set<string>,open:boolean}} 仅用于界面的状态。
+ * @throws {Error} 不主动抛出异常。
+ */
+function publishSkuEditorState(sku) {
+  if (!publishSkuEditorStates.has(sku)) publishSkuEditorStates.set(sku, { visible: new Set(), open: false });
+  const state = publishSkuEditorStates.get(sku);
+  ['skuCode', 'unitPrice', 'stock'].forEach(key => { if (hasPublishSkuValue(sku[key])) state.visible.add(key); });
+  return state;
+}
+
+/**
+ * 渲染一项规格补充输入；隐藏只影响展示，原值和序列化逻辑保持不变。
+ * @param {object} sku - 规格资料。
+ * @param {number} index - 当前规格下标。
+ * @param {'skuCode'|'unitPrice'|'stock'} key - 允许编辑的补充字段。
+ * @param {number} count - 规格总数，用于解释单规格库存继承。
+ * @returns {string} 转义后的输入框 HTML。
+ * @throws {Error} 不主动抛出异常。
+ */
+function renderPublishSkuExtraField(sku, index, key, count) {
+  const fields = {
+    skuCode: ['商家规格编码', '选填', '编码', 'maxlength="120"'],
+    unitPrice: ['规格单价', '留空沿用首档价格', '单价', 'type="number" min="0.01" step="any"'],
+    stock: ['规格库存', count === 1 ? '留空沿用可售库存' : '正式发布前需填写', '库存', 'type="number" min="0" step="1"'],
+  };
+  const [label, hint, aria, attributes] = fields[key];
+  return `<label class="publish-field"><span><b>${label}</b><small>${hint}</small></span><input ${attributes} data-publish-sku="${index}" data-publish-sku-field="${key}" value="${esc(sku[key] ?? '')}" aria-label="规格 ${index + 1} ${aria}"></label>`;
+}
+
+/**
+ * 渲染规格；有值的输入直接显示，空的编码/价格/库存通过原生折叠区按需补充。
  * @param {object} product - 当前本地商品草稿。
  * @returns {string} 已转义的规格编辑区域 HTML。
  * @throws {Error} 不主动抛出异常。
  */
 function renderPublishSkus(product) {
   const skus = Array.isArray(product.skus) ? product.skus : [];
-  return `<div class="publish-structured-field"><div class="publish-structure-head"><div><b><em>*</em> 商品规格</b><span>每个规格至少填写一项名称和值，例如颜色、型号。参考商品的规格可在这里核对修改。</span></div><button type="button" id="publishAddSku" ${skus.length >= 100 ? 'disabled' : ''}>添加规格</button></div>
+  return `<div class="publish-structured-field publish-sku-group"><div class="publish-structure-head"><div><b><em>*</em> 商品规格</b><span>已读取的信息直接显示；空项可在“补充规格信息”中填写。</span></div><button type="button" id="publishAddSku" ${skus.length >= 100 ? 'disabled' : ''}>添加规格</button></div>
     ${!skus.length ? '<p class="publish-group-note">尚无规格资料。请添加规格，或重新读取参考商品。</p>' : ''}
-    ${skus.map((sku, index) => `<div class="publish-structured-field"><div class="publish-structure-head"><b>规格 ${index + 1}</b><button type="button" data-publish-sku-remove="${index}">删除规格</button></div>
-      ${(sku.skuAttributes || []).map((attr, attrIndex) => `<div class="publish-form-grid">
+    ${skus.map((sku, index) => {
+      const state = publishSkuEditorState(sku);
+      const keys = ['skuCode', 'unitPrice', 'stock'];
+      const shown = keys.filter(key => state.visible.has(key));
+      const hidden = keys.filter(key => !state.visible.has(key));
+      const needsStock = !hasPublishSkuValue(sku.stock) && (skus.length > 1 || !hasPublishSkuValue(product.inventory));
+      return `<div class="publish-structured-field publish-sku-card"><div class="publish-structure-head"><b>规格 ${index + 1}</b><button type="button" data-publish-sku-remove="${index}">删除规格</button></div>
+      ${(sku.skuAttributes || []).map((attr, attrIndex) => `<div class="publish-form-grid publish-sku-attribute-row">
         <label class="publish-field"><span><b>规格名称</b></span><input data-publish-sku="${index}" data-publish-sku-attribute="${attrIndex}" data-publish-sku-field="attrName" value="${esc(attr.attrName)}" maxlength="120" placeholder="例如：颜色" aria-label="规格 ${index + 1} 属性 ${attrIndex + 1} 名称"></label>
         <label class="publish-field"><span><b>规格值</b></span><input data-publish-sku="${index}" data-publish-sku-attribute="${attrIndex}" data-publish-sku-field="attrValue" value="${esc(attr.attrValue)}" maxlength="160" placeholder="填写真实规格" aria-label="规格 ${index + 1} 属性 ${attrIndex + 1} 值"></label>
-        <button type="button" data-sku-index="${index}" data-publish-sku-attribute-remove="${attrIndex}" ${sku.skuAttributes.length === 1 ? 'disabled' : ''}>删除属性 ${attrIndex + 1}</button>
+        <button type="button" data-sku-index="${index}" data-publish-sku-attribute-remove="${attrIndex}" ${sku.skuAttributes.length === 1 ? 'disabled' : ''} aria-label="删除规格 ${index + 1} 的属性 ${attrIndex + 1}" title="删除属性 ${attrIndex + 1}"><i class="ri-delete-bin-line" aria-hidden="true"></i></button>
       </div>`).join('')}
       <button type="button" data-publish-sku-attribute-add="${index}" ${sku.skuAttributes?.length >= 20 ? 'disabled' : ''}>添加规格属性</button>
-      <div class="publish-form-grid"><label class="publish-field"><span><b>商家规格编码</b><small>选填</small></span><input data-publish-sku="${index}" data-publish-sku-field="skuCode" value="${esc(sku.skuCode || '')}" maxlength="120" aria-label="规格 ${index + 1} 编码"></label>
-      <label class="publish-field"><span><b>规格单价</b><small>留空沿用首档价格</small></span><input type="number" min="0.01" step="any" data-publish-sku="${index}" data-publish-sku-field="unitPrice" value="${esc(sku.unitPrice ?? '')}" aria-label="规格 ${index + 1} 单价"></label>
-      <label class="publish-field"><span><b>规格库存</b><small>${skus.length === 1 ? '留空沿用可售库存' : '逐个规格填写'}</small></span><input type="number" min="0" step="1" data-publish-sku="${index}" data-publish-sku-field="stock" value="${esc(sku.stock ?? '')}" aria-label="规格 ${index + 1} 库存"></label></div>
-    </div>`).join('')}</div>`;
+      ${shown.length ? `<div class="publish-form-grid publish-sku-extra-fields">${shown.map(key => renderPublishSkuExtraField(sku, index, key, skus.length)).join('')}</div>` : ''}
+      ${hidden.length ? `<details class="publish-sku-more" data-publish-sku-more="${index}" ${state.open ? 'open' : ''}><summary>补充规格信息${needsStock && hidden.includes('stock') ? '<small>正式发布前需填写库存</small>' : ''}</summary><div class="publish-form-grid">${hidden.map(key => renderPublishSkuExtraField(sku, index, key, skus.length)).join('')}</div></details>` : ''}
+    </div>`; }).join('')}</div>`;
 }
 
 /**
@@ -2771,13 +2788,47 @@ function renderPublishOutcomeInsight(product) {
       <button type="button" id="publishFixAndRetry">修改后重新检查</button>
     </section>`;
   }
-  const hasScore = window.LsouPublishUtils.finiteNumberOrNull(job.finalScore) !== null;
-  const reasons = (Array.isArray(job.deductReasons) ? job.deductReasons : []).slice(0, 3);
-  const scoreCopy = hasScore ? `商品质量分 ${Number(job.finalScore)}` : (job.qualityScoreMessage || '质量分暂未返回');
-  return `<section class="publish-outcome-card is-success" aria-live="polite">
-    <div class="publish-outcome-icon"><i class="ri-checkbox-circle-line" aria-hidden="true"></i></div>
-    <div><b>${job.status === 'saved_draft' ? '草稿已经保存' : '商品已经提交发布'}</b><p>${esc(scoreCopy)}</p>${reasons.length ? `<small>主要扣分：${reasons.map(esc).join('；')}</small>` : '<small>本次没有返回需要立即处理的扣分项</small>'}</div>
+  return `<p class="publish-outcome-status">${job.status === 'saved_draft' ? '草稿已经保存' : '商品已经提交发布'}</p>${renderPublishQualityCard(job)}`;
+}
+
+/**
+ * 在完成弹窗、历史明细与编辑器中统一突出显示平台质量分和完整中文扣分项。
+ * @param {object} job 平台任务回执，分数缺失时显示横线，原始原因可展开核对。
+ * @returns {string} 已转义的质量分卡片 HTML；不改变发布成功/失败状态。
+ * @throws {Error} 不主动抛出异常。
+ */
+function renderPublishQualityCard(job) {
+  const quality = window.LsouPublishUtils.publishQualitySummary(job);
+  const originals = quality.reasons.filter(reason => reason.raw !== reason.text).map(reason => reason.raw);
+  const chineseMessage = /[\u3400-\u9fff]/.test(quality.message) ? quality.message : '';
+  if (quality.message && !chineseMessage) originals.push(quality.message);
+  return `<section class="publish-quality-card is-${quality.tone}" aria-label="产品质量分">
+    <div class="publish-quality-score"><span>产品质量分</span><div><strong>${quality.score === null ? '—' : esc(quality.score)}</strong>${quality.score === null ? '' : '<small>分</small>'}</div><b class="publish-quality-label">${esc(quality.label)}</b></div>
+    <div class="publish-quality-reasons"><b>扣分原因</b>${quality.reasons.length ? `<ul>${quality.reasons.map(reason => `<li>${esc(reason.text)}</li>`).join('')}</ul>` : `<p>${esc(quality.emptyReason)}</p>`}
+    ${chineseMessage ? `<p class="publish-quality-message">平台说明：${esc(chineseMessage)}</p>` : ''}
+    ${originals.length ? `<details class="publish-quality-original"><summary>查看平台原始原因</summary><ul>${originals.map(raw => `<li>${esc(raw)}</li>`).join('')}</ul></details>` : ''}</div>
   </section>`;
+}
+
+/**
+ * 收到新回执后只更新结果区域，保留正在输入的标题、价格和其他未保存内容。
+ * @returns {void} 更新当前商品的结果卡片及失败后的补全入口。
+ * @throws {Error} 不主动抛出异常；未显示编辑器时直接返回。
+ */
+function updatePublishOutcomeInsight() {
+  const panel = $('#publishOutcomeInsight');
+  const product = publishState.products.find(item => item.id === publishState.activeId);
+  if (!panel || !product) return;
+  const markup = renderPublishOutcomeInsight(product);
+  // 相同回执不重建节点，避免轮询反复收起原始原因或打断键盘焦点。
+  if (panel._publishOutcomeMarkup === markup) return;
+  panel._publishOutcomeMarkup = markup;
+  panel.innerHTML = markup;
+  const retry = $('#publishFixAndRetry');
+  if (retry) retry.onclick = () => {
+    const failedJob = latestPublishOutcome(product.id);
+    openPublishConfirmation({ scope: 'single', action: failedJob?.action || 'publish' });
+  };
 }
 
 /**
@@ -2806,6 +2857,188 @@ function renderPublishUploadSummary(product) {
     ${uploaded.length ? `<span class="is-success"><i class="ri-checkbox-circle-line" aria-hidden="true"></i>${uploaded.length} 张已上传</span>` : ''}
     ${failed.map(item => `<span class="is-error" title="${esc(item.error || '图片上传失败')}"><i class="ri-error-warning-line" aria-hidden="true"></i>${esc(item.filename)}<button type="button" data-publish-upload-retry="${esc(item.id)}">重新上传</button></span>`).join('')}
   </div>`;
+}
+
+/**
+ * 按平台图集渲染图片；取消勾选只暂停本次提交，保留原图方便恢复。
+ * @param {object} product 当前本地商品。@param {string} key 商详或公司图片字段。@param {string} label 区域名称。
+ * @returns {string} 已转义的图集选择器及图片区域。@throws {Error} 非法本地图集结构由共用校验报告。
+ */
+function renderPublishImageGroups(product, key, label) {
+  const detail = product.detail, utils = window.LsouPublishUtils;
+  const options = utils.publishImageSetOptions(detail, key);
+  const selected = new Set(utils.selectedPublishImageSets(detail, key));
+  const count = utils.selectedPublishDetailImages(detail, key).length;
+  return `<div class="publish-detail-subhead"><b>${label} <small>${count} 张已选</small></b></div>
+    <div class="publish-image-set-options" role="group" aria-label="${label}图集">${options.map(option => {
+      const size = detail[key].filter(row => (row.imageSetId || '') === option.id).length;
+      return `<label><input type="checkbox" data-publish-image-set="${key}" value="${esc(option.id)}" ${selected.has(option.id) ? 'checked' : ''}><span>${esc(option.label)}</span>${size ? `<small>${size}</small>` : ''}</label>`;
+    }).join('')}</div><p class="publish-image-set-hint">勾选本次使用的图集；取消勾选会保留图片，但不随本次发布提交。</p>
+    ${options.filter(option => selected.has(option.id)).map(option => {
+      const rows = detail[key].map((image, index) => ({ image, index })).filter(({ image }) => (image.imageSetId || '') === option.id);
+      return `<div class="publish-image-group" data-image-group="${esc(option.id)}"><div class="publish-image-group-head"><b>${esc(option.label)} <small>${rows.length} 张</small></b><button type="button" class="ghost sm" data-publish-detail-add="${key}"><i class="ri-upload-2-line" aria-hidden="true"></i>上传图片</button><input type="file" data-publish-detail-file="${key}" data-image-set="${esc(option.id)}" accept="image/jpeg,image/png,image/webp" multiple hidden></div>
+      <div class="publish-detail-grid" data-publish-detail-grid="${key}" data-image-set="${esc(option.id)}" aria-label="${label} · ${esc(option.label)}排序">${rows.map(({ image, index }, position) => {
+        const upload = (product.uploads || []).find(record => record.previewUrl === image.url || record.remoteUrl === image.url);
+        const status = upload?.status === 'failed' ? '上传失败' : upload && upload.status !== 'uploaded' ? `上传中 ${upload.progress || 0}%` : '';
+        return `<div class="publish-detail-tile" draggable="true" data-detail-index="${position}" data-source-index="${index}"><div class="publish-detail-thumb"><img src="${esc(image.url)}" alt="${label} ${index + 1}" draggable="false" loading="lazy" referrerpolicy="no-referrer"><span class="publish-detail-number">${position + 1}</span><button type="button" class="publish-detail-handle" aria-label="拖动${label} ${index + 1}" title="拖动排序"><i class="ri-drag-move-2-line" aria-hidden="true"></i></button>${status ? `<span class="publish-detail-upload ${upload.status === 'failed' ? 'is-error' : ''}">${esc(status)}</span>` : ''}</div>
+        <div class="publish-detail-controls"><button type="button" data-detail-move="-1" data-index="${position}" ${position === 0 ? 'disabled' : ''} aria-label="${label} ${index + 1} 向前移动">←</button><button type="button" data-detail-move="1" data-index="${position}" ${position === rows.length - 1 ? 'disabled' : ''} aria-label="${label} ${index + 1} 向后移动">→</button><button type="button" data-detail-remove="${index}" aria-label="移除${label} ${index + 1}">删除</button></div>
+        <select data-publish-image-group-move="${key}" data-index="${index}" aria-label="${label} ${index + 1} 所属图集">${options.map(target => `<option value="${esc(target.id)}" ${target.id === option.id ? 'selected' : ''}>${esc(target.label)}</option>`).join('')}</select>
+        <input data-publish-detail-text="${key}" data-index="${index}" value="${esc(image.text || '')}" placeholder="图片说明（选填）" aria-label="${label} ${index + 1} 说明">${upload?.status === 'failed' ? `<button type="button" class="publish-detail-retry" data-detail-retry="${esc(upload.id)}">重试上传</button><small class="publish-detail-error">${esc(upload.error)}</small>` : ''}</div>`;
+      }).join('')}<i class="publish-detail-insertion" aria-hidden="true" hidden></i></div>${rows.length ? '' : '<p class="publish-detail-empty">暂无图片，可上传或将其他图集中的图片移入。</p>'}</div>`;
+    }).join('') || '<p class="publish-detail-empty">先勾选图集，再添加图片。</p>'}`;
+}
+
+/**
+ * 渲染独立详情编辑区；文本统一转义，来源内容不会作为 HTML 执行。
+ * @param {object} product 当前本地商品。
+ * @returns {string} 商详图、图注、公司资料、问答和预览入口的 HTML。
+ * @throws {Error} 不主动抛错，旧工作区缺少详情时补空结构。
+ */
+function renderPublishDetailEditor(product) {
+  product.detail ||= window.LsouPublishUtils.createPublishDetail();
+  const detail = product.detail;
+  return `<section class="publish-form-section publish-detail-editor" aria-label="商品详情">
+    <div class="publish-detail-heading"><div><h3>商品详情</h3><p>详情图按顺序展示，可拖动、删除和修改说明。</p></div><button type="button" class="ghost sm" id="publishDetailPreviewButton"><i class="ri-eye-line" aria-hidden="true"></i>预览详情</button></div>
+    ${renderPublishImageGroups(product, 'detailImage', '商详图')}
+    <label class="publish-field publish-company-description"><span><b>公司介绍</b><small>可修改</small></span><textarea data-publish-company-desc rows="5" placeholder="填写公司介绍" aria-label="公司介绍">${esc(detail.companyDesc)}</textarea></label>
+    ${renderPublishImageGroups(product, 'companyImage', '公司图片')}
+    <div class="publish-detail-subhead publish-faq-heading"><b>常见问答 <small>${detail.faqs.length} 条</small></b><button type="button" class="ghost sm" id="publishAddFaq" ${detail.faqs.length >= window.LsouPublishUtils.MAX_DETAIL_ITEMS ? 'disabled' : ''}><i class="ri-add-line" aria-hidden="true"></i>添加问答</button></div>
+    <div class="publish-detail-faqs">${detail.faqs.map((faq, index) => `<div class="publish-detail-faq"><div class="publish-faq-head"><b>问答 ${index + 1}</b><button type="button" data-publish-faq-remove="${index}" aria-label="删除问答 ${index + 1}" title="删除问答 ${index + 1}"><i class="ri-delete-bin-line" aria-hidden="true"></i>删除</button></div><label class="publish-field"><span>问题</span><textarea data-publish-faq-field="question" data-index="${index}" rows="2" placeholder="填写买家关心的问题" aria-label="问题 ${index + 1}">${esc(faq.question)}</textarea></label><label class="publish-field"><span>回答</span><textarea data-publish-faq-field="answer" data-index="${index}" rows="3" placeholder="填写清晰、准确的回答" aria-label="回答 ${index + 1}">${esc(faq.answer)}</textarea></label></div>`).join('') || '<p class="publish-detail-empty">暂无常见问答，可按需添加。</p>'}</div>
+  </section>`;
+}
+
+/**
+ * 绑定详情区上传、删除、排序和问答；每个闭包固定商品及分组，避免切换后串改。
+ * @param {object} product 当前商品。
+ * @returns {void} 注册本次渲染节点的事件。
+ * @throws {Error} 上传失败由原上传处理器转为可重试状态。
+ */
+function bindPublishDetailEditor(product) {
+  $('#publishDetailPreviewButton').onclick = () => openPublishDetailPreview(product);
+  $('#publishAddFaq').onclick = () => {
+    product.detail.faqs.push({ question: '', answer: '' });
+    renderProductPublish();
+    // 新问题可能位于长列表下方；添加后直接定位，避免用户寻找空白条目。
+    $(`[data-publish-faq-field="question"][data-index="${product.detail.faqs.length - 1}"]`)?.focus();
+  };
+  $$('[data-publish-faq-remove]').forEach(button => { button.onclick = () => {
+    product.detail.faqs.splice(Number(button.dataset.publishFaqRemove), 1); renderProductPublish();
+  }; });
+  $$('[data-publish-image-set]').forEach(input => { input.onchange = () => {
+    const key = input.dataset.publishImageSet;
+    const ids = new Set(window.LsouPublishUtils.selectedPublishImageSets(product.detail, key));
+    if (input.checked) ids.add(input.value); else ids.delete(input.value);
+    product.detail.imageGroupSelection ||= {};
+    product.detail.imageGroupSelection[key] = [...ids];
+    renderProductPublish();
+  }; });
+  $$('[data-publish-image-group-move]').forEach(input => { input.onchange = () => {
+    const key = input.dataset.publishImageGroupMove;
+    const image = product.detail[key][Number(input.dataset.index)];
+    if (!image) return;
+    const ids = new Set(window.LsouPublishUtils.selectedPublishImageSets(product.detail, key));
+    ids.add(input.value);
+    if (input.value) image.imageSetId = input.value; else delete image.imageSetId;
+    product.detail.imageGroupSelection ||= {};
+    product.detail.imageGroupSelection[key] = [...ids];
+    renderProductPublish();
+  }; });
+  $$('[data-publish-detail-add]').forEach(button => { button.onclick = () => {
+    button.closest('.publish-image-group').querySelector('[data-publish-detail-file]').click();
+  }; });
+  $$('[data-publish-detail-file]').forEach(input => { input.onchange = () => {
+    const files = [...input.files]; input.value = '';
+    handlePublishProductImages(files, product, input.dataset.publishDetailFile, input.dataset.imageSet);
+  }; });
+  $$('[data-publish-detail-grid]').forEach(grid => {
+    const key = grid.dataset.publishDetailGrid;
+    // 拖动使用图集内下标；回填只替换该图集占据的位置，不打乱其他图集。
+    const indices = [...grid.querySelectorAll('[data-source-index]')].map(tile => Number(tile.dataset.sourceIndex));
+    /** @param {number} from 源下标。@param {number} to 目标下标。@returns {void} 同步图片与图注排序。@throws 无。 */
+    const move = (from, to) => {
+      const rows = product.detail[key];
+      if (to < 0 || to >= indices.length || from === to || !rows[indices[from]]) return;
+      const group = indices.map(index => rows[index]);
+      group.splice(to, 0, group.splice(from, 1)[0]);
+      indices.forEach((index, position) => { rows[index] = group[position]; });
+      renderProductPublish();
+    };
+    grid.querySelectorAll('[data-detail-move]').forEach(button => { button.onclick = () => move(Number(button.dataset.index), Number(button.dataset.index) + Number(button.dataset.detailMove)); });
+    grid.querySelectorAll('[data-detail-remove]').forEach(button => { button.onclick = () => {
+      const [removed] = product.detail[key].splice(Number(button.dataset.detailRemove), 1);
+      if (!removed) return;
+      product.uploads = (product.uploads || []).filter(record => {
+        const matches = record.section === key && (record.previewUrl === removed.url || record.remoteUrl === removed.url);
+        if (matches && record.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(record.previewUrl);
+        return !matches;
+      });
+      renderProductPublish();
+    }; });
+    grid.querySelectorAll('[data-detail-retry]').forEach(button => { button.onclick = () => retryPublishImageUpload(product, button.dataset.detailRetry); });
+    let from = null, slot = null;
+    const marker = grid.querySelector('.publish-detail-insertion');
+    /** 无参数；返回 void；清除插入线与拖拽状态，不抛异常。 */
+    const reset = () => { from = null; slot = null; marker.hidden = true; grid.querySelectorAll('.is-dragging').forEach(tile => tile.classList.remove('is-dragging')); };
+    /** @param {MouseEvent|DragEvent} event 指针位置。@returns {void} 显示离指针最近的插入边界；移出时隐藏。@throws 无。 */
+    const mark = event => {
+      const rect = grid.getBoundingClientRect();
+      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) { slot = null; marker.hidden = true; return; }
+      const tiles = [...grid.querySelectorAll('[data-detail-index]')].map(tile => ({ tile, rect: tile.getBoundingClientRect() }));
+      const nearest = tiles.sort((a, b) => {
+        const distance = item => Math.max(item.rect.top - event.clientY, 0, event.clientY - item.rect.bottom) * 1000 + Math.abs((item.rect.left + item.rect.right) / 2 - event.clientX);
+        return distance(a) - distance(b);
+      })[0];
+      if (!nearest) return;
+      const after = event.clientX > (nearest.rect.left + nearest.rect.right) / 2;
+      slot = Number(nearest.tile.dataset.detailIndex) + (after ? 1 : 0);
+      marker.hidden = slot === from || slot === from + 1;
+      marker.style.left = `${(after ? nearest.rect.right : nearest.rect.left) - rect.left + (after ? 3 : -5)}px`;
+      marker.style.top = `${nearest.rect.top - rect.top}px`; marker.style.height = `${nearest.rect.height}px`;
+    };
+    /** @param {Event} event 松手。@returns {void} 应用插入位置；不抛异常。 */
+    const finish = event => { event.preventDefault(); const start = from, end = slot; reset(); if (Number.isInteger(start) && Number.isInteger(end)) move(start, end > start ? end - 1 : end); };
+    grid.querySelectorAll('[data-detail-index]').forEach(tile => {
+      tile.ondragstart = event => {
+        if (event.target.closest('input,textarea,select,button')) { event.preventDefault(); return; }
+        from = Number(tile.dataset.detailIndex); tile.classList.add('is-dragging');
+        event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', String(from));
+      };
+      tile.ondragend = reset;
+      tile.querySelector('.publish-detail-handle').onpointerdown = event => {
+        if (event.button !== 0) return;
+        event.preventDefault(); from = Number(tile.dataset.detailIndex); tile.classList.add('is-dragging');
+        const handle = event.currentTarget; handle.setPointerCapture(event.pointerId);
+        handle.onpointermove = mark;
+        handle.onpointerup = event => { mark(event); finish(event); handle.onpointermove = null; };
+        handle.onpointercancel = reset;
+      };
+    });
+    grid.ondragover = event => { if (from === null) return; event.preventDefault(); mark(event); };
+    grid.ondragleave = event => { if (!grid.contains(event.relatedTarget)) { slot = null; marker.hidden = true; } };
+    grid.ondrop = finish;
+  });
+}
+
+/**
+ * 预览本次将提交的结构化详情，不执行来源 HTML；平台最终装修样式由国际站决定。
+ * @param {object} product 当前商品，读取尚未保存的修改。
+ * @returns {void} 打开可独立滚动的原生模态预览。
+ * @throws {Error} 不主动抛错。
+ */
+function openPublishDetailPreview(product) {
+  let dialog = $('#publishDetailPreview');
+  if (!dialog) { dialog = document.createElement('dialog'); dialog.id = 'publishDetailPreview'; document.body.append(dialog); }
+  const detail = { ...product.detail,
+    detailImage: window.LsouPublishUtils.selectedPublishDetailImages(product.detail, 'detailImage'),
+    companyImage: window.LsouPublishUtils.selectedPublishDetailImages(product.detail, 'companyImage') };
+  /** @param {object[]} rows 勾选图片。@param {string} key 图片字段。@returns {string} 与编辑器同组展示的安全预览。@throws 无。 */
+  const pictures = (rows, key) => window.LsouPublishUtils.publishImageSetOptions(product.detail, key).map(option => {
+    const group = rows.filter(row => (row.imageSetId || '') === option.id);
+    return group.length ? `<h4>${esc(option.label)}</h4>${group.map(row => `<figure><img src="${esc(row.url)}" alt="${esc(row.text || '详情图片')}" referrerpolicy="no-referrer" loading="lazy">${row.text ? `<figcaption>${esc(row.text)}</figcaption>` : ''}</figure>`).join('')}` : '';
+  }).join('');
+  dialog.innerHTML = `<header><div><h2>商品详情预览</h2><p>预览当前图文内容，最终排版以国际站展示为准。</p></div><button type="button" aria-label="关闭详情预览">×</button></header><div class="publish-detail-preview-body"><h3>${esc(product.title)}</h3>${product.sellingPoints?.some(Boolean) ? `<ul>${product.sellingPoints.filter(Boolean).map(point => `<li>${esc(point)}</li>`).join('')}</ul>` : ''}${pictures(detail.detailImage, 'detailImage')}${detail.companyDesc || detail.companyImage.length ? `<h3>公司介绍</h3><p>${esc(detail.companyDesc)}</p>${pictures(detail.companyImage, 'companyImage')}` : ''}${detail.faqs.some(faq => faq.question || faq.answer) ? `<h3>常见问答</h3>${detail.faqs.map(faq => `<article><h4>${esc(faq.question)}</h4><p>${esc(faq.answer)}</p></article>`).join('')}` : ''}${!detail.detailImage.length && !detail.companyDesc && !detail.companyImage.length && !detail.faqs.length ? '<p class="publish-detail-empty">还没有添加详情内容。</p>' : ''}</div>`;
+  dialog.querySelector('header button').onclick = () => dialog.close();
+  dialog.showModal();
 }
 
 /**
@@ -2844,25 +3077,6 @@ function renderPublishEditor() {
   }
   const categoryConfig = PUBLISH_CATEGORY_CONFIG[product.categoryKey] || PUBLISH_CATEGORY_CONFIG.unselected;
   const requiredAttributeCount = categoryConfig.fields.filter(isRequiredPublishField).length;
-  const schemaIsLive = categoryConfig.source === 'workctl-live';
-  const accountContextReady = schemaIsLive && publishState.accountContextLoaded;
-  const accountContextFailed = Boolean(publishState.accountContextError);
-  const schemaBannerTitle = accountContextReady
-    ? '已根据当前账号商品匹配发品规则'
-    : accountContextFailed
-      ? '当前账号类目暂未匹配成功'
-      : '正在读取当前账号商品类目';
-  const schemaBannerText = accountContextReady
-    ? (product.categoryMatchSource === 'same-product'
-      ? '已匹配当前店铺同款商品的类目，必填项和固定选项均来自平台实时规则。'
-      : product.categoryMatchSource === 'reference-product'
-        ? '已带入参考商品参数，并按当前账号实时规则过滤过期选项；原商品不会被修改。'
-      : product.categoryMatchSource === 'manual-selection'
-        ? '已按你选择的类目重新生成参数，固定选项来自平台实时规则。'
-        : '已采用当前店铺正在使用的类目，仍可按实际商品搜索并切换。')
-    : accountContextFailed
-      ? '为避免套用其他店铺的参数，保存和发布已暂停；请刷新数据后重试。'
-      : '系统正在自动读取类目并生成对应参数，无需填写任何编号。';
   const gallery = [...new Set([product.image, ...(product.gallery || [])].filter(Boolean))];
   const uploads = Array.isArray(product.uploads) ? product.uploads : [];
   const referenceImporter = publishState.referenceImportOpen ? `<div class="publish-reference-importer">
@@ -2906,11 +3120,10 @@ function renderPublishEditor() {
     }).join('')}<button type="button" class="publish-add-image" id="publishAddImages" aria-label="继续添加图片" ${gallery.length >= PUBLISH_IMAGE_LIMIT ? 'hidden' : ''} ${gallery.length >= PUBLISH_IMAGE_LIMIT || (publishState.uploadCapability.loaded && !publishState.uploadCapability.configured) ? 'disabled' : ''}><i class="ri-add-line" aria-hidden="true"></i><span>${gallery.length >= PUBLISH_IMAGE_LIMIT ? '已达上限' : '上传'}</span></button><i class="publish-image-insertion" aria-hidden="true" hidden></i></div>
     ${gallery.length ? '<p class="publish-image-order-help"><i class="ri-drag-move-2-line" aria-hidden="true"></i>拖动图片或左上角手柄，橙色竖线表示插入位置；第一张自动作为封面。</p>' : ''}
     ${renderPublishUploadSummary(product)}
-    <div class="publish-schema-banner ${accountContextReady ? '' : 'is-loading'}"><i class="${accountContextReady ? 'ri-shield-check-line' : accountContextFailed ? 'ri-error-warning-line' : 'ri-loader-4-line'}" aria-hidden="true"></i><div><b>${esc(schemaBannerTitle)}</b><span>${esc(schemaBannerText)}</span></div></div>
-    ${renderPublishOutcomeInsight(product)}
+    <div id="publishOutcomeInsight" aria-live="polite"></div>
     <section class="publish-form-section"><h3>基础信息</h3>
       <label class="publish-field"><span><b><em>*</em> 标题</b><small>${product.title.length}/128</small></span><input data-publish-field="title" value="${esc(product.title)}" maxlength="128"></label>
-      <div class="publish-field"><span><b>关键词</b><small>${product.keywords.length}/5 · 可直接修改</small></span><div class="publish-chip-list">${product.keywords.map((keyword, index) => `<span class="publish-keyword-chip"><input data-publish-keyword="${index}" value="${esc(keyword)}" maxlength="40" size="${Math.max(6, Math.min(18, keyword.length))}" aria-label="关键词 ${index + 1}"><button type="button" data-publish-keyword-remove="${index}" aria-label="删除关键词 ${esc(keyword)}"><i class="ri-close-line" aria-hidden="true"></i></button></span>`).join('')}${product.keywords.length < 5 ? `<span class="publish-keyword-add"><input id="publishKeywordAdd" maxlength="40" placeholder="输入关键词" aria-label="新增关键词"><button id="publishKeywordAddButton" type="button">添加</button></span>` : ''}</div>${product.keywordSource === 'reference' && product.referenceKeywordsEmpty && !product.keywords.length ? '<small class="publish-schema-note publish-keyword-source">参考商品未返回关键词，可在此补充</small>' : ''}</div>
+      <div class="publish-field"><span><b>关键词</b><small>${product.keywords.length}/5 · 可直接修改</small></span><div class="publish-chip-list">${product.keywords.map((keyword, index) => `<span class="publish-keyword-chip"><input data-publish-keyword="${index}" value="${esc(keyword)}" maxlength="40" size="${Math.max(6, Math.min(18, keyword.length))}" aria-label="关键词 ${index + 1}"><button type="button" data-publish-keyword-remove="${index}" aria-label="删除关键词 ${esc(keyword)}"><i class="ri-close-line" aria-hidden="true"></i></button></span>`).join('')}${product.keywords.length < 5 ? `<span class="publish-keyword-add"><input id="publishKeywordAdd" maxlength="40" placeholder="输入关键词" aria-label="新增关键词"><button id="publishKeywordAddButton" type="button">添加</button></span>` : ''}</div>${product.keywordSource === 'reference-attribute' && product.keywords.length ? '<small class="publish-schema-note publish-keyword-source">已从参考商品的关键词属性带入，可修改</small>' : product.keywordSource === 'reference' && product.referenceKeywordsEmpty && !product.keywords.length ? '<small class="publish-schema-note publish-keyword-source">参考商品未返回关键词，可在此补充</small>' : ''}</div>
       <div class="publish-field"><span><b><em>*</em> 叶子类目</b><small class="publish-control-tag">系统自动匹配</small></span><details class="publish-category-picker"><summary aria-label="选择商品类目" ${product.schemaLoading || !publishState.accountContextLoaded ? 'aria-disabled="true"' : ''}><span>${esc(product.category)}</span><i class="ri-arrow-down-s-line" aria-hidden="true"></i></summary><div class="publish-category-popover"><label class="publish-category-search"><i class="ri-search-line" aria-hidden="true"></i><input id="publishCategorySearch" type="search" placeholder="搜索并选择类目" aria-label="搜索类目" autocomplete="off"></label><div id="publishCategorySearchStatus" role="status"></div><div id="publishCategoryResults" role="listbox" aria-label="类目搜索结果"></div></div></details><small class="publish-schema-note">已自动带入类目；需要更换时点击上方搜索选择</small></div>
     </section>
     <section class="publish-form-section"><h3>类目属性 <small>${requiredAttributeCount} 项必填 · 共 ${categoryConfig.fields.length} 项</small></h3><div class="publish-form-grid">${categoryConfig.fields.map(field => `<div class="publish-field"><span><b>${isRequiredPublishField(field) ? '<em>*</em> ' : ''}${esc(field.label)}</b><small class="publish-control-tag">${field.control === 'multi' ? '平台多选' : field.control === 'region' ? '平台国家' : field.control === 'text' ? '允许输入' : field.control === 'combo' ? '平台选项 / 可自定义' : '平台单选'}</small></span>${renderPublishAttributeControl(field, product.attributes[field.key])}<small class="publish-schema-note">${esc(field.schemaName)}${field.control === 'region' ? ' · Alibaba 发品页选项' : field.optionSource === 'workctl-live' ? ' · 平台数据选项' : ''}</small></div>`).join('')}</div></section>
@@ -2936,6 +3149,7 @@ function renderPublishEditor() {
       </div>
     </section>
     <section class="publish-form-section"><h3>卖点 <small>5 条，可逐条修改</small></h3><div class="publish-selling-points">${product.sellingPoints.map((point, index) => `<label><span>${index + 1}</span><input data-publish-selling-point="${index}" value="${esc(point)}" maxlength="200" placeholder="请输入第 ${index + 1} 条商品卖点" aria-label="卖点 ${index + 1}"><small>${point.length}/200</small></label>`).join('')}</div></section>
+    ${renderPublishDetailEditor(product)}
     <section class="publish-item-action-bar" aria-label="当前商品操作">
       <div><b>当前商品操作</b><span>只处理右侧这 1 个商品，仍会进入串行队列</span></div>
       <button type="button" id="publishSaveCurrent" ${publishActionIssues(product, 'draft').length ? 'disabled' : ''}><i class="ri-draft-line" aria-hidden="true"></i>保存当前草稿</button>
@@ -2943,6 +3157,10 @@ function renderPublishEditor() {
     </section>
   </div>`;
   updatePublishCategoryResultSelect();
+  $$('[data-publish-sku-more]').forEach(details => { details.ontoggle = () => {
+    // 重绘后旧节点的迟到 toggle 不得覆盖新界面的展开状态。
+    if (details.isConnected) publishSkuEditorState(product.skus[Number(details.dataset.publishSkuMore)]).open = details.open;
+  }; });
   $('#publishAddSku').onclick = () => {
     product.skus = [...(product.skus || []), window.LsouPublishUtils.createEmptyPublishSku()];
     renderProductPublish();
@@ -3047,6 +3265,7 @@ function renderPublishEditor() {
     };
   });
   bindPublishImageSorting(product);
+  bindPublishDetailEditor(product);
   $$('[data-publish-keyword-remove]').forEach(button => {
     button.onclick = () => {
       const index = Number(button.dataset.publishKeywordRemove);
@@ -3096,18 +3315,13 @@ function renderPublishEditor() {
   });
   $('#publishSaveCurrent').onclick = () => openPublishConfirmation({ scope: 'single', action: 'draft' });
   $('#publishCurrent').onclick = () => openPublishConfirmation({ scope: 'single', action: 'publish' });
-  if ($('#publishFixAndRetry')) {
-    $('#publishFixAndRetry').onclick = () => {
-      const failedJob = latestPublishOutcome(product.id);
-      openPublishConfirmation({ scope: 'single', action: failedJob?.action || 'publish' });
-    };
-  }
+  updatePublishOutcomeInsight();
 }
 
 /**
  * 读取参考商品的精简模板，并重新套用当前账号对应类目的实时字段规则。
  *
- * 参考商品只提供类目、标题和文本。固定选项不会跨商品硬复制；切换类目后仍由
+ * 参考商品提供类目、标题、文本和结构化详情。固定选项不会跨商品硬复制；切换类目后仍由
  * migratePublishProductToAccountCategory 按 attrNameId 和官方选项进行安全迁移。
  *
  * @param {object} product - 当前正在编辑的本地商品草稿。
@@ -3137,6 +3351,15 @@ async function importPublishReference(product) {
     const categoryKey = await ensureLivePublishCategory(categoryId);
     migratePublishProductToAccountCategory(product, categoryKey, 'reference-product');
     if (String(template.title || '').trim()) product.title = String(template.title).trim().slice(0, 128);
+    if (template.detail) {
+      // 明确导入新参考商品时一起替换详情；移除旧上传记录，迟到上传不能影响新详情。
+      product.uploads = (product.uploads || []).filter(record => {
+        if (!record.section) return true;
+        if (record.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(record.previewUrl);
+        return false;
+      });
+      product.detail = JSON.parse(JSON.stringify(template.detail));
+    }
     const referenceTexts = (Array.isArray(template.texts) ? template.texts : [])
       .map(value => String(value || '').trim()).filter(Boolean);
     if (referenceTexts.length) {
@@ -3240,6 +3463,7 @@ function serializePublishProduct(product) {
           : -1,
     })),
     sellingPoints: product.sellingPoints,
+    detail: JSON.parse(JSON.stringify(product.detail || window.LsouPublishUtils.createPublishDetail())),
     trade: {
       saleType: product.saleType,
       batchNum: product.batchNum,
@@ -3273,6 +3497,9 @@ function serializePublishProduct(product) {
  */
 function publishActionIssues(product, action) {
   const issues = [];
+  const imageIssue = window.LsouPublishUtils.publishCopyBlockedReason(product);
+  if (imageIssue) issues.push(imageIssue.replace('再复制', '再保存或发布'));
+  try { window.LsouPublishUtils.normalizePublishDetail(product.detail); } catch (error) { issues.push(error.message); }
   const gallery = [...new Set([product.image, ...(product.gallery || [])].filter(Boolean))];
   const remoteImages = gallery.filter(isRemotePublishImage);
   if (gallery.length > PUBLISH_IMAGE_LIMIT) issues.push(`商品主图最多 ${PUBLISH_IMAGE_LIMIT} 张，当前 ${gallery.length} 张，请先移除多余图片`);
@@ -3282,6 +3509,14 @@ function publishActionIssues(product, action) {
   (product.skus || []).forEach((sku, index) => {
     if (!sku.skuAttributes?.length || sku.skuAttributes.some(attr => !attr.attrName?.trim() || !attr.attrValue?.trim())) {
       issues.push(`第 ${index + 1} 个规格需要填写规格名称和值`);
+    }
+    if (action === 'publish') {
+      const stock = hasPublishSkuValue(sku.stock) ? sku.stock : product.skus.length === 1 ? product.inventory : null;
+      const price = hasPublishSkuValue(sku.unitPrice) ? sku.unitPrice : product.priceTiers?.[0]?.unitPrice;
+      if (!hasPublishSkuValue(stock) || !Number.isInteger(Number(stock)) || Number(stock) < 0) {
+        issues.push(`第 ${index + 1} 个规格库存待填写，请展开“补充规格信息”`);
+      }
+      if (!(Number(price) > 0)) issues.push(`第 ${index + 1} 个规格需要填写单价或首档价格`);
     }
   });
   const categoryConfig = PUBLISH_CATEGORY_CONFIG[product.categoryKey] || PUBLISH_CATEGORY_CONFIG.unselected;
@@ -3511,6 +3746,7 @@ function showPublishOperationResult(operationId, automatic = false, fromHistory 
 
   const succeeded = jobs.filter(job => ['saved_draft', 'submitted'].includes(job.status));
   const failed = jobs.filter(job => job.status === 'failed');
+  const lowScoreCount = jobs.filter(job => job.lowScore === true).length;
   const first = jobs[0];
   const total = jobs.length;
   const allSucceeded = failed.length === 0;
@@ -3522,10 +3758,11 @@ function showPublishOperationResult(operationId, automatic = false, fromHistory 
   $('#modalBody').innerHTML = `<section class="publish-result ${allSucceeded ? 'success' : 'failure'}">
     <div class="publish-result-hero"><i class="${allSucceeded ? 'ri-checkbox-circle-fill' : 'ri-error-warning-fill'}" aria-hidden="true"></i><div><span>本次任务 ${total}/${total}</span><h2>${esc(title)}</h2><p>${failed.length ? '失败原因见下方明细，请修改资料后重新提交。' : first.action === 'publish' ? '已提交的商品仍需以国际站平台审核状态为准。' : '商品已保存到国际站草稿箱。'}</p></div></div>
     <div class="publish-result-metrics"><article><span>处理总数</span><strong>${total}</strong></article><article><span>成功</span><strong>${succeeded.length}</strong></article><article><span>失败</span><strong>${failed.length}</strong></article></div>
+    ${lowScoreCount ? `<p class="publish-result-quality-alert"><i class="ri-error-warning-line" aria-hidden="true"></i>${lowScoreCount} 件商品被平台标记为低分，请查看下方扣分原因。</p>` : ''}
     <div class="publish-result-list">${visibleJobs.map((job, index) => {
       const failureLabels = publishFailureFieldLabels(job.failureFields);
       const detail = window.LsouPublishUtils.publishResultDetail(job, failureLabels);
-      return `<article><b>${Number(job.position || index + 1)}</b><img src="${esc(job.image)}" alt="" referrerpolicy="no-referrer"><div><strong>${esc(job.title)}</strong><span>${esc(detail)}</span></div><em class="${esc(job.status)}">${job.status === 'saved_draft' ? '草稿已保存' : job.status === 'submitted' ? '已提交' : '失败'}</em></article>`;
+      return `<article><b>${Number(job.position || index + 1)}</b><img src="${esc(job.image)}" alt="" referrerpolicy="no-referrer"><div class="publish-result-product">${['saved_draft', 'submitted'].includes(job.status) && job.productId ? `<button type="button" class="publish-result-open" data-publish-edit-job="${esc(job.id)}"><strong>${esc(job.title)}</strong><small>继续编辑</small></button><span class="publish-history-edit-error" data-publish-edit-error role="alert"></span>` : `<strong>${esc(job.title)}</strong>`}${job.status === 'failed' ? `<span>${esc(detail)}</span>` : ''}</div><em class="${esc(job.status)}">${job.status === 'saved_draft' ? '草稿已保存' : job.status === 'submitted' ? '已提交' : '失败'}</em>${job.status !== 'failed' || window.LsouPublishUtils.finiteNumberOrNull(job.finalScore) !== null ? renderPublishQualityCard(job) : ''}</article>`;
     }).join('')}</div>
     <div class="publish-result-actions">${fromHistory ? '<button id="publishResultHistory" type="button">返回发布历史</button>' : ''}<button id="publishResultClose" class="primary" type="button">完成</button></div>
   </section>`;
@@ -3567,20 +3804,17 @@ function renderPublishBottomBar() {
     : '请先在左侧选择商品';
   $('#publishSaveDraft').textContent = `批量保存草稿（${selected.length}）`;
   $('#publishStartQueue').textContent = `批量发布（${selected.length}）`;
-  $('#publishReadyTop span').textContent = `批量发布已选（${selected.length}）`;
   $('#publishSaveDraft').disabled = selected.length === 0;
   $('#publishStartQueue').disabled = selected.length === 0 || blocked > 0;
-  $('#publishReadyTop').disabled = selected.length === 0 || blocked > 0;
   const publishHint = blocked ? `已选商品中有 ${blocked} 个未通过发布前检查` : '所选商品将逐条进入真实 WorkCTL 队列';
   $('#publishStartQueue').title = publishHint;
-  $('#publishReadyTop').title = publishHint;
 }
 
 /**
  * 把右侧编辑器的字段修改同步回当前产品，并重新计算完整度和状态。
  *
  * @param {Event} event - 输入框或下拉框触发的 input/change 事件。
- * @returns {void} 状态更新后重绘表格、状态条和底部操作栏。
+ * @returns {void} 状态更新后重绘表格和底部操作栏。
  * @throws {Error} 不主动抛出异常。
  */
 function handlePublishEditorInput(event) {
@@ -3600,6 +3834,13 @@ function handlePublishEditorInput(event) {
   const shippingTemplateChanged = event.target.hasAttribute('data-publish-shipping-template');
   const keywordIndex = event.target.dataset.publishKeyword;
   const sellingPointIndex = event.target.dataset.publishSellingPoint;
+  if (event.target.hasAttribute('data-publish-company-desc')) product.detail.companyDesc = event.target.value;
+  const detailGroup = event.target.dataset.publishDetailText;
+  if (['detailImage', 'companyImage'].includes(detailGroup)) {
+    product.detail[detailGroup][Number(event.target.dataset.index)].text = event.target.value;
+  }
+  const faqField = event.target.dataset.publishFaqField;
+  if (['question', 'answer'].includes(faqField)) product.detail.faqs[Number(event.target.dataset.index)][faqField] = event.target.value;
   const skuIndex = event.target.dataset.publishSku;
   if (skuIndex !== undefined) {
     const sku = product.skus?.[Number(skuIndex)];
@@ -3614,6 +3855,7 @@ function handlePublishEditorInput(event) {
     } else if (['stock', 'unitPrice'].includes(skuField)) {
       sku[skuField] = event.target.value === '' ? null : Number(event.target.value);
     } else if (skuField === 'skuCode') sku.skuCode = event.target.value;
+    if (['skuCode', 'unitPrice', 'stock'].includes(skuField)) publishSkuEditorState(sku).visible.add(skuField);
   }
 
   if (categoryChanged) {
@@ -3665,7 +3907,6 @@ function handlePublishEditorInput(event) {
   if (keywordIndex !== undefined) product.keywords[Number(keywordIndex)] = event.target.value;
   if (sellingPointIndex !== undefined) product.sellingPoints[Number(sellingPointIndex)] = event.target.value;
   product.status = publishProductStatus(product);
-  renderPublishStatus();
   renderPublishTable();
   renderPublishBottomBar();
 }
@@ -3931,7 +4172,7 @@ function bindPublishImageSorting(product) {
  * @throws {Error} 所有异常都会在函数内写入 record.error，不继续向外抛出。
  */
 async function uploadPublishImageRecord(product, record) {
-  if (!record?.file) return false;
+  if (!record?.file || !product.uploads.includes(record)) return false;
   if (!publishState.uploadCapability.configured) {
     record.status = 'failed';
     record.progress = 0;
@@ -3977,8 +4218,13 @@ async function uploadPublishImageRecord(product, record) {
     record.status = 'uploaded';
     record.progress = 100;
     record.remoteUrl = payload.image.url;
-    product.gallery = (product.gallery || []).map(url => url === record.previewUrl ? record.remoteUrl : url);
-    if (product.image === record.previewUrl) product.image = record.remoteUrl;
+    if (record.section) {
+      // 用预览地址定位当前图片，排序不影响回填；已删除的图片不会因迟到响应重新出现。
+      for (const image of product.detail[record.section]) if (image.url === record.previewUrl) image.url = record.remoteUrl;
+    } else {
+      product.gallery = (product.gallery || []).map(url => url === record.previewUrl ? record.remoteUrl : url);
+      if (product.image === record.previewUrl) product.image = record.remoteUrl;
+    }
     syncPublishRemoteImageCount(product);
     renderProductPublish();
     URL.revokeObjectURL(record.previewUrl);
@@ -4015,18 +4261,22 @@ async function retryPublishImageUpload(product, uploadId) {
  * 将用户选择的一组图片追加到当前商品，并立即开始真实远程上传。
  *
  * @param {FileList|File[]} files - 用户主动选择的图片文件。
+ * @param {object} [targetProduct] 文件选择时固定的所属商品，避免切换商品后串图。
+ * @param {'detailImage'|'companyImage'|null} [section=null] 详情分组；null 表示原主图库。
+ * @param {string} [imageSetId=''] 当前选定的平台图集，空值沿用未分组。
  * @returns {Promise<void>} 全部图片依次处理完成后给出汇总反馈。
  * @throws {Error} 浏览器 Object URL 异常会被调用环境报告。
  */
-async function handlePublishProductImages(files) {
-  const product = publishState.products.find(item => item.id === publishState.activeId);
+async function handlePublishProductImages(files, targetProduct, section = null, imageSetId = '') {
+  const product = targetProduct || publishState.products.find(item => item.id === publishState.activeId);
   if (!product) return;
+  if (section !== null && !['detailImage', 'companyImage'].includes(section)) return;
   const gallery = [...new Set([product.image, ...(product.gallery || [])].filter(Boolean))];
-  const capacity = Math.max(0, PUBLISH_IMAGE_LIMIT - gallery.length);
+  const capacity = Math.max(0, section ? window.LsouPublishUtils.MAX_DETAIL_ITEMS - product.detail[section].length : PUBLISH_IMAGE_LIMIT - gallery.length);
   const images = [...files].filter(file => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type));
   // 一次选超剩余名额时整批不上传，让用户自行选择，不悄悄丢弃后面的文件。
   if (images.length > capacity) {
-    toast(`商品主图最多 ${PUBLISH_IMAGE_LIMIT} 张，还可添加 ${capacity} 张；本次选择 ${images.length} 张，请重新选择`, true);
+    toast(`${section ? '当前详情图片分组' : '商品主图'}还可添加 ${capacity} 张；本次选择 ${images.length} 张，请重新选择`, true);
     return;
   }
   if (!images.length) {
@@ -4036,6 +4286,7 @@ async function handlePublishProductImages(files) {
   const records = images.map(file => ({
     id: `upload-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     file,
+    section,
     filename: file.name,
     previewUrl: URL.createObjectURL(file),
     remoteUrl: '',
@@ -4044,8 +4295,11 @@ async function handlePublishProductImages(files) {
     error: '',
   }));
   product.uploads = [...(product.uploads || []), ...records];
-  product.gallery = [...records.map(record => record.previewUrl), ...gallery];
-  product.image = product.gallery[0];
+  if (section) product.detail[section].push(...records.map(record => ({ url: record.previewUrl, text: '', ...(imageSetId ? { imageSetId } : {}) })));
+  else {
+    product.gallery = [...records.map(record => record.previewUrl), ...gallery];
+    product.image = product.gallery[0];
+  }
   syncPublishRemoteImageCount(product);
   renderProductPublish();
   let succeeded = 0;
@@ -4056,80 +4310,6 @@ async function handlePublishProductImages(files) {
   toast(failed
     ? `${succeeded} 张上传成功，${failed} 张需要重新上传`
     : `${succeeded} 张图片已上传，可用于发布`, failed > 0);
-}
-
-/**
- * 按文件夹归组创建本地商品草稿。一个子文件夹代表一个商品；直接拖入的图片归为同一商品。
- *
- * @param {FileList|File[]} files - 文件夹选择器或拖放区域返回的图片文件。
- * @returns {Promise<void>} 新建商品并依次上传图片后转为待补全。
- * @throws {Error} 浏览器无法创建 Object URL 时可能抛出异常。
- */
-async function handlePublishFolderFiles(files) {
-  const imageFiles = [...files].filter(file => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type));
-  if (!imageFiles.length) {
-    toast('没有识别到 JPG、PNG 或 WEBP 图片', true);
-    return;
-  }
-  const groups = new Map();
-  imageFiles.forEach(file => {
-    const pathParts = String(file.webkitRelativePath || '').split('/').filter(Boolean);
-    const groupName = pathParts.length > 1 ? pathParts[pathParts.length - 2] : '新上传商品';
-    if (!groups.has(groupName)) groups.set(groupName, []);
-    groups.get(groupName).push(file);
-  });
-  const oversized = [...groups].filter(([, groupFiles]) => groupFiles.length > PUBLISH_IMAGE_LIMIT);
-  if (oversized.length) {
-    toast(`每个商品最多 ${PUBLISH_IMAGE_LIMIT} 张主图；${oversized.length} 个文件夹超量（如“${oversized[0][0]}”有 ${oversized[0][1].length} 张），请整理后重新导入`, true);
-    return;
-  }
-  const created = [];
-  groups.forEach((groupFiles, groupName) => {
-    const records = groupFiles.map(file => ({
-      id: `upload-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      file,
-      filename: file.name,
-      previewUrl: URL.createObjectURL(file),
-      remoteUrl: '',
-      status: 'waiting',
-      progress: 0,
-      error: '',
-    }));
-    const urls = records.map(record => record.previewUrl);
-    const cleanTitle = groupName === '新上传商品' ? groupFiles[0].name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ') : groupName.replace(/[_-]+/g, ' ');
-    const product = createPublishProduct({
-      blank: true,
-      categoryKey: publishState.defaultCategoryKey || publishState.products[0]?.categoryKey || 'unselected',
-      title: cleanTitle,
-      image: urls[0],
-      gallery: urls,
-      imageCount: 0,
-      uploads: records,
-      requiredCompleted: 0,
-      tradeReady: false,
-      logisticsReady: false,
-      shippingTemplate: '',
-      status: 'recognizing',
-    });
-    publishState.products.unshift(product);
-    created.push(product);
-  });
-  publishState.activeId = publishState.products[0].id;
-  renderProductPublish();
-  toast(`已按文件夹创建 ${groups.size} 个商品，正在上传图片`);
-  let succeeded = 0;
-  let failed = 0;
-  for (const product of created) {
-    for (const record of product.uploads) {
-      if (await uploadPublishImageRecord(product, record)) succeeded += 1;
-      else failed += 1;
-    }
-    product.status = publishProductStatus(product);
-  }
-  renderProductPublish();
-  toast(failed
-    ? `商品已创建：${succeeded} 张图片上传成功，${failed} 张需要处理`
-    : `${created.length} 个商品的 ${succeeded} 张图片已上传`, failed > 0);
 }
 
 /**
@@ -4201,7 +4381,8 @@ function openPublishConfirmation(options) {
     <div class="publish-confirm-list">${products.map(product => {
       const progress = publishAttributeProgress(product);
       const imageCount = [...new Set([product.image, ...(product.gallery || [])])].filter(isRemotePublishImage).length;
-      return `<article><img src="${esc(product.image)}" alt="" referrerpolicy="no-referrer"><div><b>${esc(product.title)}</b><span>${esc(product.category)} · ${imageCount} 张远程图 · 属性 ${progress.completed}/${progress.total}</span></div></article>`;
+      const detail = window.LsouPublishUtils.normalizePublishDetail(product.detail);
+      return `<article><img src="${esc(product.image)}" alt="" referrerpolicy="no-referrer"><div><b>${esc(product.title)}</b><span>${esc(product.category)} · 主图 ${imageCount} 张 · 属性 ${progress.completed}/${progress.total}</span><span>商详图 ${detail.detailImage.length} 张 · 公司图片 ${detail.companyImage.length} 张 · 问答 ${detail.faqs.filter(faq => faq.question || faq.answer).length} 条${detail.companyDesc ? ' · 含公司介绍' : ''}</span></div></article>`;
     }).join('')}</div>
     <div class="publish-confirm-warning"><i class="${action === 'draft' ? 'ri-draft-line' : 'ri-error-warning-line'}" aria-hidden="true"></i><div><b>即将调用真实 WorkCTL 发布流水线</b><p>${action === 'draft' ? '每个商品会经过发布前校验，并保存到国际站草稿箱。' : '每个商品会经过发布前校验后提交平台；提交成功不等于审核通过或已经在线。'} 单条失败不会阻塞后续商品，成功后会返回质量分。</p></div></div>
     <p id="publishPreflightError" class="publish-create-error" role="alert" hidden></p>
@@ -4283,7 +4464,6 @@ async function startPublishQueue(products, action, scope) {
       publishState.announcedResultOperationIds.delete(operationId);
     }
     publishState.queueCollapsed = false;
-    renderPublishStatus();
     renderPublishQueue();
     renderPublishOperationProgress();
     renderPublishBottomBar();
@@ -4314,7 +4494,7 @@ async function refreshPublishQueue(options = {}) {
     const payload = await response.json();
     if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
     publishState.queue = Array.isArray(payload.jobs) ? payload.jobs : [];
-    renderPublishStatus();
+    updatePublishOutcomeInsight();
     renderPublishTable();
     renderPublishQueue();
     renderPublishOperationProgress();
@@ -6860,11 +7040,23 @@ function bind() {
   $('#quickRange').onchange = e => renderTimePicker($('#tabs button[data-tab].on')?.dataset.tab || 'overview',e.target.value);
   $('#timeApply').onclick=applyTimeSelection;
   $('#btnReload').onclick = async () => {
-    if ($('#tab-product-publish').classList.contains('on')) { await refreshPublishSourceData(); return; }
-    const button=$('#btnReload');button.disabled=true;
-    try{const r=await fetch('/api/cache/refresh',{method:'POST'});const j=await r.json();if(!j.ok)throw new Error();await reloadAll();}
-    catch(_){toast('刷新未能启动，请稍后重试。',true);}
-    finally{button.disabled=false;}
+    const button = $('#btnReload');
+    button.disabled = true;
+    try {
+      // 发布页只刷新参考资料，保留当前编辑；所有刷新共用此入口并防止重复点击。
+      if ($('#tab-product-publish').classList.contains('on')) {
+        await refreshPublishSourceData();
+        return;
+      }
+      const response = await fetch('/api/cache/refresh', { method: 'POST' });
+      const payload = await response.json();
+      if (!payload.ok) throw new Error('刷新请求失败');
+      await reloadAll();
+    } catch (_) {
+      toast('刷新未能启动，请稍后重试。', true);
+    } finally {
+      button.disabled = false;
+    }
   };
   $('#btnClearCache').onclick = async () => {
     const r = await fetch('/api/cache/clear'); const j = await r.json();
@@ -6876,20 +7068,13 @@ function bind() {
   };
 
 
-  // 右侧动态按钮只处理当前商品；顶部和底部按钮只处理左侧勾选商品。
+  // 右侧动态按钮只处理当前商品；底部批量按钮只处理左侧勾选商品。
   // 四个入口共用同一真实 WorkCTL 串行队列，但各自保留明确范围和二次确认。
-  $('#publishCreateNew').onclick = () => openPublishCreation();
   $('#publishCreateFromList').onclick = () => openPublishCreation();
-  $('#publishImportFolder').onclick = () => $('#publishFolderInput').click();
-  $('#publishReadyTop').onclick = () => openPublishConfirmation({ scope: 'batch', action: 'publish' });
   $('#publishStartQueue').onclick = () => openPublishConfirmation({ scope: 'batch', action: 'publish' });
   $('#publishSaveDraft').onclick = () => openPublishConfirmation({ scope: 'batch', action: 'draft' });
   $('#publishFileInput').onchange = event => {
     handlePublishProductImages(event.target.files || []);
-    event.target.value = '';
-  };
-  $('#publishFolderInput').onchange = event => {
-    handlePublishFolderFiles(event.target.files || []);
     event.target.value = '';
   };
   $('#publishSearch').oninput = event => {

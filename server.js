@@ -19,7 +19,7 @@ const { createCapabilities } = require('./lib/capabilities');
 const TimePolicy = require('./public/time-policy');
 const { QueryCache } = require('./lib/query-cache');
 const { PublishReadCache } = require('./lib/publish-read-cache');
-const { MAX_PRODUCT_IMAGES } = require('./public/publish-product-utils');
+const { MAX_PRODUCT_IMAGES, normalizePublishDetail } = require('./public/publish-product-utils');
 const { createAiAdvisor } = require('./lib/ai-advisor');
 
 let PORT = Number(process.env.PORT || 8787);
@@ -307,6 +307,11 @@ const PUBLISH_IMAGE_LIBRARY_CACHE_FILE = path.join(
   PUBLISH_IMAGE_LIBRARY_CACHE_DIRECTORY,
   `publish-image-library-${PUBLISH_IMAGE_LIBRARY_SCOPE}.json`
 );
+// 只持久化已完成的回执，支持重启后继续按原商品号编辑；不存完整素材，不恢复或重放写任务。
+const PUBLISH_HISTORY_FILE = process.env.ACCIO_ACTIVE_SPACE || process.env.PUBLISH_HISTORY_CACHE_DIR
+  ? path.join(path.resolve(process.env.PUBLISH_HISTORY_CACHE_DIR || `${PUBLISH_IMAGE_LIBRARY_CACHE_DIRECTORY}-history`), `publish-history-${PUBLISH_IMAGE_LIBRARY_SCOPE}.json`) : null;
+let publishHistoryReady = null;
+let publishHistoryWriting = Promise.resolve();
 // 目录、类目、规格规则、交易选项及已选参考资料统一落盘；未识别账号时只存内存。
 const publishReadCache = new PublishReadCache({
   directory: path.resolve(process.env.PUBLISH_READ_CACHE_DIR || `${PUBLISH_IMAGE_LIBRARY_CACHE_DIRECTORY}-publish-data`),
@@ -2162,6 +2167,18 @@ function normalizePublishProduct(input, action, categorySchema = null) {
     .map(value => publishText(value, 40)).filter(Boolean).slice(0, 5))];
   const sellingPoints = (Array.isArray(input.sellingPoints) ? input.sellingPoints : [])
     .map(value => publishText(value, 200)).slice(0, 5);
+  const detail = normalizePublishDetail(input.detail);
+  /** @param {object[]} rows 已校验图片。@returns {object[]} 各图集分别编号的WorkCTL输入。@throws 无。 */
+  const detailImages = rows => {
+    const nextIndex = new Map();
+    return rows.map(image => {
+      const id = image.imageSetId || '';
+      const imageIndex = nextIndex.get(id) || 0;
+      nextIndex.set(id, imageIndex + 1);
+      return { imageIndex, newImageUrl: image.url, ...(image.text ? { imageText: image.text } : {}),
+        ...(id ? { imageSetId: id } : {}) };
+    });
+  };
   const issues = [];
 
   if (!localId) issues.push('缺少本地商品标识');
@@ -2271,6 +2288,10 @@ function normalizePublishProduct(input, action, categorySchema = null) {
     fulfillment,
     detail: {
       productSellingPoint: sellingPoints.filter(Boolean).join('\n'),
+      detailImage: detailImages(detail.detailImage),
+      companyDesc: detail.companyDesc,
+      companyImage: detailImages(detail.companyImage),
+      faqs: detail.faqs.map((faq, sortOrder) => ({ ...faq, sortOrder })),
     },
   };
   const encoded = JSON.stringify(material);
@@ -2697,6 +2718,104 @@ async function queryPublishAccountProductMaterial(productId) {
 }
 
 /**
+ * 从同一商品的完整详情提取规格属性名称，只访问 SKU 销售属性，不遍历描述或推荐商品。
+ * @param {*} rawData - query-product-by-id 返回的 data，可包含内嵌 JSON。
+ * @param {string} productId - 本次实际查询的商品号，仅用于校验来源。
+ * @returns {Array<[number,string]>} 属性 ID 与平台原始名称，不携带旧 SKU/商品编号。
+ * @throws {Error} 商品来源不匹配或 SKU 数据结构无效时抛出，不将查询失败缓存为空。
+ */
+function readPublishSkuNames(rawData, productId) {
+  const data = parseEmbeddedWorkctlData(rawData);
+  const product = parseEmbeddedWorkctlData(data?.productQueryResult);
+  if (String(product?.productId) !== String(productId) || !Array.isArray(product.skuList)) {
+    throw new Error('参考商品规格名称读取失败，请重新读取参考商品');
+  }
+  const names = new Map();
+  const conflicting = new Set();
+  for (const sku of product.skuList) {
+    for (const attr of Array.isArray(sku?.salePropertyPairList) ? sku.salePropertyPairList : []) {
+      const id = Number(attr?.propertyId);
+      const name = publishText(localizedTitle(attr?.propertyText), 120);
+      if (!Number.isSafeInteger(id) || id <= 0 || !name || /^p-\d+$/.test(name)) continue;
+      // 同一属性出现互相矛盾的名称时保留原资料，不能任取最后一条覆盖。
+      if (names.has(id) && names.get(id) !== name) conflicting.add(id);
+      names.set(id, name);
+    }
+  }
+  return [...names].filter(([id]) => !conflicting.has(id));
+}
+
+/**
+ * 仅为占位名称补读完整商品详情；已有参考缓存也能升级，正常名称不增加查询。
+ * @param {string} productId - 服务端参考令牌对应的真实商品号。
+ * @param {object} material - 已裁剪的参考商品资料，原对象及缓存不被修改。
+ * @returns {Promise<object>} 名称补齐的参考资料，编码、库存、价格和空值全部原样保留。
+ * @throws {Error} 必要的只读查询失败时抛出，允许用户重试。
+ */
+async function completePublishSkuNames(productId, material) {
+  const skus = material.trade?.sku || [];
+  const missingName = attr => !attr.attrName || attr.attrName === `p-${attr.attrNameId}`;
+  if (!skus.some(sku => sku.skuAttributes.some(missingName))) return material;
+  const entries = await publishReadCache.read(`sku-names:v1:${productId}`, async () => {
+    const result = await runWorkctl(['icbu', 'product', 'query-product-by-id', '--prod-id', String(productId),
+      '--format', 'json', '--compact-output', 'off'], 30000);
+    let ok = false;
+    try {
+      if (!result.ok || result.parsed?.success === false) throw new Error('参考商品规格名称读取失败，请重试');
+      const names = readPublishSkuNames(result.parsed?.data, productId);
+      ok = true;
+      return names;
+    } finally {
+      pushLog({ ts: new Date().toISOString(), label: '补齐参考商品规格名称',
+        cmd: 'workctl icbu product query-product-by-id --prod-id [redacted]', ms: result.durationMs, cached: false, ok });
+    }
+  });
+  const names = new Map(entries);
+  return { ...material, trade: { ...material.trade, sku: skus.map(sku => ({ ...sku,
+    skuAttributes: sku.skuAttributes.map(attr => ({ ...attr,
+      attrName: missingName(attr) ? names.get(Number(attr.attrNameId)) || attr.attrName : attr.attrName,
+    })),
+  })) } };
+}
+
+/**
+ * 按需读取并缓存可发布的结构化详情；独立版本键让旧参考缓存补齐新字段而无需全店刷新。
+ * @param {string} productId 经服务端解析的参考商品号。
+ * @returns {Promise<object>} 商详图、图注、公司介绍/图片和问答，不包含旧页面或组件 ID。
+ * @throws {Error} 上游失败、结构缺失或不可用图片会报错，不把失败缓存成空详情。
+ */
+async function queryPublishProductDetail(productId) {
+  return publishReadCache.read(`detail:v2:${productId}`, async () => {
+    const result = await runWorkctlWithJsonFile(['icbu', 'product', 'list-information'], {
+      productId: Number(productId), queryType: 'trunk',
+      componentList: ['detailImage', 'companyDesc', 'companyImage', 'faqs'],
+    }, 'lsou-workctl-publish-detail-');
+    const data = parseEmbeddedWorkctlData(result.parsed?.data);
+    const source = data?.agentModel?.detail ?? data?.detail;
+    if (!result.ok || result.parsed?.success === false || !source || typeof source !== 'object' || Array.isArray(source)) {
+      throw new Error('参考商品详情读取失败，请重试');
+    }
+    // imageIndex 会在原商品不同 imageSetId 内从 0 重排；必须沿用响应顺序，不能全局按 index 排序。
+    const images = key => (source[key] || []).map(item => ({
+      url: item.originalImageUrl || item.newImageUrl || item.imageUrl || '', text: item.imageText || '',
+      ...(item.imageSetId != null && item.imageSetId !== '' ? { imageSetId: String(item.imageSetId) } : {}),
+    }));
+    const detail = normalizePublishDetail({
+      detailImage: images('detailImage'), companyImage: images('companyImage'),
+      companyDesc: source.companyDesc || '',
+      faqs: [...(source.faqs || [])].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+        .map(item => ({ question: item.question || '', answer: item.answer || '' })),
+    });
+    pushLog({ ts: new Date().toISOString(), label: '读取参考商品详情', cmd: 'workctl icbu product list-information --query-type trunk --component-list [detail-fields]',
+      ms: result.durationMs, cached: false, ok: true });
+    return detail;
+  }).catch(error => {
+    pushLog({ ts: new Date().toISOString(), label: '参考商品详情读取失败', cmd: 'publish detail read', ms: 0, cached: false, ok: false });
+    throw error;
+  });
+}
+
+/**
  * 递归检查 WorkCTL 业务载荷中的失败布尔值和负状态码。
  *
  * 与“取第一个字段”不同，这里必须遍历全部分支：响应中某个摘要字段为 true，
@@ -2936,6 +3055,55 @@ function publicPublishJob(job) {
 }
 
 /**
+ * 恢复当前账号已完成的发布回执；未完成任务一律不加载，避免重启触发重复发品。
+ * @returns {Promise<void>} 回执已进入历史列表；损坏文件记录错误，不触发任何平台调用。
+ * @throws {Error} 文件异常内部记录，保留服务可用性。
+ */
+async function restorePublishHistory() {
+  if (!publishHistoryReady) publishHistoryReady = (async () => {
+    if (!PUBLISH_HISTORY_FILE) return;
+    try {
+      const saved = JSON.parse(await fs.promises.readFile(PUBLISH_HISTORY_FILE, 'utf8'));
+      if (saved.version !== 1 || !Array.isArray(saved.jobs)) throw new Error('历史格式不正确');
+      for (const record of saved.jobs.slice(-MAX_PUBLISH_JOBS)) {
+        if (!record || typeof record.id !== 'string' || !['saved_draft', 'submitted', 'failed'].includes(record.status)) continue;
+        if (publishJobs.some(job => job.id === record.id)) continue;
+        const job = publicPublishJob(record);
+        // 仅恢复回执，没有 material 的失败任务不能再次入队。
+        job.retryable = false;
+        job.canFixAndRetry = false;
+        publishJobs.push(job);
+      }
+      pushLog({ ts: new Date().toISOString(), label: '恢复发布历史', cmd: 'local publish history', ok: true, cached: true, ms: 0 });
+    } catch (error) {
+      if (error.code !== 'ENOENT') pushLog({ ts: new Date().toISOString(), label: '恢复发布历史失败', cmd: 'local publish history', ok: false, err: '历史文件不可读取', ms: 0 });
+    }
+  })();
+  await publishHistoryReady;
+}
+
+/**
+ * 串行原子保存本账号终态回执；不保存商品素材、短期引用或凭据。
+ * @returns {Promise<void>} 保存完成；失败记录日志并保留内存历史。
+ * @throws {Error} 文件错误内部处理，不改变已经得到的平台结果。
+ */
+async function persistPublishHistory() {
+  if (!PUBLISH_HISTORY_FILE) return;
+  publishHistoryWriting = publishHistoryWriting.then(async () => {
+    const temporary = `${PUBLISH_HISTORY_FILE}.${crypto.randomUUID()}.tmp`;
+    try {
+      const jobs = publishJobs.filter(job => ['saved_draft', 'submitted', 'failed'].includes(job.status)).slice(-MAX_PUBLISH_JOBS).map(publicPublishJob);
+      await fs.promises.mkdir(path.dirname(PUBLISH_HISTORY_FILE), { recursive: true });
+      await fs.promises.writeFile(temporary, JSON.stringify({ version: 1, jobs }), { mode: 0o600 });
+      await fs.promises.rename(temporary, PUBLISH_HISTORY_FILE);
+    } catch {
+      pushLog({ ts: new Date().toISOString(), label: '保存发布历史失败', cmd: 'local publish history', ok: false, err: '历史暂存于当前进程', ms: 0 });
+    } finally { await fs.promises.unlink(temporary).catch(() => {}); }
+  });
+  await publishHistoryWriting;
+}
+
+/**
  * 串行消费真实 WorkCTL 发品队列。
  *
  * 单个任务失败后继续处理下一条；由于真实发品非幂等，本函数不会
@@ -3003,6 +3171,7 @@ async function processPublishQueue() {
         });
       }
       job.finishedAt = new Date().toISOString();
+      await persistPublishHistory();
       job = publishJobs.find(item => item.status === 'queued');
     }
   } finally {
@@ -3083,6 +3252,7 @@ async function validatePublishProductSchema(product, action) {
  * @throws {Error} 确认缺失、参数无效或商品校验失败时抛出可读错误。
  */
 async function enqueuePublishJobs(body) {
+  await restorePublishHistory();
   if (body?.confirmed !== true || body?.acknowledgement !== PUBLISH_ACKNOWLEDGEMENT) {
     throw new Error('真实写操作必须在确认弹窗中明确确认');
   }
@@ -3937,8 +4107,10 @@ const server = http.createServer(async (req, res) => {
       if (!isAllowedPublishOrigin(req)) return sendJSON(res, 403, { ok: false, error: '拒绝非同源参考商品请求' });
       try {
         const body = await readJsonBody(req, 16 * 1024);
-        const reference = await queryPublishReference(body?.reference);
-        return sendJSON(res, 200, { ok: true, reference });
+        const [reference, detail] = await Promise.all([
+          queryPublishReference(body?.reference), queryPublishProductDetail(extractReferenceProductId(body?.reference)),
+        ]);
+        return sendJSON(res, 200, { ok: true, reference: { ...reference, detail } });
       } catch (error) {
         return sendJSON(res, 400, { ok: false, error: publishText(error?.message || error, 600) });
       }
@@ -3950,21 +4122,24 @@ const server = http.createServer(async (req, res) => {
       try {
         const body = await readJsonBody(req, 16 * 1024);
         const productId = resolvePublishAccountReferenceKey(body?.referenceKey);
-        const [[reference, sourceMaterial], images] = await Promise.all([
+        const [[reference, sourceMaterial], images, detail] = await Promise.all([
           publishReadCache.read(`reference:${productId}`, () => Promise.all([
             queryPublishReference(productId), queryPublishAccountProductMaterial(productId),
           ])),
           getPublishAccountImageLibrary(productId),
+          queryPublishProductDetail(productId),
         ]);
+        const material = await completePublishSkuNames(productId, sourceMaterial);
         return sendJSON(res, 200, {
           ok: true,
           reference: {
             ...reference,
-            ...sourceMaterial,
-            title: sourceMaterial.title || reference.title,
-            categoryId: sourceMaterial.categoryId || reference.categoryId,
+            ...material,
+            title: material.title || reference.title,
+            categoryId: material.categoryId || reference.categoryId,
             texts: reference.texts,
             images,
+            detail,
           },
         });
       } catch (error) {
@@ -3974,11 +4149,30 @@ const server = http.createServer(async (req, res) => {
 
     // --- API: 真实产品发布队列（只允许同源 JSON 请求）
     if (p === '/api/publish/jobs' && req.method === 'GET') {
+      await restorePublishHistory();
       return sendJSON(res, 200, {
         ok: true,
         running: publishWorkerRunning,
         jobs: publishJobs.slice(-100).reverse().map(publicPublishJob),
       });
+    }
+
+    // 历史编辑按已保存回执定位，仅只读 WorkCTL；成功后接入原商品 patch/submit 流程。
+    const publishEditMatch = p.match(/^\/api\/publish\/jobs\/([\w-]+)\/edit$/);
+    if (publishEditMatch && req.method === 'POST') {
+      if (!isAllowedPublishOrigin(req)) return sendJSON(res, 403, { ok: false, error: '拒绝非同源请求' });
+      try {
+        const body = await readJsonBody(req);
+        if (!body || Array.isArray(body) || Object.keys(body).length) throw new Error('通过历史记录选择商品，不接受额外商品编号');
+        await restorePublishHistory();
+        const job = publishJobs.find(item => item.id === publishEditMatch[1]);
+        if (!job) return sendJSON(res, 404, { ok: false, error: '这条发布历史已不存在，请重新打开历史列表' });
+        if (!['saved_draft', 'submitted'].includes(job.status)) throw new Error('这条任务没有成功的商品回执，请返回待发布列表修改');
+        const result = await operations.readProductForEdit(job);
+        return sendJSON(res, 200, { ok: true, ...result });
+      } catch (error) {
+        return sendJSON(res, 400, { ok: false, error: publishText(error?.message || error, 600) });
+      }
     }
 
     if (p === '/api/publish/enqueue' && req.method === 'POST') {

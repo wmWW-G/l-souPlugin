@@ -165,22 +165,14 @@
   <!-- ================= 产品发布：批量素材、字段校对与顺序发布队列 ================= -->
   <section class="tab product-publish-page" id="tab-product-publish" aria-label="产品发布">
     <input id="publishFileInput" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp" multiple>
-    <input id="publishFolderInput" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp" multiple webkitdirectory directory>
 
-    <div class="publish-command-row">
-      <div class="publish-status-strip" id="publishStatusStrip" aria-label="发布处理状态"></div>
-      <div class="publish-page-actions">
-        <button id="publishCreateNew" class="primary" type="button"><i class="ri-add-line" aria-hidden="true"></i>发布新产品</button>
-        <button id="publishImportFolder" type="button"><i class="ri-folder-upload-line" aria-hidden="true"></i>导入图片文件夹</button>
-        <button id="publishReadyTop" class="primary" type="button"><i class="ri-send-plane-2-line" aria-hidden="true"></i><span>批量发布已选</span></button>
-      </div>
-    </div>
-
-    <div class="publish-cache-bar" aria-live="polite">
-      <span id="publishCacheStatus">首次读取后自动保存到本地</span>
+    <section class="publish-bottom-bar publish-top-bar" aria-label="发布操作栏">
+      <div class="publish-bottom-summary"><i class="ri-checkbox-circle-fill" aria-hidden="true"></i><div><b id="publishReadySummary">正在检查商品</b><span>以下按钮只处理左侧勾选项；提交真实写操作前会再次确认。</span></div></div>
       <button id="publishHistory" type="button"><i class="ri-history-line" aria-hidden="true"></i>发布历史</button>
-      <button id="publishRefreshSources" type="button" title="重新读取店铺商品、类目和参考资料，保留已填写的商品">更新店铺资料</button>
-    </div>
+      <button id="publishSaveDraft" type="button">批量保存草稿</button>
+      <button id="publishStartQueue" class="primary" type="button">批量发布</button>
+    </section>
+    <span id="publishCacheStatus" class="publish-source-status" aria-live="polite" hidden></span>
 
     <section id="publishOperationProgress" class="card publish-operation-progress" aria-live="polite" hidden>
       <div class="publish-operation-head">
@@ -230,12 +222,7 @@
       </aside>
     </div>
 
-    <section class="publish-bottom-bar" aria-label="发布操作栏">
-      <div class="publish-bottom-summary"><i class="ri-checkbox-circle-fill" aria-hidden="true"></i><div><b id="publishReadySummary">正在检查商品</b><span>以下按钮只处理左侧勾选项；提交真实写操作前会再次确认。</span></div></div>
-      <label class="publish-queue-policy"><span>队列模式</span><select id="publishQueuePolicy" aria-label="发布队列模式"><option value="sequential">逐条发布 · 每次间隔至少 1 秒</option></select></label>
-      <button id="publishSaveDraft" type="button">批量保存草稿</button>
-      <button id="publishStartQueue" class="primary" type="button">批量发布</button>
-    </section>
+
   </section>
 
   <!-- ================= 流量与市场机会 ================= -->

@@ -1,7 +1,7 @@
 /* 国际站五条运营能力：业务表单与实际查询/任务分离。 */
 'use strict';
 (() => {
-  const state = { jobs: [], selected: {}, conversation: null, cursor: null, messageCursor: null, productQuery: '', productPage: 1 };
+  const state = { jobs: [], editJobRefs: new Map(), selected: {}, conversation: null, cursor: null, messageCursor: null, productQuery: '', productPage: 1 };
   const labels = {
     attr: '商品属性', attrName: '属性名称', attrValue: '属性值', trade: '价格与交易', fulfillment: '包装与履约', pkgLength: '包装长度', pkgWidth: '包装宽度', pkgHeight: '包装高度', priceUnit: '计价单位代码', saleType: '销售方式', ladderPrices: '阶梯价格', minQuantity: '起订数量', unitPrice: '单价', moq: '最小起订量', inventory: '库存', ladderPeriod: '交期', quantity: '数量', period: '天数', pkgWeight: '包装重量', pkgMeasure: '包装尺寸', logisticsProperty: '物流属性', shippingTemplate: '运费模板', basic: '基础信息修改', detail: '详情修改', originalImageUrl: '原始图片', operationType: '操作方式', abilityCode: '创作能力', prompt: '创作要求', hexColor: '目标颜色', modelImageUrl: '参考模特', targetLang: '目标语言', userInput: '视频要求', inputImgUrls: '参考图片',
     finalStar: '当前星等级', displayLevelStar: '展示星级', pageLevelStar: '评定星级', trackList: '评定赛道', trackName: '赛道名称', abilityList: '经营能力', abilityName: '能力名称', adviceList: '平台提升建议', indicatorList: '指标明细', thresholdList: '达标门槛', thresholdAllReached: '门槛全部达标', progress: '进度', alert: '预警', tips: '提示',
@@ -203,6 +203,7 @@
         busy = true; go.disabled = true;
         try {
           const response = await request('jobs', { action: operation, params, productRef: ref, idempotencyKey: key, confirmed: true, acknowledgement: 'CONFIRM_OPERATIONS_WRITE' });
+          if (ref && response.job?.id) state.editJobRefs.set(response.job.id, ref);
           finish(response.job); await refreshJobs();
         } catch (e) { dialog.querySelector('.ops-error').textContent = `${e.message}。再次点击会复用本次请求标识。`; }
         finally { busy = false; go.disabled = !dialog.querySelector('input')?.checked; }
@@ -215,7 +216,8 @@
     const response = await request('jobs'); state.jobs = response.jobs;
     document.querySelectorAll('.ops-jobs').forEach(root => {
       const filter = root.dataset.kind;
-      const rows = state.jobs.filter(j => filter === 'assets' ? /^(image|video|storyboard)/.test(j.action) : !/^(image|video|storyboard)/.test(j.action));
+      const rows = state.jobs.filter(j => filter === 'current-product' ? state.editJobRefs.get(j.id) === state.selected.optimize?.ref
+        : filter === 'assets' ? /^(image|video|storyboard)/.test(j.action) : !/^(image|video|storyboard)/.test(j.action));
       root.innerHTML = rows.length ? rows.map(job => `<article class="ops-job"><div><strong>${escape(job.label)}</strong><span class="ops-badge ${job.status}">${escape(statusLabels[job.status] || job.status)}</span></div><p>${escape(job.title)}</p><p>${escape(job.message)}</p><small>${escape(new Date(job.createdAt).toLocaleString())} · ${job.completedSteps}/${job.totalSteps} 步</small>${job.pollError ? `<p class="ops-error">结果查询：${escape(job.pollError)}；可再次查询，不会重复创建任务。</p>` : ''}<div class="ops-media">${(job.urls || []).map(link => job.action === 'video' ? `<video src="${escape(url(link))}" controls preload="metadata"></video><a href="${escape(url(link))}" target="_blank" rel="noopener">打开视频</a>` : `<a href="${escape(url(link))}" target="_blank" rel="noopener"><img src="${escape(url(link))}" alt="生成结果" loading="lazy"></a>`).join('')}</div><div class="ops-actions">${job.canPoll ? `<button class="ghost" data-poll="${job.id}">查询生成结果</button>` : ''}${job.action === 'save-edit' && job.status === 'succeeded' ? `<button class="primary" data-submit-edit="${job.id}">确认提交此草稿</button>` : ''}${job.action === 'storyboard' && job.status === 'succeeded' ? `<button class="ghost" data-use-storyboard="${job.id}">带入分镜编辑器</button>` : ''}</div>${job.result ? `<details><summary>查看平台完整结果</summary>${facts(job.result)}</details>` : ''}</article>`).join('') : '<p class="ops-muted">暂无任务。确认操作后，这里显示进度与平台结果。</p>';
       root.querySelectorAll('[data-poll]').forEach(button => action(button, async () => { await request(`jobs/${button.dataset.poll}/poll`, {}); await refreshJobs(); }));
       root.querySelectorAll('[data-submit-edit]').forEach(button => action(button, async () => {
@@ -460,11 +462,12 @@
     footer.innerHTML = '<span>修改当前商品<small>保存草稿后，仍需单独确认提交</small></span>';
     footer.appendChild(root.querySelector('.ops-save').closest('.ops-actions'));
     footer.appendChild(root.querySelector('.ops-edit-error')); root.appendChild(footer);
+    form.insertAdjacentHTML('beforeend', '<section class="ops-publish-section"><h3>本次编辑任务</h3><div class="ops-jobs" data-kind="current-product"></div></section>');
     let loadVersion = 0, baseline = {}, loadedRef = null;
     /** 读取当前商品并填充编辑字段。版本号隔离快速切换，加载中禁用保存。
      * @param {string} version trunk 线上或 draft 草稿。@returns {Promise<void>}。@throws 无，错误就地展示。
      */
-    const info = async version => {
+    const info = async (version, prefetched = null) => {
       const ref = productRef('optimize'), sequence = ++loadVersion;
       loadedRef = null; baseline = {};
       root.querySelectorAll('[class^=ops-read-]').forEach(area => { area.innerHTML = '<p class="ops-muted">正在读取当前资料…</p>'; });
@@ -473,9 +476,11 @@
       fields.forEach(field => { field.disabled = true; field.value = ''; });
       result.innerHTML = '<p class="ops-muted">正在读取标题、图片、属性、交易与履约信息…</p>';
       try {
-        const response = await read('product-info', { productRef: ref, queryType: version });
+        const response = prefetched || await read('product-info', { productRef: ref, queryType: version }, true);
         if (state.selected.optimize?.ref !== ref || sequence !== loadVersion) return;
-        const data = response.data || {}, basic = data.basicInfo || {}, detail = data.detail || {};
+        const data = response.data?.agentModel || response.data || {};
+        if (!data.basicInfo || !Object.keys(data.basicInfo).length) throw new Error('WorkCTL 未返回可编辑的商品资料');
+        const basic = data.basicInfo, detail = data.detail || {};
         for (const key of ['productTitle', 'productKeywords', 'productSellingPoint', 'companyDesc']) {
           const value = key in basic ? basic[key] : detail[key];
           baseline[key] = typeof value === 'string' ? value : Array.isArray(value) && value.every(item => typeof item === 'string') ? value.join('\n') : '';
@@ -511,7 +516,7 @@
     };
     root.loadProductInfo = info;
     root.querySelector('.ops-original').onclick = () => { void info('trunk'); };
-    root.querySelector('.ops-draft').onclick = () => { void info('draft'); };
+    root.querySelector('.ops-draft').onclick = () => { void info('draftFirst'); };
     const scoreResult = document.createElement('div'); scoreResult.className = 'ops-score-result'; result.after(scoreResult);
     action(root.querySelector('.ops-score'), () => query(scoreResult, 'product-score', { productRef: productRef('optimize') }), scoreResult);
     action(root.querySelector('.ops-save'), async () => {
@@ -808,13 +813,17 @@
     button.addEventListener('click', loadStars);
     window.overviewStarsReady = loadStars();
   }
-  /** 四象限商品直接进入编辑弹窗；限时引用由服务端完整商品分析发放。 */
-  document.addEventListener('click', event => {
-    const button = event.target.closest('[data-ops-product-ref]');
-    if (!button || button.disabled || !button.dataset.opsProductRef) return;
+  /**
+   * 用已验证的商品引用打开原商品编辑器，保留底下的历史列表和发布工作区。
+   * @param {object} product 服务端发放的 ref 与 title。
+   * @param {object|null} prefetched 历史入口已通过WorkCTL读取的资料，避免重复读取。
+   * @returns {void} 打开编辑器；保存仍走已有商品patch，发布仍需单独确认。
+   * @throws {Error} DOM初始化异常交给调用入口显示。
+   */
+  function openProductEditor(product, prefetched = null) {
     optimize();
     const editor = document.querySelector('#ops-optimize');
-    state.selected.optimize = {ref: button.dataset.opsProductRef, title: button.dataset.opsProductTitle};
+    state.selected.optimize = product;
     editor.querySelector('.ops-edit-selected').textContent = `正在修改：${state.selected.optimize.title}`;
     editor.querySelector('.ops-original-result').innerHTML = '';
     editor.querySelector('.ops-edit-error').textContent = '';
@@ -822,7 +831,38 @@
     document.querySelector('#productEditDialog').showModal();
     editor.querySelector('.ops-edit-form').scrollTop = 0;
     editor.querySelector('.ops-score-result').innerHTML = '';
-    void editor.loadProductInfo('trunk');
+    void editor.loadProductInfo(prefetched ? 'draftFirst' : 'trunk', prefetched);
+    void refreshJobs().catch(() => {});
+  }
+  let historyEditLoading = false;
+  /** 历史条目先只读原商品，读取失败就地提示；参数只提交历史ID，不能由浏览器替换商品号。 */
+  document.addEventListener('click', async event => {
+    const historical = event.target.closest('[data-publish-edit-job]');
+    if (historical) {
+      if (historical.disabled || historyEditLoading) return;
+      historyEditLoading = true;
+      const label = historical.querySelector('small');
+      const errorArea = historical.closest('article').querySelector('[data-publish-edit-error]');
+      historical.disabled = true;
+      errorArea.textContent = '';
+      label.textContent = '正在读取商品…';
+      try {
+        const response = await fetch(`/api/publish/jobs/${encodeURIComponent(historical.dataset.publishEditJob)}/edit`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) throw new Error(payload.error || '商品读取失败，请重试');
+        // 用户可能已关闭或切换历史弹窗；迟到的只读结果不能抢回焦点。
+        if (!historical.isConnected || !document.querySelector('#modal.on')) return;
+        if (!payload.product?.ref) throw new Error('未取得原商品编辑引用，请重试');
+        openProductEditor(payload.product, payload);
+      } catch (error) { if (historical.isConnected) errorArea.textContent = String(error.message || error); }
+      finally { historyEditLoading = false; historical.disabled = false; label.textContent = '继续编辑'; }
+      return;
+    }
+    const button = event.target.closest('[data-ops-product-ref]');
+    if (!button || button.disabled || !button.dataset.opsProductRef) return;
+    openProductEditor({ ref: button.dataset.opsProductRef, title: button.dataset.opsProductTitle });
   });
   // 扩展区立即显示，原有数据查询独立运行，不让慢接口阻塞新增交互。
   LOADERS.orders = orders; LOADERS.risk = risk; LOADERS.assets = assets;
@@ -832,7 +872,7 @@
   // app.js 的启动查询可能先完成；此处兼容已经激活的页面。
   for (const [tab, install] of [['product', optimize], ['visitor', customers], ['market', insights], ['overview', stars]]) if (document.querySelector(`#tab-${tab}.on`)) install();
   setInterval(() => {
-    if (document.hidden || !document.querySelector('#tab-assets.on,#tab-product.on')) return;
+    if (document.hidden || !document.querySelector('#tab-assets.on,#tab-product.on,#productEditDialog[open]')) return;
     refreshJobs().then(async () => {
       const active = state.jobs.filter(job => job.canPoll).slice(0, 2);
       for (const job of active) await request(`jobs/${job.id}/poll`, {}).catch(() => {});

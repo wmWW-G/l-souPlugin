@@ -48,7 +48,7 @@ async function fixture(t) {
     if (old === undefined) delete process.env.OPERATIONS_STATE_DIR; else process.env.OPERATIONS_STATE_DIR = old;
     await fs.rm(tmp, { recursive: true, force: true });
   });
-  return { request, until, calls, registerProduct: row => operations.registerProduct(row), setOverride: fn => { override = fn; }, restart: async () => { await new Promise(resolve => service.close(resolve)); await start(); } };
+  return { request, until, calls, registerProduct: row => operations.registerProduct(row), readProductForEdit: row => operations.readProductForEdit(row), setOverride: fn => { override = fn; }, restart: async () => { await new Promise(resolve => service.close(resolve)); await start(); } };
 }
 /** 形成最终确认请求。@param {string} action 动作。@param {object} params 参数。@param {string} productRef 引用。@returns {object} 请求。@throws 无。 */
 function confirmed(action, params, productRef) { return { action, params, productRef, idempotencyKey: crypto.randomUUID(), confirmed: true, acknowledgement: 'CONFIRM_OPERATIONS_WRITE' }; }
@@ -147,6 +147,28 @@ test('四象限商品引用区分同名商品并拒绝无效编号', async t => 
   const response = await f.request('read', {action: 'product-info', params: {productRef: second, queryType: 'trunk'}});
   assert.equal(response.ok, true);
   assert.equal(f.calls.at(-1).params.productId, 222222);
+});
+
+test('发布历史按原商品读取草稿并原位保存，不创建新商品，缺失记录不能进入编辑', async t => {
+  const f = await fixture(t);
+  f.setOverride(call => call.command.endsWith('list-information') ? { ok: true, parsed: { success: true,
+    data: JSON.stringify({ basicInfo: { productTitle: 'Saved draft', productKeywords: 'original keyword' }, categoryId: 789 }) } } : null);
+  const loaded = await f.readProductForEdit({ productId: 222222, title: 'Historical title' });
+  assert.equal(loaded.product.title, 'Saved draft');
+  assert.equal(f.calls.at(-1).params.productId, 222222);
+  assert.equal(f.calls.at(-1).params.queryType, 'draftFirst');
+  assert.equal(f.calls.at(-1).yes, false);
+  assert.equal(loaded.product.productId, undefined);
+  const saved = await f.request('jobs', confirmed('save-edit', { basic: { productTitle: 'Edited existing draft' } }, loaded.product.ref));
+  assert.equal((await f.until(saved.job.id)).status, 'succeeded');
+  assert.equal(f.calls.at(-1).command, 'icbu product product-edit-draft-basic-info');
+  assert.equal(f.calls.at(-1).params.productId, 222222);
+  assert.equal(f.calls.some(call => call.command.includes('publish-from-json')), false);
+  for (const data of ['Record does not exist.', null, {}, { basicInfo: {} }, { basicInfo: 'invalid' }]) {
+    f.setOverride(() => ({ ok: true, parsed: { success: true, data } }));
+    await assert.rejects(f.readProductForEdit({ productId: 333333 }), /记录不存在|未返回可编辑/);
+  }
+  await assert.rejects(f.readProductForEdit({ productId: 'invalid' }), /商品编号/);
 });
 
 

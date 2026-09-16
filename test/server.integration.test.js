@@ -261,6 +261,14 @@ if (args.includes('query-template-info-by-id')) {
   process.stdout.write(JSON.stringify({ success: true, data: { status: 'done' } }));
   process.exit(0);
 }
+if (args.includes('query-product-by-id')) {
+  process.stdout.write(JSON.stringify({ success: true, data: JSON.stringify({ productQueryResult: {
+    productId: 1600009001, skuList: [{ skuId: 900123, salePropertyPairList: [
+      { propertyId: 10, propertyText: { defaultText: 'Color' }, valueText: { defaultText: 'Red' } }
+    ] }]
+  } }) }));
+  process.exit(0);
+}
 const fileIndex = args.indexOf('--json-file');
 if (fileIndex >= 0) {
   const params = JSON.parse(fs.readFileSync(args[fileIndex + 1], 'utf8'));
@@ -285,6 +293,17 @@ if (fileIndex >= 0) {
       }));
       process.exit(0);
     }
+    if (Array.isArray(params.componentList) && params.componentList.includes('companyImage')) {
+      process.stdout.write(JSON.stringify({ success: true, data: JSON.stringify({ agentModel: {}, detail: {
+        detailImage: [
+          { imageIndex: 0, imageSetId: '110', originalImageUrl: 'https://cdn.example.com/d1.jpg', imageText: 'First' },
+          { imageIndex: 1, imageSetId: '110', originalImageUrl: 'https://cdn.example.com/d2.jpg' },
+          { imageIndex: 0, imageSetId: '200', originalImageUrl: 'https://cdn.example.com/d3.jpg', imageText: 'Third' }
+        ], companyDesc: 'Real company introduction',
+        companyImage: [{ imageIndex: 0, originalImageUrl: 'https://cdn.example.com/factory.jpg', imageText: 'Factory' }],
+        faqs: [{ question: 'Later?', answer: 'Second', sortOrder: 2 }, { question: 'First?', answer: 'Yes', sortOrder: 1 }]
+      } }) })); process.exit(0);
+    }
     if (Array.isArray(params.componentList) && params.componentList.includes('attr')) {
       process.stdout.write(JSON.stringify({
         success: true,
@@ -299,7 +318,7 @@ if (fileIndex >= 0) {
             saleType: 'normal', moq: 10, inventory: 280, priceUnit: 4,
             ladderPrices: [{ ladderIndex: 0, minQuantity: 10, unitPrice: 25.85 }],
             sku: [{ skuId: 900123, skuCode: 'RED', stock: 280, unitPrice: 25.85,
-              skuAttributes: [{ attrNameId: 10, attrName: 'Color', attrValueId: 11, attrValue: 'Red', imageUrl: null }] }]
+              skuAttributes: [{ attrNameId: 10, attrName: 'p-10', attrValueId: 11, attrValue: 'Red', imageUrl: null }] }]
           },
           fulfillment: {
             ladderPeriod: [{ ladderIndex: 0, quantity: 500, period: 5 }],
@@ -375,6 +394,12 @@ if (material.materialVersion || !material.basicInfo || !material.trade || !mater
       (material.trade.priceUnit !== 4 || material.fulfillment.shippingTemplateId !== 4001))) {
   process.stdout.write(JSON.stringify({ success: false, error: { message: 'invalid platform material shape' } }));
   process.exit(0);
+}
+if (material.detail.detailImage?.length !== 7 || material.detail.detailImage.some((image, i) =>
+    image.imageIndex !== (i < 3 ? i : i - 3) || image.newImageUrl !== 'https://cdn.example.com/detail-' + i + '.jpg' || image.imageText !== 'Detail ' + i || image.imageSetId !== (i < 3 ? '200' : '350')) ||
+    material.detail.companyDesc !== 'Company introduction' || material.detail.companyImage?.[0]?.imageText !== 'Factory' ||
+    material.detail.faqs?.[0]?.answer !== '10 pieces' || material.detail.faqs?.[0]?.sortOrder !== 0) {
+  process.stdout.write(JSON.stringify({ success: false, error: { message: 'detail lost before WorkCTL' } })); process.exit(0);
 }
 const title = material.basicInfo.productTitle;
 fs.appendFileSync(${JSON.stringify(eventLog)}, 'start:' + publishType + ':' + title + '\\n');
@@ -516,6 +541,15 @@ process.stdout.write(JSON.stringify({
     { attrNameId: 2, attrName: 'Applicable People', attrValueId: 22, attrValue: 'Unisex' },
   ]);
   assert.deepEqual(accountReferenceBody.reference.keywords, ['smart watch', 'health watch']);
+  assert.deepEqual(accountReferenceBody.reference.detail.detailImage, [
+    { url: 'https://cdn.example.com/d1.jpg', text: 'First', imageSetId: '110' },
+    { url: 'https://cdn.example.com/d2.jpg', text: '', imageSetId: '110' },
+    { url: 'https://cdn.example.com/d3.jpg', text: 'Third', imageSetId: '200' },
+  ]);
+  assert.equal(accountReferenceBody.reference.detail.companyDesc, 'Real company introduction');
+  assert.equal(accountReferenceBody.reference.detail.companyImage[0].text, 'Factory');
+  assert.deepEqual(accountReferenceBody.reference.detail.faqs.map(faq => faq.question), ['First?', 'Later?']);
+
   assert.deepEqual(accountReferenceBody.reference.trade, {
     saleType: 'normal',
     batchNum: null,
@@ -688,6 +722,9 @@ process.stdout.write(JSON.stringify({
       { attrNameId: 210194090, attrName: 'Function', attrValueId: -1, attrValue: functionValues },
     ],
     sellingPoints: ['Point 1', 'Point 2', 'Point 3', 'Point 4', 'Point 5'],
+    detail: { detailImage: Array.from({ length: 7 }, (_, i) => ({ url: `https://cdn.example.com/detail-${i}.jpg`, text: `Detail ${i}`, imageSetId: i < 3 ? '200' : '350' })),
+      companyDesc: 'Company introduction', companyImage: [{ url: 'https://cdn.example.com/factory.jpg', text: 'Factory' }],
+      faqs: [{ question: 'MOQ?', answer: '10 pieces' }] },
     trade: {
       saleType: 'normal',
       moq: 10,
@@ -706,6 +743,22 @@ process.stdout.write(JSON.stringify({
       shippingTemplateLabel: 'Test template',
     },
   });
+
+  // 服务端拒绝不完整详情，不把未上传图片、半条问答或超量正文静默删掉后入队。
+  for (const [detail, message] of [
+    [{ detailImage: [{ url: 'blob:preview', text: '' }] }, /尚未上传成功/],
+    [{ companyImage: [{ url: 'javascript:alert(1)' }] }, /尚未上传成功/],
+    [{ faqs: [{ question: 'MOQ?', answer: '' }] }, /同时填写/],
+    [{ companyDesc: 'x'.repeat(52000) }, /50KB/],
+  ]) {
+    const response = await fetch(`http://127.0.0.1:${port}/api/publish/enqueue`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'draft', scope: 'single', confirmed: true,
+        acknowledgement: 'I_CONFIRM_PRODUCT_WRITE', idempotencyKey: `detail-invalid-${Math.random()}`,
+        products: [{ ...makeProduct('invalid-detail', 'Invalid detail'), detail }] }),
+    });
+    assert.equal(response.status, 400); assert.match((await response.json()).error, message);
+  }
 
   // 连续连接超时必须停止在规则读取阶段；已上传图片不再上传，不能创建写任务。
   await fetch(`http://127.0.0.1:${port}/api/publish/cache/refresh`, { method: 'POST' });
@@ -893,4 +946,57 @@ process.stdout.write(JSON.stringify({
     'start:product:Fail Product',
     'end:product:Fail Product',
   ]);
+});
+
+/** 历史入口真实HTTP回归；只替换WorkCTL，验证终态恢复和不可由浏览器改换目标。 */
+test('发布历史重启恢复并按回执编辑原商品，忽略在途任务且拒绝伪造商品号', async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'lsou-publish-history-'));
+  const scope = 'history-integration-account';
+  const suffix = require('node:crypto').createHash('sha256').update(scope).digest('hex').slice(0, 16);
+  const historyFile = path.join(directory, `publish-history-${suffix}.json`);
+  const records = [
+    { id: 'saved-first', localId: 'local-first', productId: 222222, title: '同名商品', status: 'saved_draft', action: 'draft', operationId: 'batch', position: 1, total: 2 },
+    { id: 'saved-second', localId: 'local-second', productId: 333333, title: '同名商品', status: 'saved_draft', action: 'draft', operationId: 'batch', position: 2, total: 2 },
+    { id: 'failed', title: '失败任务', status: 'failed', retryable: true },
+    { id: 'pending', title: '在途任务', status: 'queued', material: { never: 'replay' } },
+  ];
+  await writeFile(historyFile, JSON.stringify({ version: 1, jobs: records }), { mode: 0o600 });
+  const fake = path.join(directory, 'fake.cjs');
+  await writeFile(fake, `#!/usr/bin/env node
+const fs=require('node:fs'),args=process.argv.slice(2);
+const params=JSON.parse(fs.readFileSync(args[args.indexOf('--json-file')+1],'utf8'));
+fs.appendFileSync(${JSON.stringify(path.join(directory, 'calls.jsonl'))},JSON.stringify({args,params})+'\\n');
+if(args.slice(0,3).join(' ')!=='icbu product list-information')throw new Error('unexpected write');
+process.stdout.write(JSON.stringify({success:true,data:params.productId===333333?'Record does not exist.':JSON.stringify({categoryId:789,basicInfo:{productTitle:'Current draft title',productKeywords:'current keyword'}})}));
+`);
+  await chmod(fake, 0o700);
+  let child;
+  t.after(async () => { if (child?.exitCode === null) { const ended = new Promise(resolve => child.once('exit', resolve)); child.kill('SIGTERM'); await ended; } await rm(directory, { recursive: true, force: true }); });
+  const start = async () => {
+    child = spawn(process.execPath, [path.resolve(__dirname, '..', 'server.js')], { env: { ...process.env,
+      PORT: '0', WORKCTL_BIN: fake, LSOU_DESKTOP_TOKEN: '', ACCIO_ACTIVE_SPACE: scope,
+      PUBLISH_HISTORY_CACHE_DIR: directory, OPERATIONS_STATE_DIR: path.join(directory, 'operations'),
+      PUBLISH_IMAGE_LIBRARY_CACHE_DIR: path.join(directory, 'images'), PUBLISH_READ_CACHE_DIR: path.join(directory, 'reads') }, stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
+    return new Promise((resolve, reject) => { const timer=setTimeout(()=>reject(new Error('server start timeout')),5000); child.once('error',reject);child.once('message',m=>{clearTimeout(timer);resolve(`http://127.0.0.1:${m.port}`);}); });
+  };
+  let base = await start();
+  const get = async () => (await (await fetch(`${base}/api/publish/jobs`)).json()).jobs;
+  const post = async (id, body = {}, origin = null) => { const response=await fetch(`${base}/api/publish/jobs/${id}/edit`, { method:'POST',headers:{'Content-Type':'application/json',...(origin?{Origin:origin}:{})},body:JSON.stringify(body) });return {status:response.status,...await response.json()}; };
+  let jobs = await get();
+  assert.equal(jobs.length, 3);assert.equal(jobs.some(j=>j.status==='queued'),false);
+  assert.equal(jobs.find(j=>j.id==='failed').retryable,false);
+  assert.equal((await post('unknown')).status,404);
+  assert.equal((await post('failed')).ok,false);
+  assert.equal((await post('saved-first',{productId:333333})).ok,false);
+  assert.equal((await post('saved-first',{},'https://foreign.example')).status,403);
+  const loaded=await post('saved-first');
+  assert.equal(loaded.ok,true);assert.equal(loaded.product.title,'Current draft title');assert.ok(loaded.product.ref);
+  assert.equal(loaded.product.productId,undefined);
+  const missing=await post('saved-second');assert.equal(missing.ok,false);assert.match(missing.error,/记录不存在/);
+  const calls=(await readFile(path.join(directory,'calls.jsonl'),'utf8')).trim().split('\n').map(JSON.parse);
+  assert.deepEqual(calls.map(call=>call.params.productId),[222222,333333]);
+  assert.ok(calls.every(call=>call.params.queryType==='draftFirst' && !call.args.includes('--yes')));
+  const ended=new Promise(resolve=>child.once('exit',resolve));child.kill('SIGTERM');await ended;
+  base=await start();jobs=await get();assert.equal(jobs.length,3);
+  const after=(await readFile(path.join(directory,'calls.jsonl'),'utf8')).trim().split('\n');assert.equal(after.length,2);
 });
