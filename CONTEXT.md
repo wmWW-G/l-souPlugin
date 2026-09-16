@@ -722,3 +722,48 @@ SOP 参考 docs/references/国际站运营SOP.md 的“核心产品数据跟踪�
 
 - 按用户标注删除顶部发布操作栏中只有一个选项的“队列模式”标签和下拉框，以及专用CSS；调整窄屏发布历史所在行，避免移除后留下空行。原控件不被JS引用，服务端逐条执行与间隔规则不受影响。
 - React构建、语法和diff检查通过；隔离Chrome核验控件消失、1375/600px操作栏无溢出、发布历史及批量草稿确认可打开，0页面错误/平台写入。仅更新静态资源，未刷新用户原页、重启服务、提交Git或打包ZIP。证据 `/tmp/lsou-remove-queue-policy-qa/`。
+
+
+## 2026-09-16 ALI 运营顾问界面整合
+
+- 用户批准按参考 HTML 的八个模块替换界面，产品发布全量保留并在侧栏独立突出；旧业务工作区经二级导航和辅助工作区继续访问。
+- `public/consultant.js` 负责模块归属、运营规划、营销定位、运营基建、优爆品跟进与看板补充；`public/consultant.css` 负责新版外观。React 与原生入口共用这些文件。产品发布原 HTML、原样式表、发布工具与后端未改动。
+- 新增规划/任务/确认表使用浏览器本地键 `lsou:consultant:local-planning:v1`，不是账号云同步或 AI 自动报告。真实核心品候选读取商品分析接口；平台分层原值保留，候选排序不等于平台判定。业务员表按当前统计周期取报告，缺失值不转零，自定义时间不伪造汇总。
+- 备份：`/Users/garden/YD/ReverseAccio/lsou-ui-backups/20260916-155623/`，包含完整工程归档及源码归档。
+- 验证：Node 全量 155 项，154 通过、1 默认跳过；React 构建通过；浏览器检查九个入口、600px 窄屏、本地任务保存、真实商品候选及 React 发布编辑器切页保留。此轮未提交平台草稿/发布、未重新打包三平台插件。
+
+
+## 2026-09-16 按八张已确认图片重新实现界面
+
+- 上一次仅调整风格未满足用户按图还原要求，本条取代上面的默认入口说明。八模块默认进入可交互的设计预览，顶部明确标记“示例数据”；查看真实工作区可返回原数据业务页。当前预览不代表真实经营数据或已完成AI执行。
+- `public/advisor-design.js/css` 管理独立外壳、导航和共享组件；`advisor-workflows.js` 管理规划/定位/基建，`advisor-analytics.js` 管理推广/核心品/数据分析，`advisor-dashboard.js` 管理看板/商机。原生HTML与React入口共用四个脚本与样式。
+- `window.AdvisorPages` 注册页面，`AdvisorMounts` 挂载交互，`AdvisorDesign.navigate/real` 切换设计预览和原真实工作区。预览事件 `lsou:navigation`；商机本地演示分配键 `lsou:advisor:demo-leads`。商品图为新生成的演示素材 `public/assets/advisor-products.png`。
+- 产品发布始终进入原DOM与原逻辑，禁止用预览重新渲染编辑器；基础样式、发布工具和后端与换版前备份一致。旧 consultant 文件继续服务原真实业务页。
+- 本地入口 http://127.0.0.1:8787/；参考HTML的8765服务保留。验证使用 `npm run build:frontend`、`node --test test/*.test.js`，浏览器检查八页、600px布局与原发布入口。当前为浏览器设计实现，尚非三平台插件交付验收。
+
+
+## 2026-09-16 八页新版切换真实 WorkCTL 数据（取代设计预览约定）
+
+- 用户要求直接在新版读取真实数据，八页不再保留演示数据分支。`advisor-design.js` 提供 `AdvisorLive.fetch/range/format`，复用当前服务的账号与 WorkCTL 环境；默认上一个完整自然月，支持日/周/月与自定义31天范围。商品不支持周/任意范围时单独标注完整月口径。
+- dashboard：shop-summary/shop-channel/shop-region/account-summary/shop-product、已保存overview-tasks；visitor：visitor-detail和customer-profile。访客接口实测忽略pageSize20，采用每页10并优先使用响应有效pageSize；累计访客不冒充询盘客户，记录总数不视为独立人数。
+- analytics：advertising/report+plans真实直通车/全站推报表和投放配置；两商品页复用dashboard/product-analysis及平台图片。报表空值不补零，商品去重数与平台total不一致时显示部分样本，AI对话/跟进任务无真实来源则显示未接通。
+- workflows：shop-product及customer-profile(shop_keyword/country)。真实关键词可导出；经营目标/定位/任务为明确标识的页面内人工草稿，刷新清空，不写平台，不编造公司能力或词与商品关联。
+- 当前真实接口存在本账号缓存，页面标注查询周期及读取信息；读取成功不意味着刚刚刷新平台。数据图片仅来自返回记录，生成的演示商品图不再被页面引用。产品发布仍是原DOM/业务逻辑。
+- 验证：158项测试157通过1默认跳过，React构建及JS检查通过；浏览器原生/React真实数值一致，商品筛选/详情与访客第二页正常，八页600px无外层横溢出。未执行平台写入、未打包或提交Git。
+
+- 2026-09-16 顶部按用户批注移除“更多业务工具”和WorkCTL连接状态标签；删除该标签专用健康探测，页面自身真实数据查询照常运行。
+
+
+## 2026-09-16 统一刷新与界面文案
+
+- 顶部统一“刷新”重新加载当前模块，保留所选日期与页面内人工记录；去掉分散的重新读取按钮和界面中的工具名称。读取期间按钮禁用，完成或失败后恢复。
+
+
+## 2026-09-16 看板指标简洁版与详细版
+
+- 看板经营指标提供简洁版六项和详细版十二项切换；详细版复用 `app.js` 的原始 `OVERVIEW_KPIS` 定义，经 `LsouOverviewMetrics()` 返回副本，展示行业均值、优秀值及比较。广告花费未接入时保留缺失状态。
+- `advisor-dashboard.js` 使用同一份真实汇总响应切换展示，不追加查询；累计与最新日指标分别计算。选择保存在本地键 `lsou:overview:metric-mode`，刷新及切页保留。样式位于 `advisor-design.css`。
+
+- 详细版布局调整：桌面六列两行共用紧凑面板，行业数值以内联小字保留，比较说明与统计口径移至指标悬停提示。
+
+- 简洁版六项指标下方也显示对应行业均值/优秀值，统计口径保留为悬停提示；TM访客使用fbTmUv的同行字段。

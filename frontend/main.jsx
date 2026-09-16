@@ -7,6 +7,8 @@ import '../public/style.css';
 import '../public/ai-advisor.css';
 import 'remixicon/fonts/remixicon.css';
 import './desktop.css';
+import '../public/consultant.css';
+import '../public/advisor-design.css';
 
 // 本地可信模板仅负责静态结构；业务数据仍由已有模块校验、转义并填充。
 // React 初始化全部工作区 DOM，业务区 memo 后不随导航状态重绘，避免覆盖表单编辑。
@@ -14,9 +16,9 @@ const body = template.match(/<body>([\s\S]*?)<script /)[1];
 const sections = new DOMParser().parseFromString(body, 'text/html');
 const navigation = [...sections.querySelector('.tabs-in').children].map(el => ({
   group: el.tagName === 'P', id: el.dataset.tab, label: el.textContent.trim(),
-  icon: el.querySelector('i')?.className,
+  icon: el.querySelector('i')?.className, secondary: el.dataset.secondary === 'true',
 }));
-const scripts = ['/publish-product-utils.js', '/time-policy.js', '/ai-advisor.js', '/app.js', '/advertising.js', '/risk-workspace.js', '/operations.js'];
+const scripts = ['/publish-product-utils.js', '/time-policy.js', '/ai-advisor.js', '/consultant.js', '/advisor-design.js', '/advisor-workflows.js', '/advisor-analytics.js', '/advisor-dashboard.js', '/app.js', '/advertising.js', '/risk-workspace.js', '/operations.js'];
 let initialization;
 
 /** 按依赖顺序加载旧业务模块一次。参数无；返回 Promise；加载失败时拒绝。 */
@@ -41,7 +43,7 @@ function Navigation() {
   return <nav className="tabs" id="tabs" data-react-navigation="true"><div className="tabs-in">
     {navigation.map((item, index) => item.group
       ? <p className="nav-label" key={index}>{item.label}</p>
-      : <button key={item.id} data-tab={item.id} className={active === item.id ? 'on' : ''}
+      : <button key={item.id} data-tab={item.id} hidden={item.secondary} className={active === item.id ? 'on' : window.LsouConsultant?.owner(active) === item.id ? 'module-on' : ''}
           aria-current={active === item.id ? 'page' : undefined}
           onClick={() => window.switchTab?.(item.id)}><i className={item.icon} aria-hidden="true"/><span>{item.label}</span></button>)}
   </div></nav>;

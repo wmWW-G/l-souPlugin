@@ -3,11 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>来搜 · 国际站经营驾驶舱</title>
+<title>来搜 · ALI运营顾问</title>
 <link rel="icon" type="image/png" href="/assets/lsou-logo-square.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.6.0/fonts/remixicon.css">
 <link rel="stylesheet" href="/style.css">
 <link rel="stylesheet" href="/ai-advisor.css">
+<link rel="stylesheet" href="/consultant.css">
+<link rel="stylesheet" href="/advisor-design.css">
 </head>
 <body>
 
@@ -15,7 +17,7 @@
   <aside class="sidebar" aria-label="业务导航">
     <div class="brand" aria-label="来搜国际站经营工作台">
       <img class="brand-mark" src="/assets/lsou-logo-square.png" alt="来搜 L-SOU">
-      <span class="brand-name">来搜国际站经营工作台</span>
+      <span class="brand-name">来搜 <small>ALI运营顾问</small></span>
     </div>
 
     <div class="status-pill" role="status" aria-live="polite">
@@ -26,34 +28,31 @@
 
     <nav class="tabs" id="tabs">
       <div class="tabs-in">
-        <p class="nav-label">经营中心</p>
-        <button data-tab="overview" class="on"><i class="ri-home-5-line" aria-hidden="true"></i><span>经营总览</span></button>
-        <button data-tab="visitor"><i class="ri-user-search-line" aria-hidden="true"></i><span>客户与询盘</span></button>
-        <button data-tab="product"><i class="ri-shopping-bag-3-line" aria-hidden="true"></i><span>商品运营</span></button>
-        <button data-tab="product-publish"><i class="ri-upload-cloud-2-line" aria-hidden="true"></i><span>产品发布</span></button>
-        <button data-tab="flow"><i class="ri-line-chart-line" aria-hidden="true"></i><span>流量分析</span></button>
-        <button data-tab="market"><i class="ri-global-line" aria-hidden="true"></i><span>市场洞察</span></button>
-        <button data-tab="ads"><i class="ri-focus-3-line" aria-hidden="true"></i><span>关键词与广告</span></button>
-        <button data-tab="rfq"><i class="ri-file-search-line" aria-hidden="true"></i><span>RFQ 商机</span></button>
-
-        <p class="nav-label">交易保障</p>
-        <button data-tab="orders"><i class="ri-truck-line" aria-hidden="true"></i><span>订单与物流</span></button>
-        <button data-tab="risk"><i class="ri-shield-check-line" aria-hidden="true"></i><span>风险合规</span></button>
-
-        <p class="nav-label">内容资产</p>
-        <button data-tab="storefront"><i class="ri-layout-4-line" aria-hidden="true"></i><span>店铺装修</span></button>
-        <button data-tab="assets"><i class="ri-palette-line" aria-hidden="true"></i><span>素材工坊</span></button>
-
-        <p class="nav-label">组织管理</p>
-        <button data-tab="staff"><i class="ri-team-line" aria-hidden="true"></i><span>团队绩效</span></button>
-        <button data-tab="knowledge"><i class="ri-book-open-line" aria-hidden="true"></i><span>知识库与接待</span></button>
-        <button data-tab="access"><i class="ri-admin-line" aria-hidden="true"></i><span>账号与权限</span></button>
-
-        <p class="nav-label">系统工具</p>
-        <button data-tab="console"><i class="ri-terminal-box-line" aria-hidden="true"></i><span>数据控制台</span></button>
+<p class="nav-label">ALI 运营顾问</p>
+<button data-tab="overview" class="on"><i class="ri-bar-chart-box-line" aria-hidden="true"></i><span>数据看板</span></button>
+<button data-tab="plan"><i class="ri-route-line" aria-hidden="true"></i><span>运营规划</span></button>
+<button data-tab="position"><i class="ri-global-line" aria-hidden="true"></i><span>营销定位</span></button>
+<button data-tab="foundation"><i class="ri-tools-line" aria-hidden="true"></i><span>运营基建</span></button>
+<button data-tab="ads"><i class="ri-megaphone-line" aria-hidden="true"></i><span>运营推广</span></button>
+<button data-tab="cultivation"><i class="ri-star-line" aria-hidden="true"></i><span>优爆品提升</span></button>
+<button data-tab="product"><i class="ri-line-chart-line" aria-hidden="true"></i><span>数据分析与优化</span></button>
+<button data-tab="visitor"><i class="ri-contacts-line" aria-hidden="true"></i><span>商机转化</span></button>
+<p class="nav-label">核心能力</p><button data-tab="product-publish"><i class="ri-upload-cloud-2-line" aria-hidden="true"></i><span>产品发布</span></button>
+<button data-tab="flow" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>流量分析</span></button>
+<button data-tab="market" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>市场洞察</span></button>
+<button data-tab="rfq" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>RFQ商机</span></button>
+<button data-tab="orders" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>订单与物流</span></button>
+<button data-tab="risk" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>风险合规</span></button>
+<button data-tab="storefront" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>店铺装修</span></button>
+<button data-tab="assets" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>素材工坊</span></button>
+<button data-tab="staff" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>团队绩效</span></button>
+<button data-tab="knowledge" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>知识库与接待</span></button>
+<button data-tab="access" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>账号与权限</span></button>
+<button data-tab="console" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>数据控制台</span></button>
       </div>
     </nav>
 
+    <label class="consult-utilities">辅助工作区<select id="consultUtilities" aria-label="辅助工作区"><option value="">选择工作区</option><option value="orders">订单与物流</option><option value="risk">风险合规</option><option value="assets">素材工坊</option><option value="knowledge">知识库与接待</option><option value="access">账号与权限</option><option value="console">数据控制台</option></select></label>
     <div class="sidebar-footer">
       <button id="btnClearCache" class="sidebar-tool" title="清除本地查询缓存"><i class="ri-delete-bin-6-line" aria-hidden="true"></i><span>清除缓存</span></button>
       <button id="sidebarToggle" class="sidebar-tool" aria-expanded="true" aria-label="收起菜单"><i class="ri-arrow-left-double-line" aria-hidden="true"></i><span>收起菜单</span></button>
@@ -90,6 +89,12 @@
     </header>
 
     <main>
+<div id="consultModuleNav" class="consult-module-nav" aria-label="模块内导航" hidden></div>
+<section class="tab consult-page" id="tab-plan" aria-label="运营规划"></section>
+<section class="tab consult-page" id="tab-position" aria-label="营销定位"></section>
+<section class="tab consult-page" id="tab-foundation" aria-label="运营基建"></section>
+<section class="tab consult-page" id="tab-cultivation" aria-label="优爆品提升"></section>
+
   <!-- ================= 经营大盘 ================= -->
   <section class="tab on" id="tab-overview">
     <div class="kpis overview-kpis" id="kpis" aria-label="经营核心指标"></div>
@@ -123,6 +128,10 @@
 
     <dialog id="overviewTodoDetail" class="diagnosis-dialog" aria-label="诊断详情" hidden></dialog>
 
+    <div class="consult-dashboard-grid">
+      <section class="card"><div class="card-hd"><div><h2>业务员表现</h2><p class="hint" id="consultStaffScope">与所选经营周期分别核对</p></div><button data-tab-link="staff" class="text-action">查看完整绩效</button></div><div id="consultStaffRows" class="tablewrap"><div class="empty">正在读取成员绩效…</div></div></section>
+      <section class="card"><div class="card-hd"><div><h2>店铺经营健康度</h2><p class="hint">商品快照与近30天回复指标分别展示</p></div><button data-tab-link="product" class="text-action">查看商品诊断</button></div><div id="consultHealth" class="consult-health"><div class="empty">等待经营数据</div></div></section>
+    </div>
     <div class="diagnostic-grid overview-rankings">
       <section class="card diagnostic-card">
         <div class="card-hd"><div><h2>流量渠道贡献</h2><div class="hint">所选区间 · 每日访客与询盘累计</div></div><button class="text-action" data-tab-link="flow">查看分析 <i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
@@ -217,7 +226,7 @@
         <section class="publish-queue-panel" aria-label="发布队列" hidden>
           <div class="publish-queue-head"><div><b>发布队列</b><span id="publishQueueCount">0 个任务</span></div><button id="publishQueueToggle" type="button" aria-expanded="true">收起 <i class="ri-arrow-down-s-line" aria-hidden="true"></i></button></div>
           <div class="publish-queue-list" id="publishQueueList"></div>
-          <p class="publish-queue-note">服务端使用 WorkCTL 发布流水线逐条处理；单条失败不会阻塞后续任务，修改资料后可重新检查。</p>
+          <p class="publish-queue-note">服务端使用 平台服务 发布流水线逐条处理；单条失败不会阻塞后续任务，修改资料后可重新检查。</p>
         </section>
       </aside>
     </div>
@@ -423,7 +432,7 @@
   <!-- ================= 命令控制台 ================= -->
   <section class="tab" id="tab-console">
     <div class="card">
-      <div class="card-hd"><h2>自由调用</h2><div class="hint">白名单内的只读端点,参数即 workctl 业务 flag</div></div>
+      <div class="card-hd"><h2>自由调用</h2><div class="hint">白名单内的只读端点,参数遵循平台查询要求</div></div>
       <div class="console">
         <div class="row">
           <select id="cEndpoint"></select>
@@ -436,7 +445,7 @@
     </div>
     <div class="card">
       <div class="card-hd"><h2>执行日志</h2>
-        <div class="hint">本会话内所有真实 workctl 调用</div>
+        <div class="hint">本会话内的数据请求记录</div>
       </div>
       <div id="logList" class="loglist"></div>
     </div>
@@ -451,6 +460,11 @@
 <script src="/publish-product-utils.js"></script>
 <script src="/time-policy.js"></script>
 <script src="/ai-advisor.js"></script>
+<script src="/consultant.js"></script>
+<script src="/advisor-design.js"></script>
+<script src="/advisor-workflows.js"></script>
+<script src="/advisor-analytics.js"></script>
+<script src="/advisor-dashboard.js"></script>
 <script src="/app.js"></script>
 <script src="/advertising.js"></script>
 <script src="/risk-workspace.js"></script>

@@ -209,11 +209,14 @@ const OVERVIEW_KPIS = [
   { ...KPIS[4], icon: 'ri-message-3-line', scope: '近30天滚动值' },
   { ...KPIS[5], icon: 'ri-time-line', scope: '近30天滚动值' },
 ];
+/** 返回原看板完整指标定义的副本，供新版详细视图复用；无参数，无主动异常。 */
+if (typeof window !== 'undefined') window.LsouOverviewMetrics = () => OVERVIEW_KPIS.map(metric => ({...metric}));
 let curKpi = 'totalImpsCnt';
 let summaryRows = [];
 
 // ============================ 经营大盘 ============================
 async function loadOverview() {
+  window.LsouConsultant?.health();
   const timeRequest=JSON.stringify(timeStates['overview']);
   const j = await api('shop-summary', { ...dates('overview'), statisticsType: 'day' });
   if(timeRequest!==JSON.stringify(timeStates['overview']))return;
@@ -228,6 +231,7 @@ async function loadOverview() {
     .sort((a, b) => a.statDate < b.statDate ? -1 : 1);
   if (!summaryRows.length) { ['#kpis','#journeyFlow','#trendChart'].forEach(id=>$(id).innerHTML='<div class="empty">该区间无数据</div>'); renderActionItems(); generateOverviewTodo(false, true); return; }
   renderKpis();
+  window.LsouConsultant?.health(summaryRows.at(-1));
   renderJourney();
   renderTrend();
   renderActionItems();
@@ -675,6 +679,7 @@ async function loadOverviewInsights() {
     api('shop-channel', { ...dates('overview'), statisticsType:'day', terminalType: 'TOTAL' }),
     api('shop-region', { ...dates('overview'), statisticsType: 'day', dimensionType: 'shop_uv', terminalType: 'TOTAL' }),
     loadOverviewRankings(),
+    window.LsouConsultant?.dashboard({...dates('overview'), mode:timeStates.overview.mode}),
   ]);
   if(timeRequest!==JSON.stringify(timeStates['overview']))return;
   if (flow) renderOverviewFlow(flow);
@@ -1117,7 +1122,7 @@ const PUBLISH_PRODUCT_IMAGES = [];
  * Alibaba 国际站真实发品页“产地”控件返回的国家/地区名称。
  *
  * 这份列表在 2026-09-03 从用户已登录、已授权读取的发品页逐项核对得到，
- * 保留平台原始英文名称与排列顺序。它不是 WorkCTL 的返回值，也不能自行改写成
+ * 保留平台原始英文名称与排列顺序。它不是 平台服务 的返回值，也不能自行改写成
  * “中国 / 广东 / 深圳”三级地址；正式发布时应直接提交用户从平台列表选择的名称。
  *
  * @type {string[]}
@@ -1172,7 +1177,7 @@ const PUBLISH_ORIGIN_OPTIONS = [
 ];
 
 /**
- * WorkCTL 0.1.53 实时读取到的叶子类目与必填属性。
+ * 平台服务 0.1.53 实时读取到的叶子类目与必填属性。
  *
  * control 的含义：
  * - select：平台固定单选值，必须从 list-attribute-options 返回值中选择。
@@ -1187,7 +1192,7 @@ const PUBLISH_CATEGORY_CONFIG = { unselected: { categoryId: null, label: '请选
 /**
  * 返回一个字段是否属于当前类目发布时的必填项。
  *
- * 旧 Demo 配置没有 required 字段，按历史行为视为必填；实时 WorkCTL Schema
+ * 旧 Demo 配置没有 required 字段，按历史行为视为必填；实时 平台服务 Schema
  * 则严格使用 required=true/false，避免把可选属性错误计入完成度。
  *
  * @param {object} field - PUBLISH_CATEGORY_CONFIG 中的一条字段定义。
@@ -1826,7 +1831,7 @@ function publishReferenceImageCandidates() {
  *
  * @param {string} referenceKey - 当前账号商品对应的短期随机令牌。
  * @returns {Promise<void>} 图片载入后默认选中最多六张主副图并刷新创建面板。
- * @throws {Error} 网络或 WorkCTL 错误会显示在图片选择区域，不继续向外抛出。
+ * @throws {Error} 网络或 平台服务 错误会显示在图片选择区域，不继续向外抛出。
  */
 async function loadPublishReferenceImages(referenceKey) {
   publishState.creationReferenceImagesLoading = true;
@@ -1872,7 +1877,7 @@ async function loadPublishReferenceImages(referenceKey) {
  * 商品仅供“从现有商品参考”时主动选择，不会在页面初始化时自动创建发布任务。
  *
  * @returns {Promise<void>} 类目上下文及所需 Schema 加载完成后刷新页面。
- * @throws {Error} 网络或 WorkCTL 错误在函数内转成页面提示，不继续向外抛出。
+ * @throws {Error} 网络或 平台服务 错误在函数内转成页面提示，不继续向外抛出。
  */
 async function loadPublishAccountContext() {
   if (publishState.accountContextLoading || publishState.accountContextLoaded) return;
@@ -2281,7 +2286,7 @@ async function createBlankPublishDraft() {
  * 用户只需按标题和图片选商品，不需要理解、复制或填写平台内部编号。
  *
  * @returns {Promise<void>} 参考内容与实时类目 Schema 都加载完成后加入待发布列表。
- * @throws {Error} 参考商品失效或 WorkCTL 查询失败会显示在创建面板内。
+ * @throws {Error} 参考商品失效或 平台服务 查询失败会显示在创建面板内。
  */
 async function createReferencedPublishDraft() {
   const referenceKey = String(publishState.creationReferenceKey || '');
@@ -3042,7 +3047,7 @@ function openPublishDetailPreview(product) {
 }
 
 /**
- * 渲染当前商品快速编辑器，字段来自真实 WorkCTL 发品 Schema 和特定产品类目属性。
+ * 渲染当前商品快速编辑器，字段来自真实 平台服务 发品 Schema 和特定产品类目属性。
  *
  * @returns {void} 直接更新编辑器内容与图片入口。
  * @throws {Error} 不主动抛出异常。
@@ -3416,7 +3421,7 @@ function addPublishKeyword(product) {
 }
 
 /**
- * 判断图片地址是否已经是 WorkCTL 可以访问的远程 URL。
+ * 判断图片地址是否已经是 平台服务 可以访问的远程 URL。
  *
  * @param {*} value - 商品图库中的图片地址。
  * @returns {boolean} http/https 返回 true；blob/data/无效地址返回 false。
@@ -3434,7 +3439,7 @@ function isRemotePublishImage(value) {
  * 为真实队列生成一条经过前端白名单整理的商品快照。
  *
  * 服务端仍会重新校验全部字段；前端整理的目的只是去掉纯展示状态，并把页面的
- * priceTiers/leadTimeTiers 命名映射为 WorkCTL Schema 使用的字段。
+ * priceTiers/leadTimeTiers 命名映射为 平台服务 Schema 使用的字段。
  *
  * @param {object} product - publishState 中的一条商品草稿。
  * @returns {object} 可提交给 POST /api/publish/enqueue 的商品快照。
@@ -3504,7 +3509,7 @@ function publishActionIssues(product, action) {
   const remoteImages = gallery.filter(isRemotePublishImage);
   if (gallery.length > PUBLISH_IMAGE_LIMIT) issues.push(`商品主图最多 ${PUBLISH_IMAGE_LIMIT} 张，当前 ${gallery.length} 张，请先移除多余图片`);
   if (!String(product.title || '').trim()) issues.push('标题不能为空');
-  if (!remoteImages.length) issues.push('本地图片尚未上传到可供 WorkCTL 读取的远程地址');
+  if (!remoteImages.length) issues.push('本地图片尚未上传到可供 平台服务 读取的远程地址');
   if (!Array.isArray(product.skus) || !product.skus.length) issues.push('请添加商品规格，或重新读取参考商品的规格资料');
   (product.skus || []).forEach((sku, index) => {
     if (!sku.skuAttributes?.length || sku.skuAttributes.some(attr => !attr.attrName?.trim() || !attr.attrValue?.trim())) {
@@ -3544,7 +3549,7 @@ function publishActionIssues(product, action) {
 }
 
 /**
- * 渲染由服务端真实执行的 WorkCTL 队列及其结果。
+ * 渲染由服务端真实执行的 平台服务 队列及其结果。
  *
  * @returns {void} 更新队列列表、计数和折叠状态。
  * @throws {Error} 不主动抛出异常。
@@ -3806,7 +3811,7 @@ function renderPublishBottomBar() {
   $('#publishStartQueue').textContent = `批量发布（${selected.length}）`;
   $('#publishSaveDraft').disabled = selected.length === 0;
   $('#publishStartQueue').disabled = selected.length === 0 || blocked > 0;
-  const publishHint = blocked ? `已选商品中有 ${blocked} 个未通过发布前检查` : '所选商品将逐条进入真实 WorkCTL 队列';
+  const publishHint = blocked ? `已选商品中有 ${blocked} 个未通过发布前检查` : '所选商品将逐条进入真实 平台服务 队列';
   $('#publishStartQueue').title = publishHint;
 }
 
@@ -3940,7 +3945,7 @@ function readPublishImageBase64(file, onProgress) {
  * 根据实际远程图库重新计算图片完成度。
  *
  * @param {object} product - 当前商品草稿。
- * @returns {number} WorkCTL 可读取的 http/https 图片数量。
+ * @returns {number} 平台服务 可读取的 http/https 图片数量。
  * @throws {Error} 不主动抛出异常。
  */
 function syncPublishRemoteImageCount(product) {
@@ -4352,7 +4357,7 @@ function resolvePublishTargets(scope, action) {
 }
 
 /**
- * 打开真实 WorkCTL 写操作的最终确认弹层。
+ * 打开真实 平台服务 写操作的最终确认弹层。
  *
  * 单品与批量、草稿与正式发布共用同一确认组件，但文案和商品来源严格区分。
  * 用户必须勾选确认框后才能发起 POST，避免把浏览动作误当成写入授权。
@@ -4384,7 +4389,7 @@ function openPublishConfirmation(options) {
       const detail = window.LsouPublishUtils.normalizePublishDetail(product.detail);
       return `<article><img src="${esc(product.image)}" alt="" referrerpolicy="no-referrer"><div><b>${esc(product.title)}</b><span>${esc(product.category)} · 主图 ${imageCount} 张 · 属性 ${progress.completed}/${progress.total}</span><span>商详图 ${detail.detailImage.length} 张 · 公司图片 ${detail.companyImage.length} 张 · 问答 ${detail.faqs.filter(faq => faq.question || faq.answer).length} 条${detail.companyDesc ? ' · 含公司介绍' : ''}</span></div></article>`;
     }).join('')}</div>
-    <div class="publish-confirm-warning"><i class="${action === 'draft' ? 'ri-draft-line' : 'ri-error-warning-line'}" aria-hidden="true"></i><div><b>即将调用真实 WorkCTL 发布流水线</b><p>${action === 'draft' ? '每个商品会经过发布前校验，并保存到国际站草稿箱。' : '每个商品会经过发布前校验后提交平台；提交成功不等于审核通过或已经在线。'} 单条失败不会阻塞后续商品，成功后会返回质量分。</p></div></div>
+    <div class="publish-confirm-warning"><i class="${action === 'draft' ? 'ri-draft-line' : 'ri-error-warning-line'}" aria-hidden="true"></i><div><b>即将调用真实 平台服务 发布流水线</b><p>${action === 'draft' ? '每个商品会经过发布前校验，并保存到国际站草稿箱。' : '每个商品会经过发布前校验后提交平台；提交成功不等于审核通过或已经在线。'} 单条失败不会阻塞后续商品，成功后会返回质量分。</p></div></div>
     <p id="publishPreflightError" class="publish-create-error" role="alert" hidden></p>
     <label class="publish-confirm-check"><input type="checkbox" id="publishConfirmAcknowledge"><span>我已核对商品信息、价格和目标操作，并确认执行真实写入</span></label>
     <div class="publish-confirm-actions"><button type="button" id="publishConfirmCancel">返回修改</button><button type="button" class="primary" id="publishConfirmStart" disabled>确认${scope === 'batch' ? '批量' : ''}${action === 'draft' ? '保存草稿' : '加入发布队列'}</button></div></section>`;
@@ -4420,7 +4425,7 @@ function createPublishIdempotencyKey() {
 }
 
 /**
- * 把用户最终确认的商品加入服务端真实 WorkCTL 串行队列。
+ * 把用户最终确认的商品加入服务端真实 平台服务 串行队列。
  *
  * @param {object[]} products - 单品或左侧勾选后的商品数组。
  * @param {'draft'|'publish'} action - 远端保存目标。
@@ -4469,7 +4474,7 @@ async function startPublishQueue(products, action, scope) {
     renderPublishBottomBar();
     startPublishQueuePolling();
     setTimeout(() => refreshPublishQueue({ silent: true }), 250);
-    toast(`${products.length} 个商品已加入真实 WorkCTL ${action === 'draft' ? '草稿' : '发布'}队列`);
+    toast(`${products.length} 个商品已加入真实 平台服务 ${action === 'draft' ? '草稿' : '发布'}队列`);
     return true;
   } catch (error) {
     if (errorPanel) { errorPanel.textContent = `连接中断，尚未取得提交结果：${error.message}`; errorPanel.hidden = false; }
@@ -4523,7 +4528,7 @@ function startPublishQueuePolling() {
 }
 
 /**
- * 对 WorkCTL 明确标记为可重试的失败任务进行人工二次确认。
+ * 对 平台服务 明确标记为可重试的失败任务进行人工二次确认。
  *
  * @param {string} jobId - 需要重试的服务端队列任务 ID。
  * @returns {void} 打开确认弹层；确认后重新加入同一串行队列。
@@ -4532,7 +4537,7 @@ function startPublishQueuePolling() {
 function retryPublishJob(jobId) {
   const job = publishState.queue.find(item => item.id === jobId);
   if (!job || !job.retryable) return;
-  $('#modalBody').innerHTML = `<section class="publish-confirm"><h2>确认重试这个真实写任务</h2><p>${esc(job.title)} · ${job.action === 'draft' ? '保存草稿' : '正式发布'}</p><div class="publish-confirm-warning"><i class="ri-error-warning-line" aria-hidden="true"></i><div><b>请先确认国际站没有生成重复商品</b><p>只有 WorkCTL 明确标记为可重试的失败才允许继续；重试仍会再次调用真实写接口。</p></div></div><label class="publish-confirm-check"><input type="checkbox" id="publishConfirmAcknowledge"><span>我已核对国际站状态，确认重试</span></label><div class="publish-confirm-actions"><button type="button" id="publishConfirmCancel">取消</button><button type="button" class="primary" id="publishConfirmStart" disabled>确认重试</button></div></section>`;
+  $('#modalBody').innerHTML = `<section class="publish-confirm"><h2>确认重试这个真实写任务</h2><p>${esc(job.title)} · ${job.action === 'draft' ? '保存草稿' : '正式发布'}</p><div class="publish-confirm-warning"><i class="ri-error-warning-line" aria-hidden="true"></i><div><b>请先确认国际站没有生成重复商品</b><p>只有 平台服务 明确标记为可重试的失败才允许继续；重试仍会再次调用真实写接口。</p></div></div><label class="publish-confirm-check"><input type="checkbox" id="publishConfirmAcknowledge"><span>我已核对国际站状态，确认重试</span></label><div class="publish-confirm-actions"><button type="button" id="publishConfirmCancel">取消</button><button type="button" class="primary" id="publishConfirmStart" disabled>确认重试</button></div></section>`;
   $('#modal').classList.add('on');
   $('#publishConfirmCancel').onclick = () => $('#modal').classList.remove('on');
   $('#publishConfirmAcknowledge').onchange = event => { $('#publishConfirmStart').disabled = !event.target.checked; };
@@ -4677,7 +4682,7 @@ function profileRows(response, key) {
 /**
  * 将买家身份枚举转换成运营人员可读中文。
  *
- * @param {string} value - WorkCTL 返回的买家身份枚举。
+ * @param {string} value - 平台服务 返回的买家身份枚举。
  * @returns {string} 中文名称，未知值保留原文。
  * @throws {Error} 不主动抛出异常。
  */
@@ -5164,7 +5169,7 @@ function adsDateRange(compact) {
 /**
  * 从常见分页响应结构中提取行和总数。
  *
- * @param {object|null} response - WorkCTL 接口完整响应。
+ * @param {object|null} response - 平台服务 接口完整响应。
  * @returns {{rows:object[],total:number}} 标准化后的分页结果。
  * @throws {Error} 不主动抛出异常。
  */
@@ -5941,11 +5946,11 @@ async function refreshLog() {
   } catch (e) { /* 忽略 */ }
 }
 
-// ============================ WorkCTL 审计补齐界面 ============================
+// ============================ 平台服务 审计补齐界面 ============================
 /**
- * WorkCTL 业务界面的信息架构定义。
+ * 平台服务 业务界面的信息架构定义。
  *
- * 这里描述页面结构、字段和 WorkCTL 数据来源；下面的 实时接口结果
+ * 这里描述页面结构、字段和 平台服务 数据来源；下面的 实时接口结果
  * 只保存本轮只读审计得到的脱敏汇总。这样既能让原型展示真实数据状态，
  * 也不会把买家、订单、账号或凭据复制进前端代码。
  */
@@ -6302,7 +6307,7 @@ const MODULE_DESIGNS = {
         table: ['角色', '可见模块', '数据范围', '敏感动作', '配置来源'],
         sources: [
           ['事实源', 'workctl icbu member list', '账号与管理员标记'],
-          ['本地配置', '尚无对应 Workctl 命令', '角色和数据范围需要自有权限模型'],
+          ['本地配置', '尚无对应 平台服务 命令', '角色和数据范围需要自有权限模型'],
         ],
       },
       {
@@ -6312,7 +6317,7 @@ const MODULE_DESIGNS = {
         steps: ['记录执行账号', '保存请求与确认', '保存平台回执', '支持审计检索'],
         table: ['操作类型', '业务对象', '执行账号', '确认时间', '执行结果', '回执'],
         sources: [
-          ['本地日志', '尚无统一 Workctl 审计命令', '由本系统记录敏感动作'],
+          ['本地日志', '尚无统一 平台服务 审计命令', '由本系统记录敏感动作'],
           ['账号源', 'workctl icbu member list', '执行账号基础信息'],
         ],
       },
@@ -6323,7 +6328,7 @@ const MODULE_DESIGNS = {
 const MODULE_VIEW_STATE = {};
 
 /**
- * 本轮 WorkCTL 全量只读审计得到的脱敏页面数据。
+ * 本轮 平台服务 全量只读审计得到的脱敏页面数据。
  *
  * 数字只允许来自真实返回、真实空状态或命令审计；没有返回的字段明确写成
  * “未执行 / 无现成任务 / 无权限”，不会为了让画面更满而推算业务数字。
@@ -6851,7 +6856,7 @@ async function loadAccessOnePage() {
 }
 
 /**
- * 根据模块和当前子视图生成一张完整的 WorkCTL 业务界面。
+ * 根据模块和当前子视图生成一张完整的 平台服务 业务界面。
  *
  * @param {string} moduleKey - MODULE_DESIGNS 中的模块键，例如 ads 或 risk。
  * @param {string} [requestedView] - 希望激活的子视图 id；省略时沿用上次选择。
@@ -6903,7 +6908,7 @@ function renderModuleDesign(moduleKey, requestedView) {
           <div class="process-track">
             ${view.steps.map((step, index) => `<div class="process-step"><b>${String(index + 1).padStart(2, '0')}</b><span>${esc(step)}</span></div>`).join('')}
           </div>
-          <div class="audit-facts" aria-label="WorkCTL 返回摘要">
+          <div class="audit-facts" aria-label="平台服务 返回摘要">
             ${facts.map((fact, index) => `<article><span>${String(index + 1).padStart(2, '0')}</span><p>${esc(fact)}</p></article>`).join('')}
           </div>
         </section>
@@ -6918,7 +6923,7 @@ function renderModuleDesign(moduleKey, requestedView) {
       </div>
       <aside class="module-source-column">
         <section class="source-panel">
-          <div class="module-section-head"><div><span class="section-kicker">数据契约</span><h3>WorkCTL 映射</h3></div></div>
+          <div class="module-section-head"><div><span class="section-kicker">数据契约</span><h3>平台服务 映射</h3></div></div>
           <div class="source-list">
             ${view.sources.map(([mode, command, purpose]) => `<article>
               <div><span class="source-mode">${esc(mode)}</span><b>${esc(purpose)}</b></div>
@@ -6938,7 +6943,7 @@ function renderModuleDesign(moduleKey, requestedView) {
  * 处理待接入业务界面内部的子页面切换。
  *
  * 使用事件委托可以避免每次重新渲染页面后重复绑定大量按钮；切换只更新当前
- * 模块的设计内容，不会触发 Workctl 调用或任何写操作。
+ * 模块的设计内容，不会触发 平台服务 调用或任何写操作。
  *
  * @param {MouseEvent} event - main 内容区捕获到的点击事件。
  * @returns {void} 命中子页面按钮时重新渲染；其他点击直接忽略。
@@ -6952,7 +6957,7 @@ function handleModuleViewClick(event) {
 
 // ============================ tab / 事件 ============================
 const LOADED = {};
-const LOADERS = { overview: loadOverview, product: loadProductPage, 'product-publish': initProductPublish, region: () => switchTab('flow'),
+const LOADERS = { plan: () => window.LsouConsultant.render('plan'), position: () => window.LsouConsultant.render('position'), foundation: () => window.LsouConsultant.render('foundation'), cultivation: () => window.LsouConsultant.render('cultivation'), overview: loadOverview, product: loadProductPage, 'product-publish': initProductPublish, region: () => switchTab('flow'),
                   flow: loadFlow, market: loadMarketInsights, visitor: loadVisitor, staff: loadStaff, console: refreshLog,
                   ads: loadAds, rfq: loadRfq,
                   orders: renderOrdersOnePage, risk: renderRiskOnePage,
@@ -6967,12 +6972,15 @@ const LOADERS = { overview: loadOverview, product: loadProductPage, 'product-pub
  * @throws {Error} 正常 DOM 结构下不会抛错；若导航按钮缺失，标题保持原值。
  */
 function switchTab(name) {
+  if (window.AdvisorDesign?.navigate(name)) return;
+  window.LsouConsultant?.navigate(name);
   renderTimeControls(name);
   let activeLabel = '';
   $('.app-layout')?.classList.toggle('product-publish-mode', name === 'product-publish');
   $$('#tabs button[data-tab]').forEach(b => {
     const active = b.dataset.tab === name;
     b.classList.toggle('on', active);
+    b.classList.toggle('module-on', !active && window.LsouConsultant?.owner(name) === b.dataset.tab);
     if (active) {
       b.setAttribute('aria-current', 'page');
       activeLabel = b.querySelector('span')?.textContent.trim() || b.textContent.trim();
@@ -7069,7 +7077,7 @@ function bind() {
 
 
   // 右侧动态按钮只处理当前商品；底部批量按钮只处理左侧勾选商品。
-  // 四个入口共用同一真实 WorkCTL 串行队列，但各自保留明确范围和二次确认。
+  // 四个入口共用同一真实 平台服务 串行队列，但各自保留明确范围和二次确认。
   $('#publishCreateFromList').onclick = () => openPublishCreation();
   $('#publishStartQueue').onclick = () => openPublishConfirmation({ scope: 'batch', action: 'publish' });
   $('#publishSaveDraft').onclick = () => openPublishConfirmation({ scope: 'batch', action: 'draft' });
@@ -7181,6 +7189,7 @@ async function initializeWorkbench() {
   const initialTime=defaultTimeState('overview');
   $('#startDate').value=initialTime.startDate;$('#endDate').value=initialTime.endDate;
   bind();
+  window.LsouConsultant?.initialize();
   await initConsole();
   // 只接受已注册的标签页名称，方便最终交付链接直接打开“产品发布”，
   // 同时避免把任意查询字符串拼入 DOM 选择器或页面结构。

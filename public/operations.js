@@ -479,7 +479,7 @@
         const response = prefetched || await read('product-info', { productRef: ref, queryType: version }, true);
         if (state.selected.optimize?.ref !== ref || sequence !== loadVersion) return;
         const data = response.data?.agentModel || response.data || {};
-        if (!data.basicInfo || !Object.keys(data.basicInfo).length) throw new Error('WorkCTL 未返回可编辑的商品资料');
+        if (!data.basicInfo || !Object.keys(data.basicInfo).length) throw new Error('平台服务 未返回可编辑的商品资料');
         const basic = data.basicInfo, detail = data.detail || {};
         for (const key of ['productTitle', 'productKeywords', 'productSellingPoint', 'companyDesc']) {
           const value = key in basic ? basic[key] : detail[key];
@@ -816,7 +816,7 @@
   /**
    * 用已验证的商品引用打开原商品编辑器，保留底下的历史列表和发布工作区。
    * @param {object} product 服务端发放的 ref 与 title。
-   * @param {object|null} prefetched 历史入口已通过WorkCTL读取的资料，避免重复读取。
+   * @param {object|null} prefetched 历史入口已通过平台服务读取的资料，避免重复读取。
    * @returns {void} 打开编辑器；保存仍走已有商品patch，发布仍需单独确认。
    * @throws {Error} DOM初始化异常交给调用入口显示。
    */
