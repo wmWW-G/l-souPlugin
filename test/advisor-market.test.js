@@ -1,0 +1,6 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
+/** 隔离图表纯函数，避免测试调用真实平台。 */
+function charts(){const context={window:{},document:{addEventListener(){}}};let source=fs.readFileSync(require.resolve('../public/advisor-workflows.js'),'utf8');source=source.replace('  window.AdvisorPages=', '  window.chartTest={chartValue,marketBars,buyerChart,market};\n  window.AdvisorPages=');vm.runInNewContext(source,context);return context.window.chartTest;}
+test('图表区分缺失与零，外部标签转义，百分比轨道不改变分母',()=>{const c=charts();assert.equal(c.chartValue(null),null);assert.equal(c.chartValue(''),null);assert.equal(c.chartValue(-1),null);assert.equal(c.chartValue(0),0);const html=c.marketBars([['<img>',0.25],['缺失',null]],true);assert.ok(html.includes('width:25%'));assert.ok(html.includes('25.0%'));assert.ok(html.includes('&lt;img&gt;'));assert.ok(!html.includes('缺失'));});
+test('不完整的买家身份占比不能画成完整圆环',()=>{const c=charts();c.market.identity=[{byrIdentity:'wholesale',visitorRate:'0.3'}];assert.ok(!c.buyerChart().includes('<svg'));c.market.identity.push({byrIdentity:'manufacturer',visitorRate:'0.7'});assert.ok(c.buyerChart().includes('<svg'));assert.ok(c.buyerChart().includes('批发商'));});

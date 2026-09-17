@@ -18,7 +18,7 @@ const navigation = [...sections.querySelector('.tabs-in').children].map(el => ({
   group: el.tagName === 'P', id: el.dataset.tab, label: el.textContent.trim(),
   icon: el.querySelector('i')?.className, secondary: el.dataset.secondary === 'true',
 }));
-const scripts = ['/publish-product-utils.js', '/time-policy.js', '/ai-advisor.js', '/consultant.js', '/advisor-design.js', '/advisor-workflows.js', '/advisor-analytics.js', '/advisor-dashboard.js', '/app.js', '/advertising.js', '/risk-workspace.js', '/operations.js'];
+const scripts = ['/publish-product-utils.js', '/time-policy.js', '/ai-advisor.js', '/consultant.js', '/advisor-services.js', '/advisor-design.js', '/advisor-workflows.js', '/advisor-analytics.js', '/advisor-dashboard.js', '/app.js', '/advertising.js', '/risk-workspace.js', '/operations.js'];
 let initialization;
 
 /** 按依赖顺序加载旧业务模块一次。参数无；返回 Promise；加载失败时拒绝。 */
