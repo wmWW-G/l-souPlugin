@@ -385,3 +385,62 @@
 #advisorDesign #wfKeywordTable [data-keyword-kind="1"] th:nth-child(3){width:25%}
 #advisorDesign #wfKeywordTable [data-keyword-kind="1"] th:nth-child(4),#advisorDesign #wfKeywordTable [data-keyword-kind="1"] th:nth-child(5){width:13%}
 #advisorDesign #wfKeywordTable [data-keyword-kind="1"] th:nth-child(6){width:17%}
+
+/* 规划先展示浅层对标方向；不以红色告警暗示已定位业务原因。 */
+#advisorDesign .wf-plan-directions{margin-bottom:14px}
+#advisorDesign .wf-direction-list{display:grid;gap:10px;margin-top:12px}
+#advisorDesign .wf-direction-list article{border:1px solid #efe4da;border-radius:9px;padding:14px;background:#fffdfa}
+#advisorDesign .wf-direction-list h4{margin:0;font-size:15px;color:#554638}
+#advisorDesign .wf-direction-list p{font-size:12px;line-height:1.7;color:#827263;margin:8px 0 12px}
+#advisorDesign .wf-direction-list small{font-size:11px;color:#958574}
+#advisorDesign .wf-rule-status{font-size:10px;white-space:nowrap;color:#827263;background:#f7f3ee;padding:4px 7px;border-radius:4px}
+#advisorDesign .wf-rule-status.below{background:#fff0e3;color:#be6a30}
+#advisorDesign .wf-rule-status.strong{background:#edf7f1;color:#447d5b}
+#advisorDesign .wf-rule-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:10px}
+#advisorDesign .wf-rule-values strong{display:block;font-size:19px;margin-top:4px;color:#554638}
+#advisorDesign .wf-plan-directions details{font-size:12px;margin-top:12px;color:#958574}
+
+/* 关注点收为三行摘要；具体排查建议按需展开，卡片内部滚动。 */
+#advisorDesign .wf-plan-directions{max-height:390px;overflow-y:auto}
+#advisorDesign .wf-direction-list{gap:6px;margin-top:8px}
+#advisorDesign .wf-direction-list .wf-direction-item{margin:0;border:1px solid #efe4da;border-radius:7px;background:#fffdfa;color:#827263}
+#advisorDesign .wf-direction-item summary{padding:10px 12px;cursor:pointer;list-style:none}
+#advisorDesign .wf-direction-item summary::-webkit-details-marker{display:none}
+#advisorDesign .wf-direction-list h4{font-size:13px}
+#advisorDesign .wf-direction-list p{margin:5px 0 0;font-size:11px;line-height:1.55}
+#advisorDesign .wf-rule-inline{display:flex;flex-wrap:wrap;align-items:center;gap:5px 12px;margin-top:7px;font-size:11px}
+#advisorDesign .wf-rule-inline>b{font-weight:400;color:#917b67}
+#advisorDesign .wf-rule-inline strong{font-size:12px;color:#554638}
+#advisorDesign .wf-rule-inline i{margin-left:auto}
+#advisorDesign .wf-direction-item[open] .wf-rule-inline i{transform:rotate(180deg)}
+#advisorDesign .wf-rule-detail{padding:0 12px 10px;border-top:1px solid #f3ece6}
+#advisorDesign .wf-rule-detail ol{margin:8px 0;padding-left:18px;line-height:1.7;font-size:12px}
+#advisorDesign .wf-rule-detail .wf-rule-signal{background:#fff4ea;padding:7px 9px;border-radius:4px;margin-top:8px}
+
+/* 经营关注点：图标与正文分栏，本店数值优先，轻边界保持低视觉负担。 */
+#advisorDesign .wf-plan-directions{background:#fff;max-height:390px;border-color:#eee5dd}
+#advisorDesign .wf-plan-directions>.av-title{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+#advisorDesign .wf-plan-directions>.av-title small{margin-left:auto;background:#fff5ed;border-radius:20px;padding:3px 9px;color:#a57550;font-size:10px}
+#advisorDesign .wf-plan-directions>.wf-market-note{font-size:10px;margin:0 0 12px;color:#a1968c}
+#advisorDesign .wf-direction-list{gap:0;margin:0}
+#advisorDesign .wf-direction-list .wf-direction-item{background:#fff;border:0;border-bottom:1px solid #f1ece7;border-radius:0}
+#advisorDesign .wf-direction-list .wf-direction-item:last-child{border-bottom:0}
+#advisorDesign .wf-direction-item summary{display:flex;align-items:flex-start;gap:12px;padding:13px 0}
+#advisorDesign .wf-direction-item summary:hover{background:#fffcf9}
+#advisorDesign .wf-direction-icon{display:grid;place-items:center;width:34px;height:34px;flex-shrink:0;border-radius:10px;background:#fff1e6;color:#ef7a35;font-size:19px;margin-top:1px}
+#advisorDesign .wf-direction-content{flex:1;min-width:0}
+#advisorDesign .wf-direction-content .wf-spread{gap:8px}
+#advisorDesign .wf-direction-list h4{font-size:13px;font-weight:600;color:#453b32}
+#advisorDesign .wf-rule-status.below{background:transparent;color:#bc824f;font-size:10px;padding:0}
+#advisorDesign .wf-rule-inline{gap:4px 14px;margin-top:8px;line-height:1.5;color:#a09387}
+#advisorDesign .wf-rule-inline>b{font-size:10px;color:#94867a}
+#advisorDesign .wf-rule-inline strong{font-size:12px;font-weight:500;color:#736559}
+#advisorDesign .wf-rule-inline .mine strong{font-size:16px;font-weight:650;color:#db712f}
+#advisorDesign .wf-direction-content p{font-size:11px;color:#9b8e81;margin-top:6px}
+#advisorDesign .wf-direction-expand{align-self:center;color:#b7aa9c;font-size:16px;transition:transform .15s}
+#advisorDesign .wf-direction-item[open] .wf-direction-expand{transform:rotate(180deg)}
+#advisorDesign .wf-rule-detail{margin:0 0 10px 46px;padding:9px 12px;background:#fdfaf7;border:0;border-radius:7px}
+#advisorDesign .wf-rule-detail .wf-rule-signal{background:transparent;padding:0;color:#956945}
+#advisorDesign .wf-direction-item summary:focus-visible{outline:2px solid #f1b187;outline-offset:2px;border-radius:6px}
+
+#advisorDesign .wf-plan-all{width:100%;margin-top:10px;padding:7px;font-size:12px}
