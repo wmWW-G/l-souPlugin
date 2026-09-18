@@ -13,8 +13,24 @@ tmp/
 .env.*
 credentials.enc
 
-# 当前项目零依赖；若以后增加工具链，也不提交安装产物与测试缓存。
+# 依赖安装产物与测试缓存可重建，不进入源码仓库。
 node_modules/
 coverage/
 __pycache__/
 *.pyc
+
+# React / Tauri 可重复构建产物与平台运行时。
+dist/
+src-tauri/target/
+src-tauri/payload/
+src-tauri/runtime/
+src-tauri/gen/
+release/
+.build-cache/
+.env.advisor
+
+# 历史设计截图和验收草稿只在本地留档；正式界面资源仍放在 public/assets/。
+/design-pages/
+/design-audit-*/
+/design-*.png
+/design-qa.md

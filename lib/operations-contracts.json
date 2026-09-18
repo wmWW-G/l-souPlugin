@@ -1,0 +1,1130 @@
+{
+  "verifiedAt": "2026-09-05",
+  "workctlVersion": "0.1.53",
+  "commands": {
+    "icbu product product-ai-image-color-change": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "hexColor": {
+            "type": "string",
+            "description": " 色卡值"
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "原始图片url"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "AI图片创作prompt"
+          }
+        },
+        "required": [
+          "imageUrl",
+          "prompt",
+          "hexColor"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu trade list-trade-list-mcp": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "createDateFrom": {
+            "type": "string",
+            "description": "订单创建起始日期，格式必须为 yyyy-MM-dd HH:mm:ss，如 2026-05-24 00:00:00"
+          },
+          "createDateTo": {
+            "type": "string",
+            "description": "订单创建截止日期，格式必须为 yyyy-MM-dd HH:mm:ss，如 2026-06-24 23:59:59"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "每页数量"
+          },
+          "logisticsStatus": {
+            "type": "string",
+            "description": "物流状态。可选值：not_shipped(未发货)、shipped(已发货)、in_transit(运输中)、delivered(已送达)"
+          },
+          "masterId": {
+            "type": "integer",
+            "description": "主子订单的主单号"
+          },
+          "modifiedFrom": {
+            "type": "string",
+            "description": "修改时间起始日期，格式必须为 yyyy-MM-dd HH:mm:ss，如 2026-05-24 00:00:00"
+          },
+          "modifiedTo": {
+            "type": "string",
+            "description": "修改时间结束日期，订单最后修改时间的结束范围，格式必须为 yyyy-MM-dd HH:mm:ss，如 2026-06-24 23:59:59"
+          },
+          "start": {
+            "type": "integer",
+            "description": " 起始位置，分页查询的起始记录位置"
+          },
+          "tradeId": {
+            "type": "integer",
+            "description": "单个交易ID"
+          },
+          "tradeIds": {
+            "type": "array",
+            "description": "交易号 id 集合",
+            "items": {
+              "type": "integer",
+              "description": "交易号 id "
+            }
+          }
+        }
+      },
+      "requiresYes": false
+    },
+    "icbu product data-advisor-industry-crowd-insight": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "industryId": {
+            "type": "string",
+            "description": "行业id，可选值为数字或者TOTAL。分别表示特定类型id、全部类目"
+          },
+          "nd": {
+            "type": "string",
+            "description": "时间周期，可选值为30d、1m，分别表示最近30天、自然月"
+          },
+          "statDate": {
+            "type": "string",
+            "description": "统计时间，如果nd为30d，statDate需要设置为日期（默认T-2）。如果nd为1m，statDate需要设置为查询月份的1号。格式yyyy-mm-dd"
+          },
+          "terminalType": {
+            "type": "string",
+            "description": "终端类型，可选值为APP、WAP、PC、TOTAL"
+          }
+        }
+      },
+      "requiresYes": false
+    },
+    "icbu tm list-conversation-msg-time-range": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "description": "会话 ID，可从 query_recent_conversation 返回的 conversations[].conversationId 获取。",
+            "minLength": 1
+          },
+          "domain": {
+            "type": "string",
+            "description": "租户类型。不确定时使用默认值 icbu。",
+            "enum": [
+              "icbu",
+              "accio"
+            ],
+            "default": "icbu"
+          },
+          "endTime": {
+            "type": "integer",
+            "description": "查询结束时间戳（Unix 毫秒）。"
+          },
+          "selfAliId": {
+            "type": "integer",
+            "description": "必须使用 conversationId 对应会话的 sellerAliId。仅当该 sellerAliId 等于通过 workctl workflow chat-analysis resolve-id 生成的 account_identity.json 中 CURRENT_SELF_ALIID 时可省略，省略后自动注入当前账号；否则必须显式传入会话记录中的 sellerAliId。不要从 conversationId 拆解或猜测。"
+          },
+          "startTime": {
+            "type": "integer",
+            "description": "查询起始时间戳（Unix 毫秒）。"
+          }
+        },
+        "required": [
+          "conversationId",
+          "domain",
+          "startTime",
+          "endTime"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu product data-advisor-industry-seller-portrait": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cateId": {
+            "type": "integer",
+            "description": "类目id，数字"
+          }
+        },
+        "required": [
+          "cateId"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu product product-edit-draft-trade": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "batchNum": {
+            "type": "integer",
+            "description": "当 saleType=batch 时必填且 ≥1；saleType=normal 时禁止传入"
+          },
+          "inventory": {
+            "type": "integer",
+            "description": "可售数量"
+          },
+          "ladderPrices": {
+            "type": "array",
+            "description": "阶梯价列表",
+            "items": {
+              "type": "object",
+              "description": "阶梯价",
+              "properties": {
+                "ladderIndex": {
+                  "type": "integer",
+                  "description": "阶梯索引"
+                },
+                "maxQuantity": {
+                  "type": "integer",
+                  "description": "最大数量"
+                },
+                "minQuantity": {
+                  "type": "integer",
+                  "description": "最小数量"
+                },
+                "operationType": {
+                  "type": "string",
+                  "description": "操作类型"
+                },
+                "unitPrice": {
+                  "type": "string",
+                  "description": "单价，币种是美元"
+                }
+              }
+            }
+          },
+          "moq": {
+            "type": "integer",
+            "description": "最小起订量"
+          },
+          "priceUnit": {
+            "type": "integer",
+            "description": "计量单位编码"
+          },
+          "productId": {
+            "type": "integer",
+            "description": "关联的商品ID"
+          },
+          "saleType": {
+            "type": "string",
+            "description": "基础销售方式：normal（按件卖）/ batch（按批卖）",
+            "enum": [
+              "normal",
+              "batch"
+            ]
+          },
+          "sku": {
+            "type": "array",
+            "description": "规格编辑列表（SKU 维度",
+            "items": {
+              "type": "object",
+              "properties": {
+                "operationType": {
+                  "type": "string",
+                  "description": "操作类型"
+                },
+                "skuAttributes": {
+                  "type": "array",
+                  "description": "sku属性",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "attrName": {
+                        "type": "string",
+                        "description": "属性名文本"
+                      },
+                      "attrNameId": {
+                        "type": "integer",
+                        "description": "属性名ID"
+                      },
+                      "attrValue": {
+                        "type": "string",
+                        "description": "属性值文本"
+                      },
+                      "attrValueId": {
+                        "type": "integer",
+                        "description": "属性值ID"
+                      },
+                      "imageUrl": {
+                        "type": "string",
+                        "description": "销售属性图片URL"
+                      }
+                    }
+                  }
+                },
+                "skuCode": {
+                  "type": "string",
+                  "description": "skuCode"
+                },
+                "skuId": {
+                  "type": "integer",
+                  "description": "sku ID"
+                },
+                "stock": {
+                  "type": "integer",
+                  "description": "库存"
+                },
+                "unitPrice": {
+                  "type": "string",
+                  "description": "sku价格，币种是美元"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "productId"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu product product-ai-image-translate": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "imageUrl": {
+            "type": "string",
+            "description": "原始图片URL"
+          },
+          "targetLang": {
+            "type": "string",
+            "description": "目标语言"
+          }
+        },
+        "required": [
+          "imageUrl",
+          "targetLang"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu advisor icbu-starrating-cgs-pc-page-data-open": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "locale": {
+            "type": "string",
+            "description": "语言，用于指定查询的数据语言环境。cgs一般传zh_CN即可",
+            "default": "zh_CN"
+          },
+          "statDate": {
+            "type": "string",
+            "description": "指定查询数据日期，格式为 yyyy-MM-dd。可为空，为空时使用当前最新数据分区。"
+          },
+          "terminal": {
+            "type": "string",
+            "description": "端型，用于指定查询的数据终端类型。PC端建议传真实UA或者chrome即可。移动端传android/ios",
+            "default": "chrome"
+          }
+        }
+      },
+      "requiresYes": true
+    },
+    "icbu tm get-seller-basic": {
+      "schema": {
+        "type": "object"
+      },
+      "requiresYes": false
+    },
+    "icbu product data-advisor-industry-market-detail": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cateId": {
+            "type": "integer",
+            "description": "市场唯一标识ID，类型为 Long，由业务系统统一分配，必填且不可为空或负数。"
+          }
+        },
+        "required": [
+          "cateId"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu advisor data-advisor-to-product": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sourceType": {
+            "type": "string",
+            "description": "流量类型，如果询问全部流量，则值为total_traffic，如果询问搜索流量，则值为search_traffic，如果询问场景流量，则值为scenario_traffic，如果询问互动流量，则值为interaction_traffic，如果询问自增（自然）流量，则值为increase_traffic"
+          },
+          "terminalType": {
+            "type": "string",
+            "description": "终端类型，可选值为PC、WS、TOTAL，分别表示PC端、无线端、全部"
+          }
+        }
+      },
+      "requiresYes": false
+    },
+    "icbu product submit-product-diagnosis-optimize-task": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "productDiagnosis": {
+            "type": "string",
+            "description": "商品诊断和优化建议，JSON格式字符串"
+          },
+          "productId": {
+            "type": "integer",
+            "description": "商品id"
+          }
+        },
+        "required": [
+          "productId"
+        ]
+      },
+      "requiresYes": true
+    },
+    "icbu product command-video-generate-storyboard": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "inputImgUrls": {
+            "type": "array",
+            "description": "用户输入图片数组（可选）",
+            "items": {
+              "type": "string",
+              "description": "用户输入图片"
+            }
+          },
+          "userInput": {
+            "type": "string",
+            "description": "用户输入的文本提示词（必填），用于描述期望生成的视频内容与分镜要求"
+          }
+        },
+        "required": [
+          "userInput"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu product product-ai-image-generate": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "abilityCode": {
+            "type": "string",
+            "description": "AI 图像能力 code，必填。   当前服务端接受的取值：     - imageGenerate(场景图)     - imageExtraction(白底图)     - imageColorChange(图片换色)     - imageOptimize(图片擦除)     - imageCustomLogo(图片自定义logo)     - imageHighDefinition(高清图)     - imageDetails(细节图)     - imageModelGenerate(模特图)     - commandGeneratePic(指令生图)     - textCommandGeneratePic(文本指令生图)     - imageTrans(图片翻译)     - marketingSellPoint(营销卖点图生产)     - wholeHouseCustomization(全屋定制图生产)     - productionProcess(生产流程图生产)     - textEdit(文字编辑)     - imageReEdit(图片二次编辑)     - imageResize(改尺寸)   传非以上值会返回 errCode=20010006 abilityCode is invalid。   不确定时请向用户确认意图，不要凭字面猜测 enum 名。"
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "原始图片url"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "AI图片创作prompt"
+          }
+        },
+        "required": [
+          "abilityCode",
+          "imageUrl"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu trade shop-risk-diagnosis": {
+      "schema": {
+        "type": "object"
+      },
+      "requiresYes": false
+    },
+    "icbu product product-ai-image-generate-result": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "requestKey": {
+            "type": "string",
+            "description": "AI 图片创作请求的唯一标识 key，由创作请求接口返回"
+          }
+        },
+        "required": [
+          "requestKey"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu product product-ai-image-model-generate": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "imageUrl": {
+            "type": "string",
+            "description": "主体图片URL"
+          },
+          "modelImageUrl": {
+            "type": "string",
+            "description": "模特图片URL"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "AI图片创作prompt"
+          }
+        },
+        "required": [
+          "imageUrl",
+          "prompt"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu tm query-recent-conversation": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "租户类型。不确定时使用默认值 icbu。",
+            "enum": [
+              "icbu",
+              "accio"
+            ],
+            "default": "icbu"
+          },
+          "limitTimeStamp": {
+            "type": "integer",
+            "description": "分页游标时间戳（Unix 毫秒）。首次查询可传一个足够大的当前/未来时间戳。"
+          },
+          "selfAliId": {
+            "type": "integer",
+            "description": "查询人 aliId，不传时自动取当前登录用户的 aliId。"
+          }
+        }
+      },
+      "requiresYes": false
+    },
+    "icbu tm list-conversation-msg": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "description": "会话 ID，可从 query_recent_conversation 返回的 conversations[].conversationId 获取。",
+            "minLength": 1
+          },
+          "count": {
+            "type": "integer",
+            "description": "单次查询消息条数。",
+            "default": 20
+          },
+          "domain": {
+            "type": "string",
+            "description": "租户类型。不确定时使用默认值 icbu。",
+            "enum": [
+              "icbu",
+              "accio"
+            ],
+            "default": "icbu"
+          },
+          "forward": {
+            "type": "boolean",
+            "description": "消息查询方向。false 表示向时间减小方向查询，true 表示向时间增大方向查询。",
+            "default": false
+          },
+          "limitTimeStamp": {
+            "type": "integer",
+            "description": "分页游标时间戳（Unix 毫秒）。首次以 forward=false 向历史查询时可省略，CLI 自动注入当前时间；后续分页必须显式传上一页返回的 cursor。forward=true 时必须显式传入。"
+          },
+          "selfAliId": {
+            "type": "integer",
+            "description": "必须使用 conversationId 对应会话的 sellerAliId。仅当该 sellerAliId 等于通过 workctl workflow chat-analysis resolve-id 生成的 account_identity.json 中 CURRENT_SELF_ALIID 时可省略，省略后自动注入当前账号；否则必须显式传入会话记录中的 sellerAliId。不要从 conversationId 拆解或猜测。"
+          }
+        },
+        "required": [
+          "limitTimeStamp",
+          "conversationId"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu logistics icbu-logistics-customs-calculate-tariff-tool": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "destinationCountryCode": {
+            "type": "string",
+            "description": "出口目的国,可填写默认值:US"
+          },
+          "originCountryCode": {
+            "type": "string",
+            "description": "出口起始国,可填写默认值:CN"
+          },
+          "productId": {
+            "type": "integer",
+            "description": "用户提供的商品ID"
+          },
+          "productSource": {
+            "type": "string",
+            "description": "商品来源平台，可填写默认值:ICBU"
+          },
+          "source": {
+            "type": "string",
+            "description": "接口请求来源，可填写默认值:ACCIO_WORK"
+          }
+        },
+        "required": [
+          "productSource",
+          "productId",
+          "originCountryCode",
+          "destinationCountryCode",
+          "source"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu advisor data-advisor-shop-channel-trend": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "channelType": {
+            "type": "string",
+            "description": "渠道类型。搜索渠道，则值为\"搜索\"。系统推荐渠道，则值为\"系统推荐\"。导购会场渠道，则值为\"会场\"。站内互动渠道，则值为\"站内收藏\"。询盘&TM渠道，则值为\"询盘&TM\"。直接访问渠道，则值为\"直接访问\"。店内渠道，则值为\"店内\"。站外渠道，则值为\"站外\"。其他渠道，则值为\"其他\""
+          },
+          "dimensionType": {
+            "type": "string",
+            "description": "指标维度类型。如果查看店铺访问人数，值为shop_uv。如果查看店内询盘人数，值为fb_mc_uv。如果查看店内TM咨询人数，值为fb_uv。如果查看商机转化率，值为visitor_to_fb_rate。支持传入多个值，用英文逗号分隔，例子：shop_uv,fb_mc_uv"
+          },
+          "endDate": {
+            "type": "string",
+            "description": "结束日期，格式为yyyy-MM-dd。最多可查看30天数据"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "开始日期，格式为yyyy-MM-dd。最多可查看30天数据"
+          },
+          "statisticsType": {
+            "type": "string",
+            "description": "时间周期，可选值为day（日）、week（周）、month（月）"
+          },
+          "terminalType": {
+            "type": "string",
+            "description": "终端类型，可选值为PC、WS、TOTAL，分别表示PC端、无线端、全部"
+          }
+        },
+        "required": [
+          "dimensionType",
+          "endDate",
+          "channelType",
+          "statisticsType",
+          "startDate",
+          "terminalType"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu logistics list": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "currentPage": {
+            "type": "number",
+            "description": "当前页，默认1"
+          },
+          "number": {
+            "type": "string",
+            "description": "ALS开头的物流订单号"
+          },
+          "pageSize": {
+            "type": "number",
+            "description": "分页大小，默认20"
+          },
+          "statusList": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "订单状态list。PLACE_ORDER 下单成功、WAIT_ENTER_WAREHOUSE 待入库、CONFIRMED 已核查、WAIT_LEAVE_WAREHOUSE 待出库、LEAVE_WAREHOUSE 已出库、TRANSPORTING 运输中、DELIVERY_SUCCESS 派送成功、DELIVERY_FAIL 派送失败、TERMINATED 订单终止、CLOSED 订单关闭"
+            }
+          },
+          "tradeBizId": {
+            "type": "string",
+            "description": "信保单Id"
+          }
+        }
+      },
+      "requiresYes": false
+    },
+    "icbu product data-advisor-industry-market-trend": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cateId": {
+            "type": "integer",
+            "description": "行业唯一标识（Long类型），例如：10001表示电商行业，20005表示快消行业，需确保该标识在平台内已注册生效"
+          }
+        },
+        "required": [
+          "cateId"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu product product-ai-video-generate-result": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "requestKey": {
+            "type": "string",
+            "description": "视频生成任务的唯一标识键，由视频生成接口返回，用于轮询查询生成结果"
+          }
+        },
+        "required": [
+          "requestKey"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu tm get-product": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "buyer_country_code": {
+            "type": "string",
+            "description": "买家国家代码，ISO 3166-1 alpha-2 两位大写字母代码，例如 US（美国）、CN（中国）、GB（英国）、DE（德国）、BR（巴西）、JP（日本）等。当请求中未传入该字段、或字段值为空时，系统按 US（美国）处理。",
+            "default": "US"
+          },
+          "prod_id": {
+            "type": "string",
+            "description": "当前沟通的商品id"
+          }
+        },
+        "required": [
+          "prod_id"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu product submit-draft": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "integer",
+            "description": "商品ID"
+          }
+        },
+        "required": [
+          "productId"
+        ]
+      },
+      "requiresYes": true
+    },
+    "icbu tm get-buyer-basic": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "contactAliId": {
+            "type": "integer",
+            "description": "买家id（要查询的买家aliId）"
+          },
+          "prod_id": {
+            "type": "string",
+            "description": "当前沟通的商品id（可选）"
+          }
+        },
+        "required": [
+          "contactAliId"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu product product-edit-draft-basic-info": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "attr": {
+            "type": "array",
+            "description": "商品属性列表，按 attrName 匹配替换或新增",
+            "items": {
+              "type": "object",
+              "properties": {
+                "attrName": {
+                  "type": "string",
+                  "description": "属性名"
+                },
+                "attrNameId": {
+                  "type": "integer",
+                  "description": "属性ID（系统属性必填，自定义属性可选）"
+                },
+                "attrValue": {
+                  "type": "string",
+                  "description": "用户自定义的属性值文本"
+                },
+                "attrValueId": {
+                  "type": "integer",
+                  "description": "系统预定义的属性值ID"
+                },
+                "imageUrl": {
+                  "type": "string",
+                  "description": "销售属性值的图片URL"
+                },
+                "operationType": {
+                  "type": "string",
+                  "description": "操作类型",
+                  "enum": [
+                    "ADD",
+                    "EDIT",
+                    "DELETE"
+                  ]
+                }
+              }
+            }
+          },
+          "images": {
+            "type": "array",
+            "description": "主副图编辑列表",
+            "items": {
+              "type": "object",
+              "properties": {
+                "imageIndex": {
+                  "type": "integer",
+                  "description": "图片位置索引（新增、编辑调整顺序时使用）"
+                },
+                "newImageUrl": {
+                  "type": "string",
+                  "description": "图片URL（新增、编辑替换时传入新的图片URL）"
+                },
+                "operationType": {
+                  "type": "string",
+                  "description": "操作类型：ADD / EDIT / DELETE / REPLACE。- ADD：新增图片，需要传入newImageUrl，imageIndex - EDIT：修改图片，需要传入originalImageUrl，imageIndex - REPLACE：替换图片，需要传入originalImageUrl，newImageUrl - DELETE：删除图片，需要传入originalImageUrl"
+                },
+                "originalImageUrl": {
+                  "type": "string",
+                  "description": "图片URL（编辑、删除时传入原始图片URL）"
+                }
+              }
+            }
+          },
+          "productId": {
+            "type": "integer",
+            "description": "商品ID"
+          },
+          "productKeywords": {
+            "type": "string",
+            "description": "关键词"
+          },
+          "productTitle": {
+            "type": "string",
+            "description": "商品标题"
+          }
+        },
+        "required": [
+          "productId"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu product get-score": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "integer",
+            "description": "商品ID"
+          }
+        },
+        "required": [
+          "productId"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu product product-edit-draft-detail": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "companyDesc": {
+            "type": "string",
+            "description": "结构化商详-公司介绍文本内容"
+          },
+          "companyImage": {
+            "type": "array",
+            "description": "结构化商详-公司图片编辑列表",
+            "items": {
+              "type": "object",
+              "properties": {
+                "imageIndex": {
+                  "type": "integer",
+                  "description": "排序序号（新增、编辑调整顺序时使用）"
+                },
+                "imageSetId": {
+                  "type": "string",
+                  "description": "图集ID"
+                },
+                "imageText": {
+                  "type": "string",
+                  "description": "图片文本描述"
+                },
+                "newImageUrl": {
+                  "type": "string",
+                  "description": "图片URL（新增、编辑替换时传入新的图片URL）"
+                },
+                "operationType": {
+                  "type": "string",
+                  "description": "- ADD：新增图片，需要传入newImageUrl，imageIndex - EDIT：修改图片，需要传入originalImageUrl，imageIndex - REPLACE：替换图片，需要传入originalImageUrl，newImageUrl - DELETE：删除图片，需要传入originalImageUrl",
+                  "enum": [
+                    "ADD",
+                    "EDIT",
+                    "DELETE",
+                    "REPLACE"
+                  ]
+                },
+                "originalImageUrl": {
+                  "type": "string",
+                  "description": "图片URL（编辑、删除时传入原始图片URL）"
+                }
+              }
+            }
+          },
+          "detailImage": {
+            "type": "array",
+            "description": "结构化商详-商详图编辑列表",
+            "items": {
+              "type": "object",
+              "properties": {
+                "imageIndex": {
+                  "type": "integer",
+                  "description": "排序序号（新增、编辑调整顺序时使用）"
+                },
+                "imageSetId": {
+                  "type": "string",
+                  "description": "图集ID"
+                },
+                "imageText": {
+                  "type": "string",
+                  "description": "图片文本描述"
+                },
+                "newImageUrl": {
+                  "type": "string",
+                  "description": "图片URL（新增、编辑替换时传入新的图片URL）"
+                },
+                "operationType": {
+                  "type": "string",
+                  "description": "- ADD：新增图片，需要传入newImageUrl，imageIndex - EDIT：修改图片，需要传入originalImageUrl，imageIndex - REPLACE：替换图片，需要传入originalImageUrl，newImageUrl - DELETE：删除图片，需要传入originalImageUrl",
+                  "enum": [
+                    "ADD",
+                    "EDIT",
+                    "DELETE",
+                    "REPLACE"
+                  ]
+                },
+                "originalImageUrl": {
+                  "type": "string",
+                  "description": "图片URL（编辑、删除时传入原始图片URL）"
+                }
+              }
+            }
+          },
+          "faqs": {
+            "type": "array",
+            "description": "结构化商详-FAQ编辑列表",
+            "items": {
+              "type": "object",
+              "properties": {
+                "answer": {
+                  "type": "string",
+                  "description": "FAQ 答案，ADD时question和answer必须都传"
+                },
+                "operationType": {
+                  "type": "string",
+                  "description": "操作类型：ADD / EDIT / DELETE ",
+                  "enum": [
+                    "ADD",
+                    "EDIT",
+                    "DELETE"
+                  ]
+                },
+                "question": {
+                  "type": "string",
+                  "description": "FAQ 问题，ADD时question和answer必须都传"
+                },
+                "sortOrder": {
+                  "type": "integer",
+                  "description": "排序序号，EDIT / DELETE时必传，作为唯一定位主键"
+                }
+              }
+            }
+          },
+          "productId": {
+            "type": "integer",
+            "description": "商品ID"
+          },
+          "productSellingPoint": {
+            "type": "string",
+            "description": "商品卖点"
+          }
+        },
+        "required": [
+          "productId"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu product list-information": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "componentList": {
+            "type": "array",
+            "description": "需要查询的组件列表 ",
+            "items": {
+              "type": "string"
+            }
+          },
+          "productId": {
+            "type": "integer",
+            "description": "商品ID  "
+          },
+          "queryType": {
+            "type": "string",
+            "description": "查询类型：trunk（正本，查询已发布商品的最新正式版，不可编辑）/ copy（副本，查询最近一次提交发布的版本）/ draft（草稿，查询草稿态数据，查询最近修改过但还未提交发布的商品信息，返回最新保存的数据版本",
+            "enum": [
+              "trunk",
+              "copy",
+              "draft",
+              "draftFirst"
+            ]
+          }
+        },
+        "required": [
+          "productId",
+          "queryType",
+          "componentList"
+        ]
+      },
+      "requiresYes": false
+    },
+    "icbu trade list-shop-violation-result-v2": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "countryControl": {
+            "type": "string",
+            "description": "国家管控标识"
+          },
+          "endDate": {
+            "type": "string",
+            "description": "查询结束日期"
+          },
+          "language": {
+            "type": "string",
+            "description": "语言"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "返回结果数量限制"
+          },
+          "productId": {
+            "type": "integer",
+            "description": "商品ID"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "查询开始日期"
+          },
+          "timeZone": {
+            "type": "string",
+            "description": "时区"
+          },
+          "violationType": {
+            "type": "string",
+            "description": "违规类型"
+          }
+        }
+      },
+      "requiresYes": false
+    },
+    "icbu trade list-product-violation-result-v2": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "countryControl": {
+            "type": "string",
+            "description": "国家管控标识"
+          },
+          "endDate": {
+            "type": "string",
+            "description": "查询结束日期"
+          },
+          "language": {
+            "type": "string",
+            "description": "语言"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "返回结果数量限制"
+          },
+          "productId": {
+            "type": "integer",
+            "description": "商品ID"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "查询开始日期"
+          },
+          "timeZone": {
+            "type": "string",
+            "description": "时区"
+          },
+          "violationType": {
+            "type": "string",
+            "description": "违规类型"
+          }
+        }
+      },
+      "requiresYes": false
+    },
+    "icbu product command-video-generate": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "inputImgUrls": {
+            "type": "array",
+            "description": "输入的原始图片数组",
+            "items": {
+              "type": "string",
+              "description": "输入图片项"
+            }
+          },
+          "ratio": {
+            "type": "string",
+            "description": "视频长宽比例，如 16:9、9:16、1:1 等"
+          },
+          "storyboardList": {
+            "type": "array",
+            "description": "分镜信息列表，每个分镜对象包含分镜持续秒数(seconds)和分镜提示词(storyboard)",
+            "items": {
+              "type": "object",
+              "description": "分镜信息，包含秒数、分镜文本内容",
+              "properties": {
+                "seconds": {
+                  "type": "string",
+                  "description": "秒数"
+                },
+                "storyboard": {
+                  "type": "string",
+                  "description": "分镜提示词"
+                }
+              },
+              "required": [
+                "seconds",
+                "storyboard"
+              ]
+            }
+          }
+        },
+        "required": [
+          "storyboardList",
+          "ratio"
+        ]
+      },
+      "requiresYes": false
+    }
+  }
+}

@@ -1,0 +1,3 @@
+interface:
+  display_name: "发品规划"
+  short_description: "结合已有业务资料完成发品规划，说明判断依据、具体工作和待核实内容。"

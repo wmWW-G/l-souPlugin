@@ -1,0 +1,3 @@
+interface:
+  display_name: "商品标题"
+  short_description: "结合已有业务资料完成商品标题，说明判断依据、具体工作和待核实内容。"

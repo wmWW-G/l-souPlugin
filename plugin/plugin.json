@@ -1,0 +1,14 @@
+{
+  "name": "lsou-workbench",
+  "displayName": "来搜国际站经营工作台",
+  "version": "1.0.11",
+  "description": "来搜经营工作台：点击启动页打开 Tauri 窗口，使用当前店铺授权读取数据。包含32项分析与任务能力，支持所选周期、任务录入及本地报告历史。分别支持 Mac M 芯片、Intel Mac、Windows x64。",
+  "icon": "icon.png",
+  "category": "marketing",
+  "tags": [
+    "国际站",
+    "经营分析",
+    "Tauri"
+  ],
+  "connectors": "connectors/connectors.json"
+}

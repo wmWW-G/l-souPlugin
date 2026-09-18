@@ -3,10 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>来搜 · 国际站经营驾驶舱</title>
+<title>来搜 · 运营顾问</title>
 <link rel="icon" type="image/png" href="/assets/lsou-logo-square.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.6.0/fonts/remixicon.css">
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/ai-advisor.css">
+<link rel="stylesheet" href="/consultant.css">
+<link rel="stylesheet" href="/advisor-design.css">
 </head>
 <body>
 
@@ -14,7 +17,7 @@
   <aside class="sidebar" aria-label="业务导航">
     <div class="brand" aria-label="来搜国际站经营工作台">
       <img class="brand-mark" src="/assets/lsou-logo-square.png" alt="来搜 L-SOU">
-      <span class="brand-name">来搜国际站经营工作台</span>
+      <span class="brand-name">来搜 <small>运营顾问</small></span>
     </div>
 
     <div class="status-pill" role="status" aria-live="polite">
@@ -25,33 +28,27 @@
 
     <nav class="tabs" id="tabs">
       <div class="tabs-in">
-        <p class="nav-label">经营中心</p>
-        <button data-tab="overview" class="on"><i class="ri-home-5-line" aria-hidden="true"></i><span>经营总览</span></button>
-        <button data-anchor="actionPanel"><i class="ri-checkbox-circle-line" aria-hidden="true"></i><span>运营待办</span><b class="nav-badge" id="todoCount">3</b></button>
-
-        <p class="nav-label">增长运营</p>
-        <button data-tab="visitor"><i class="ri-user-search-line" aria-hidden="true"></i><span>客户与询盘</span></button>
-        <button data-tab="product"><i class="ri-shopping-bag-3-line" aria-hidden="true"></i><span>商品运营</span></button>
-        <button data-tab="product-publish"><i class="ri-upload-cloud-2-line" aria-hidden="true"></i><span>产品发布</span></button>
-        <button data-tab="flow"><i class="ri-line-chart-line" aria-hidden="true"></i><span>流量分析</span></button>
-        <button data-tab="ads"><i class="ri-focus-3-line" aria-hidden="true"></i><span>关键词与广告</span></button>
-        <button data-tab="rfq"><i class="ri-file-search-line" aria-hidden="true"></i><span>RFQ 商机</span></button>
-
-        <p class="nav-label">交易保障</p>
-        <button data-tab="orders"><i class="ri-truck-line" aria-hidden="true"></i><span>订单与物流</span></button>
-        <button data-tab="risk"><i class="ri-shield-check-line" aria-hidden="true"></i><span>风险合规</span></button>
-
-        <p class="nav-label">内容资产</p>
-        <button data-tab="storefront"><i class="ri-layout-4-line" aria-hidden="true"></i><span>店铺装修</span></button>
-        <button data-tab="assets"><i class="ri-palette-line" aria-hidden="true"></i><span>素材工坊</span></button>
-
-        <p class="nav-label">组织管理</p>
-        <button data-tab="staff"><i class="ri-team-line" aria-hidden="true"></i><span>团队绩效</span></button>
-        <button data-tab="knowledge"><i class="ri-book-open-line" aria-hidden="true"></i><span>知识库与接待</span></button>
-        <button data-tab="access"><i class="ri-admin-line" aria-hidden="true"></i><span>账号与权限</span></button>
-
-        <p class="nav-label">系统工具</p>
-        <button data-tab="console"><i class="ri-terminal-box-line" aria-hidden="true"></i><span>数据控制台</span></button>
+<p class="nav-label">运营顾问</p>
+<button data-tab="overview" class="on"><i class="ri-bar-chart-box-line" aria-hidden="true"></i><span>数据看板</span></button>
+<button data-tab="plan"><i class="ri-route-line" aria-hidden="true"></i><span>运营规划</span></button>
+<button data-tab="position"><i class="ri-global-line" aria-hidden="true"></i><span>营销定位</span></button>
+<button data-tab="foundation"><i class="ri-tools-line" aria-hidden="true"></i><span>运营基建</span></button>
+<button data-tab="ads"><i class="ri-megaphone-line" aria-hidden="true"></i><span>运营推广</span></button>
+<button data-tab="cultivation"><i class="ri-star-line" aria-hidden="true"></i><span>优爆品提升</span></button>
+<button data-tab="product"><i class="ri-line-chart-line" aria-hidden="true"></i><span>数据分析与优化</span></button>
+<button data-tab="visitor"><i class="ri-contacts-line" aria-hidden="true"></i><span>商机转化</span></button>
+<p class="nav-label">核心能力</p><button data-tab="product-publish"><i class="ri-upload-cloud-2-line" aria-hidden="true"></i><span>产品发布</span></button>
+<button data-tab="flow" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>流量分析</span></button>
+<button data-tab="market" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>市场洞察</span></button>
+<button data-tab="rfq" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>RFQ商机</span></button>
+<button data-tab="orders" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>订单与物流</span></button>
+<button data-tab="risk" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>风险合规</span></button>
+<button data-tab="storefront" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>店铺装修</span></button>
+<button data-tab="assets" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>素材工坊</span></button>
+<button data-tab="staff" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>团队绩效</span></button>
+<button data-tab="knowledge" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>知识库与接待</span></button>
+<button data-tab="access" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>账号与权限</span></button>
+<button data-tab="console" data-secondary="true" hidden><i class="ri-apps-line" aria-hidden="true"></i><span>数据控制台</span></button>
       </div>
     </nav>
 
@@ -76,25 +73,35 @@
         <div class="filterbar" aria-label="经营数据筛选">
           <label><span>店铺</span><select id="storeSelect" aria-label="店铺"><option>当前国际站店铺</option></select></label>
           <label><span>账号</span><select id="accountSelect" aria-label="账号"><option>主账号</option></select></label>
-          <label class="date-field"><span>时间范围</span><span class="date-pair"><input type="date" id="startDate" aria-label="开始日期"><b>—</b><input type="date" id="endDate" aria-label="结束日期"></span></label>
-          <label><span>周期</span><select id="quickRange" aria-label="快捷统计区间">
-            <option value="">自定义</option><option value="7">近 7 天</option><option value="30" selected>近 30 天</option><option value="90">近 90 天</option>
-          </select></label>
+          <input type="hidden" id="startDate"><input type="hidden" id="endDate">
+          <div id="timeControls" class="time-controls">
+            <label><span>统计周期</span><select id="quickRange" aria-label="统计周期"></select></label>
+            <label id="timeValueLabel"><span id="timeValueText">自然月</span><input id="timeValue" type="month" aria-label="统计时间"></label>
+            <label id="timeRangeLabel" hidden><span>自定义 · <b id="timeRangeHint">最多90天</b></span><span class="date-pair"><input id="timeFrom" type="date" aria-label="开始日期"><b>—</b><input id="timeTo" type="date" aria-label="结束日期"></span></label>
+            <button id="timeApply" class="ghost">应用时间</button>
+          </div>
           <label><span>类目</span><select id="categorySelect" aria-label="类目"><option>全部类目</option></select></label>
           <label><span>国家</span><select id="countrySelect" aria-label="国家"><option>全部国家</option></select></label>
         </div>
+        <div id="timeScope" class="time-scope" role="status"></div>
       </div>
     </header>
 
     <main>
+<div id="consultModuleNav" class="consult-module-nav" aria-label="模块内导航" hidden></div>
+<section class="tab consult-page" id="tab-plan" aria-label="运营规划"></section>
+<section class="tab consult-page" id="tab-position" aria-label="营销定位"></section>
+<section class="tab consult-page" id="tab-foundation" aria-label="运营基建"></section>
+<section class="tab consult-page" id="tab-cultivation" aria-label="优爆品提升"></section>
+
   <!-- ================= 经营大盘 ================= -->
   <section class="tab on" id="tab-overview">
-    <div class="kpis" id="kpis"></div>
+    <div class="kpis overview-kpis" id="kpis" aria-label="经营核心指标"></div>
 
     <div class="overview-primary">
       <section class="card analysis-card" aria-labelledby="analysisTitle">
         <div class="card-hd">
-          <div><h2 id="analysisTitle">经营链路与趋势</h2><div class="hint">本店数据与同行参考分开呈现</div></div>
+          <div><h2 id="analysisTitle">经营指标与趋势</h2><div class="hint">所选周期独立指标；访问、商机、订单不构成连续转化漏斗</div></div>
           <button class="text-action" data-tab-link="console">数据说明 <i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
         </div>
         <div id="journeyFlow" class="journey-flow"></div>
@@ -107,17 +114,26 @@
       </section>
 
       <section class="card action-card" id="actionPanel" aria-labelledby="actionTitle">
-        <div class="card-hd">
-          <div><h2 id="actionTitle">今日运营待办 <span class="count-badge" id="actionCount">3</span></h2><div class="hint">由真实经营差距生成，规划能力明确标注</div></div>
-          <button class="text-action" data-anchor-link="actionPanel">全部待办 <i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+        <div class="card-hd todo-heading">
+          <div><h2 id="actionTitle">运营诊断 <span class="count-badge" id="actionCount">0</span></h2><div class="hint">对比行业均值与优秀 · 定位差距与优化方向</div></div>
+          <button class="text-action todo-refresh" id="generateOverviewTasks" type="button">更新诊断</button>
         </div>
-        <div id="actionList" class="action-list"></div>
+        <div id="diagnosisViews" class="diagnosis-views" role="group" aria-label="诊断视图" hidden><button type="button" id="diagnosisCompareView" aria-pressed="false">指标对标</button><button type="button" id="diagnosisInsightsView" aria-pressed="true">优化诊断</button></div>
+        <div id="diagnosisBenchmarks" class="diagnosis-benchmarks" hidden></div>
+        <div id="actionList" class="action-list" aria-live="polite"></div>
+        <div class="todo-meta" id="overviewTodoMeta">每天自动更新一次 · 诊断结果保留</div>
       </section>
     </div>
 
-    <div class="diagnostic-grid">
+    <dialog id="overviewTodoDetail" class="diagnosis-dialog" aria-label="诊断详情" hidden></dialog>
+
+    <div class="consult-dashboard-grid">
+      <section class="card"><div class="card-hd"><div><h2>业务员表现</h2><p class="hint" id="consultStaffScope">与所选经营周期分别核对</p></div><button data-tab-link="staff" class="text-action">查看完整绩效</button></div><div id="consultStaffRows" class="tablewrap"><div class="empty">正在读取成员绩效…</div></div></section>
+      <section class="card"><div class="card-hd"><div><h2>店铺经营健康度</h2><p class="hint">商品快照与近30天回复指标分别展示</p></div><button data-tab-link="product" class="text-action">查看商品诊断</button></div><div id="consultHealth" class="consult-health"><div class="empty">等待经营数据</div></div></section>
+    </div>
+    <div class="diagnostic-grid overview-rankings">
       <section class="card diagnostic-card">
-        <div class="card-hd"><div><h2>流量渠道贡献</h2><div class="hint">真实访客与商机率</div></div><button class="text-action" data-tab-link="flow">查看分析 <i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
+        <div class="card-hd"><div><h2>流量渠道贡献</h2><div class="hint">所选区间 · 每日访客与询盘累计</div></div><button class="text-action" data-tab-link="flow">查看分析 <i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
         <div id="overviewFlowList" class="mini-list"><div class="empty">正在读取渠道数据…</div></div>
       </section>
       <section class="card diagnostic-card">
@@ -125,18 +141,18 @@
         <div id="overviewRegionList" class="mini-list"><div class="empty">正在读取地域数据…</div></div>
       </section>
       <section class="card diagnostic-card">
-        <div class="card-hd"><div><h2>商品表现排行</h2><div class="hint">按搜索曝光排序</div></div><button class="text-action" data-tab-link="product">查看商品 <i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
+        <div class="card-hd"><div><h2>商品表现排行</h2><label class="ranking-month-label"><input type="month" id="overviewRankingMonth" aria-label="商品榜统计月份"> 自然月</label><div class="hint">TOP5 · <select id="overviewProductSort" aria-label="商品榜排序"><option value="sumProdShowNum">搜索曝光</option><option value="sumProdClickNum">搜索点击</option><option value="sumProdClickRate">点击率</option><option value="sumProdVisitorCnt">访客数</option><option value="sumProdFbNum">询盘数</option><option value="atmFbUv">TM咨询</option><option value="crtOrd">起草订单</option></select></div></div><button class="text-action" data-tab-link="product">查看商品 <i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
         <div id="overviewProductList" class="mini-list"><div class="empty">正在读取商品数据…</div></div>
+      </section>
+      <section class="card diagnostic-card">
+        <div class="card-hd"><div><h2>商品询盘排行</h2><div class="hint" id="overviewInquiryPeriod">按商品询盘数 · 自然月</div></div><button class="text-action" data-tab-link="product">查看商品 <i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
+        <div id="overviewInquiryList" class="mini-list"><div class="empty">正在读取询盘商品…</div></div>
       </section>
     </div>
   </section>
 
   <!-- ================= 商品运营 ================= -->
   <section class="tab" id="tab-product">
-    <div class="page-intro">
-      <div><span class="section-kicker">商品经营诊断</span><h2>先找问题，再看商品分层</h2><p>用曝光、点击率、询盘和质量分定位下一步动作，“优品 / 潜力优品”只作为筛选维度。</p></div>
-      <span class="data-state is-live">378 个商品样本 · 动态重算</span>
-    </div>
     <div class="analysis-kpis" id="productMetrics"><div class="empty">正在读取完整商品样本…</div></div>
     <div class="analysis-grid product-analysis-grid">
       <section class="card analysis-panel">
@@ -150,37 +166,21 @@
     </div>
     <section class="card">
       <div class="card-hd"><div><h2 id="productFocusTitle">高曝低点重点商品</h2><div class="hint" id="productFocusHint">优先优化主图、标题、价格带和 MOQ</div></div><span class="data-state is-live" id="productFocusCount">读取中</span></div>
-      <div id="productFocusTable" class="tablewrap"><div class="empty">正在生成诊断队列…</div></div>
+      <div id="productFocusTable" class="tablewrap"><div class="empty">正在生成诊断队列…</div></div><div class="pager"><button id="productFocusPrev" class="ghost sm">上一页</button><span id="productFocusPage"></span><button id="productFocusNext" class="ghost sm">下一页</button></div>
     </section>
-    <div class="card">
-      <div class="card-hd">
-        <div><h2>全部商品效果</h2><div class="hint">保留原始数据作为下钻查询，不再当作页面结论</div></div>
-        <div class="filters">
-          <select id="prodLevel"><option value="">全部分层</option><option>爆品</option><option>优品</option><option>潜力优品</option><option>普通品</option><option>低质品</option></select>
-          <label class="chk"><input type="checkbox" id="fHasEffect"> 仅有效果品</label>
-          <label class="chk"><input type="checkbox" id="fP4p"> 仅 P4P 品</label>
-          <input type="text" id="prodSearch" placeholder="商品名 / ID 搜索">
-          <button id="prodApply" class="primary sm">查询</button>
-        </div>
-      </div>
-      <div class="hint pad">点击表头排序会重新发起 WorkCTL 查询 · 点击行可查看商品质量分与全部指标</div>
-      <div id="prodTable" class="tablewrap"></div>
-      <div class="pager"><button id="prodPrev" class="ghost sm">上一页</button><span id="prodPageInfo">第 1 页</span><button id="prodNext" class="ghost sm">下一页</button></div>
-    </div>
   </section>
 
   <!-- ================= 产品发布：批量素材、字段校对与顺序发布队列 ================= -->
   <section class="tab product-publish-page" id="tab-product-publish" aria-label="产品发布">
     <input id="publishFileInput" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp" multiple>
-    <input id="publishFolderInput" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp" multiple webkitdirectory directory>
 
-    <div class="publish-command-row">
-      <div class="publish-status-strip" id="publishStatusStrip" aria-label="发布处理状态"></div>
-      <div class="publish-page-actions">
-        <button id="publishImportFolder" type="button"><i class="ri-folder-upload-line" aria-hidden="true"></i>导入图片文件夹</button>
-        <button id="publishReadyTop" class="primary" type="button"><i class="ri-send-plane-2-line" aria-hidden="true"></i><span>批量发布已选</span></button>
-      </div>
-    </div>
+    <section class="publish-bottom-bar publish-top-bar" aria-label="发布操作栏">
+      <div class="publish-bottom-summary"><i class="ri-checkbox-circle-fill" aria-hidden="true"></i><div><b id="publishReadySummary">正在检查商品</b><span>以下按钮只处理左侧勾选项；提交真实写操作前会再次确认。</span></div></div>
+      <button id="publishHistory" type="button"><i class="ri-history-line" aria-hidden="true"></i>发布历史</button>
+      <button id="publishSaveDraft" type="button">批量保存草稿</button>
+      <button id="publishStartQueue" class="primary" type="button">批量发布</button>
+    </section>
+    <span id="publishCacheStatus" class="publish-source-status" aria-live="polite" hidden></span>
 
     <section id="publishOperationProgress" class="card publish-operation-progress" aria-live="polite" hidden>
       <div class="publish-operation-head">
@@ -200,89 +200,138 @@
 
     <div class="publish-main-grid">
       <section class="card publish-batch-panel">
-        <div class="publish-table-tools">
-          <label class="publish-search"><i class="ri-search-line" aria-hidden="true"></i><input id="publishSearch" type="text" placeholder="搜索标题 / SKU / 备注" aria-label="搜索待发布商品"></label>
-          <select id="publishStatusFilter" aria-label="发布状态筛选"><option value="all">全部状态</option><option value="ready">可发布</option><option value="needs_attention">待补全</option><option value="recognizing">识别中</option></select>
-          <select id="publishCategoryFilter" aria-label="为当前商品选择类目"><option>正在读取账号全部类目…</option></select>
-          <button id="publishBatchTitle" type="button"><i class="ri-magic-line" aria-hidden="true"></i>批量生成标题</button>
+        <div id="publishCreateHeader" class="publish-create-head" hidden></div>
+        <div id="publishRemovalNotice" class="publish-removal-notice" aria-live="polite" hidden><span id="publishRemovedCount"></span><button id="publishUndoRemove" type="button">撤销删除</button></div>
+        <div id="publishCreatePanel" class="publish-create-panel" aria-live="polite"></div>
+        <div id="publishTableWorkspace" class="publish-table-workspace">
+          <div class="publish-table-tools">
+            <label class="publish-search"><i class="ri-search-line" aria-hidden="true"></i><input id="publishSearch" type="text" placeholder="搜索待发布商品" aria-label="搜索待发布商品"></label>
+            <select id="publishStatusFilter" aria-label="发布状态筛选"><option value="all">全部状态</option><option value="ready">可发布</option><option value="needs_attention">待补全</option><option value="recognizing">识别中</option></select>
+            <button id="publishBatchTitle" type="button"><i class="ri-magic-line" aria-hidden="true"></i>批量生成标题</button>
+            <button id="publishCreateFromList" type="button"><i class="ri-add-line" aria-hidden="true"></i>新建商品</button>
+          </div>
+          <div class="publish-table-wrap">
+            <table class="publish-table">
+              <thead><tr><th><input id="publishSelectAll" type="checkbox" checked aria-label="选择全部商品"></th><th>商品图片</th><th>标题 / 类目</th><th>图片</th><th>必填属性</th><th>价格库存</th><th>物流</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody id="publishProductRows"></tbody>
+            </table>
+          </div>
+          <div class="publish-table-footer"><span id="publishSelectionSummary">已选择 0 项</span><span>这里只有准备发布的商品；点击商品行可在右侧校对</span></div>
         </div>
-        <div class="publish-table-wrap">
-          <table class="publish-table">
-            <thead><tr><th><input id="publishSelectAll" type="checkbox" checked aria-label="选择全部商品"></th><th>商品图片</th><th>标题 / 类目</th><th>图片</th><th>必填属性</th><th>价格库存</th><th>物流</th><th>状态</th></tr></thead>
-            <tbody id="publishProductRows"></tbody>
-          </table>
-        </div>
-        <div class="publish-table-footer"><span id="publishSelectionSummary">已选择 0 项</span><span>点击商品行，在右侧快速校对</span></div>
       </section>
 
       <aside class="card publish-editor-panel" aria-label="当前商品编辑器">
         <div id="publishEditor"></div>
-        <section class="publish-queue-panel" aria-label="发布队列">
+        <section class="publish-queue-panel" aria-label="发布队列" hidden>
           <div class="publish-queue-head"><div><b>发布队列</b><span id="publishQueueCount">0 个任务</span></div><button id="publishQueueToggle" type="button" aria-expanded="true">收起 <i class="ri-arrow-down-s-line" aria-hidden="true"></i></button></div>
           <div class="publish-queue-list" id="publishQueueList"></div>
-          <p class="publish-queue-note">服务端使用 WorkCTL 发布流水线逐条处理；单条失败不会阻塞后续任务，修改资料后可重新检查。</p>
+          <p class="publish-queue-note">服务端使用 平台服务 发布流水线逐条处理；单条失败不会阻塞后续任务，修改资料后可重新检查。</p>
         </section>
       </aside>
     </div>
 
-    <section class="publish-bottom-bar" aria-label="发布操作栏">
-      <div class="publish-bottom-summary"><i class="ri-checkbox-circle-fill" aria-hidden="true"></i><div><b id="publishReadySummary">正在检查商品</b><span>以下按钮只处理左侧勾选项；提交真实写操作前会再次确认。</span></div></div>
-      <label class="publish-queue-policy"><span>队列模式</span><select id="publishQueuePolicy" aria-label="发布队列模式"><option value="sequential">逐条发布 · 每次间隔至少 1 秒</option></select></label>
-      <button id="publishSaveDraft" type="button">批量保存草稿</button>
-      <button id="publishStartQueue" class="primary" type="button">批量发布</button>
-    </section>
+
   </section>
 
   <!-- ================= 流量与市场机会 ================= -->
   <section class="tab" id="tab-flow">
-    <div class="page-intro">
-      <div><span class="section-kicker">店铺流量 + 行业机会</span><h2>流量分析</h2><p>同一页看渠道来源、国家分布、买家画像、进店词与行业蓝海机会。</p></div>
-      <div class="filters"><select id="flowTerm"><option value="TOTAL">全端</option><option value="PC">PC</option><option value="APP">APP</option><option value="WAP">WAP</option></select><button id="flowApply" class="primary sm">查询</button></div>
+    <div id="flowShopView">
+      <div class="analysis-kpis" id="trafficMetrics"><div class="empty">正在读取流量数据…</div></div>
+      <p class="flow-scope" id="flowScope">经营汇总、渠道和画像分别标注周期；访客按日累加，不代表周期去重人数。</p>
+      <div class="flow-comparison-heading"><h2>本店表现与行业市场</h2><p>左侧看本店，右侧看行业；按主题对照，周期与统计口径分别标注。</p></div>
+      <div class="flow-compare-grid" aria-label="国家市场对照">
+<section class="card"><div class="card-hd"><div><h2>本店 · 国家表现</h2><div class="hint">展示前12名及其内部占比；点击图表查看明细</div></div><div class="filters compact"><select id="regionDim" aria-label="国家排行指标"><option value="shop_uv">店铺访客</option><option value="comp_imps_cnt">搜索曝光</option><option value="comp_clk_cnt">搜索点击</option><option value="comp_fb_cnt">询盘</option><option value="comp_atm_uv">TM 咨询</option></select><select id="regionTerm" aria-label="国家排行终端"><option value="TOTAL">全端</option><option value="PC">PC</option><option value="WS">无线</option></select><button id="regionApply" class="ghost sm">更新</button></div></div><div id="regionChart" class="chart"></div></section>
+        <section class="card flow-industry-card"><div class="card-hd"><div><h2>行业 · 国家供需</h2><div class="hint">当前店铺类目 · 平台供需排行，非本店数据；周期以平台为准</div></div></div><div id="trafficMarketCountry" class="mini-table"></div></section>
+      </div>
+      <div class="flow-compare-grid" aria-label="搜索需求对照">
+<section class="card"><div class="card-hd"><div><h2>本店 · 进店搜索词</h2><div class="hint">平台近30天画像；热度与本店访客分别展示，热度变化的比较周期以平台定义为准</div></div></div><div id="trafficKeywords" class="tablewrap"></div></section>
+        <section class="card flow-industry-card"><div class="card-hd"><div><h2>行业 · 需求场景</h2><div class="hint">当前店铺类目 · 90天需求；与本店搜索词对照阅读，不按行匹配或计算差距</div></div></div><div id="trafficMarketScenes" class="mini-table"></div></section>
+      </div>
+      <div class="flow-comparison-heading"><h2>渠道表现与变化</h2><p>左侧选入口，右侧看趋势；切换图表，对照来源规模与商机率。</p></div>
+      <div class="flow-primary-grid">
+        <section class="card flow-channel-card"><div class="card-hd"><div><h2>渠道表现</h2><div class="hint">点击渠道查看右侧趋势；同一买家可能出现在多天或多个渠道</div></div><label>排序 <select id="flowChannelSort" aria-label="渠道排序"><option value="uv">访客</option><option value="inquiry">询盘</option><option value="tm">TM 咨询</option></select></label></div><div id="trafficSourceProfile" class="tablewrap"></div></section>
+        <section class="card flow-insight-card" aria-label="渠道洞察">
+          <div class="card-hd"><h2><i class="ri-bar-chart-grouped-line" aria-hidden="true"></i> 渠道洞察</h2></div>
+          <div class="flow-insight-tabs" id="flowInsightTabs" role="group" aria-label="渠道图表视图">
+            <button type="button" data-flow-view="trend" aria-pressed="false" aria-controls="flowTrendPanel"><i class="ri-line-chart-line" aria-hidden="true"></i>每日趋势</button>
+            <button type="button" data-flow-view="visitors" aria-pressed="false" aria-controls="flowSourcePanel"><i class="ri-bar-chart-horizontal-line" aria-hidden="true"></i>访客规模</button>
+            <button type="button" data-flow-view="rates" aria-pressed="true" aria-controls="flowSourcePanel"><i class="ri-scales-3-line" aria-hidden="true"></i>商机率对比</button>
+          </div>
+          <div id="flowTrendPanel" hidden>
+            <div class="flow-insight-context"><div><h3 id="flowTrendTitle">渠道每日变化</h3><p id="flowTrendScope">与左侧渠道表使用相同日期</p></div><select id="flowTrendMetric" aria-label="趋势指标"><option value="uv">访客</option><option value="inquiry">询盘</option><option value="tm">TM 咨询</option></select></div>
+            <div id="flowLinkedTrend" class="flow-trend"></div>
+          </div>
+          <div id="flowSourcePanel">
+            <div class="flow-insight-context"><div><h3 id="flowSourceTitle">流量来源 · 商机率对比</h3><p id="flowSnapshotScope">正在读取来源统计…</p></div><button id="flowSourceBack" type="button" class="ghost sm" hidden><i class="ri-arrow-left-line" aria-hidden="true"></i> 全部来源</button></div>
+            <div id="flowChart" class="flow-source-chart" aria-live="polite"><div class="empty">正在读取来源数据…</div></div>
+            <p id="flowSourceNote" class="flow-source-note"></p>
+          </div>
+        </section>
+      </div>
+      <div class="flow-compare-grid">
+<section class="card"><div class="card-hd"><div><h2>买家身份画像</h2><div class="hint">平台近30天画像，不随顶部日期变化</div></div></div><div id="trafficIdentity" class="rank-list"></div></section>
+        <section class="card flow-industry-card"><div class="card-hd"><div><h2>行业 · 细分类目</h2><div class="hint">当前店铺相关类目 · 平台排名周期；供需比与商机规模独立展示</div></div></div><div id="trafficMarketCategory" class="mini-table"></div></section>
+      </div>
     </div>
-    <div class="analysis-kpis" id="trafficMetrics"><div class="empty">正在读取流量数据…</div></div>
-    <div class="analysis-grid">
-      <section class="card analysis-panel"><div class="card-hd"><div><h2>流量来源与转化</h2><div class="hint">点击渠道查看子渠道，并对比类目 TOP 商机率</div></div></div><div id="flowChart" class="chart"></div><div id="flowSub"></div></section>
-      <section class="card analysis-panel">
-        <div class="card-hd"><div><h2>国家分布</h2><div class="hint">店铺真实访客，点击国家可下钻</div></div><div class="filters compact"><select id="regionDim"><option value="shop_uv">店铺访客</option><option value="comp_imps_cnt">搜索曝光</option><option value="comp_clk_cnt">搜索点击</option><option value="comp_fb_cnt">询盘</option><option value="comp_atm_uv">TM 咨询</option></select><select id="regionTerm"><option value="TOTAL">全端</option><option value="PC">PC</option><option value="WS">无线</option></select><button id="regionApply" class="ghost sm">更新</button></div></div>
-        <div id="regionChart" class="chart"></div>
+  </section>
+
+  <!-- 市场洞察：行业研究与商品/供应商查询集中展示，周期由各区域独立定义。 -->
+  <section class="tab" id="tab-market" aria-label="市场洞察">
+    <div id="flowMarketView"><div id="flowMarketHost"></div></div>
+      <section class="card flow-discovery" id="flowDiscovery" aria-label="热门商品与供应商">
+        <div class="card-hd"><div><h2>行业 · 热门商品与供应商</h2><div class="hint">查看市场商品，再了解对应供应商</div></div><div class="ad-segment" id="flowDiscoveryTabs"><button type="button" data-kind="products" class="on" aria-pressed="true">热门商品</button><button type="button" data-kind="suppliers" aria-pressed="false">供应商</button></div></div>
+        <form id="flowDiscoveryForm" class="flow-discovery-filters"><label>类目<select id="flowDiscoveryCategory"><option value="">读取店铺类目…</option></select></label><label>周期<select id="flowDiscoveryPeriod"><option value="30d">近30天</option><option value="7d">近7天</option><option value="1d">日数据</option></select></label><label>排序<select id="flowDiscoverySort"><option value="ab_cnt">询盘量优先</option><option value="prepay_ord_cnt">挂账订单量优先</option><option value="rec_ord_amt">实收GMV优先</option><option value="uv_detail">详情访客优先</option></select></label><label id="flowSupplierUrlLabel" hidden>店铺网址（可选）<input id="flowSupplierUrl" type="url" placeholder="https://店铺名.en.alibaba.com"></label><button type="submit" class="primary sm" id="flowDiscoveryQuery">查询</button></form>
+        <p class="flow-discovery-note">类目来自本店当前商品目录样本；查询行业数据，非本店表现。周期按本区域选择。价格币种未返回；趋势为平台指数，不代表实际数量或金额。</p>
+        <div id="flowDiscoveryResult" aria-live="polite"><div class="empty">进入页面后读取热门商品</div></div>
       </section>
-    </div>
-    <div class="insight-grid three">
-      <section class="card compact-panel"><div class="card-hd"><div><h2>买家身份画像</h2><div class="hint">近 30 天访客结构</div></div></div><div id="trafficIdentity" class="rank-list"></div></section>
-      <section class="card compact-panel"><div class="card-hd"><div><h2>进店搜索词</h2><div class="hint">进店意图与增速</div></div></div><div id="trafficKeywords" class="rank-list"></div></section>
-      <section class="card compact-panel"><div class="card-hd"><div><h2>店铺渠道结构</h2><div class="hint">客户画像口径</div></div></div><div id="trafficSourceProfile" class="rank-list"></div></section>
-    </div>
-    <section class="card market-panel">
-      <div class="card-hd"><div><h2>市场机会</h2><div class="hint">已并入流量分析：店铺访客是现状，行业供需与转化是增量判断</div></div><span class="data-state is-live">智能手表类目 · 90 天</span></div>
-      <div class="market-grid"><div><h3>蓝海国家</h3><div id="trafficMarketCountry" class="mini-table"></div></div><div><h3>细分类目</h3><div id="trafficMarketCategory" class="mini-table"></div></div><div><h3>需求场景</h3><div id="trafficMarketScenes" class="mini-table"></div></div></div>
-    </section>
   </section>
 
   <!-- ================= 客户与询盘 ================= -->
   <section class="tab" id="tab-visitor">
-    <div class="page-intro">
-      <div><span class="section-kicker">买家意图与接待</span><h2>客户与询盘</h2><p>从访客意图、最近会话、买家画像和服务质量四个角度，定位先回谁、为什么回。</p></div>
-      <span class="data-state is-live">实时访客画像 + 最近会话实跑快照</span>
-    </div>
+    <div class="customer-viewbar"><div role="group" aria-label="客户页面视图"><button class="is-active" data-customer-view="analysis" aria-pressed="true">客户分析</button><button data-customer-view="work" aria-pressed="false">会话工作台</button></div><span>客户沟通 · 买家背景 · 商品资料</span></div>
     <div class="analysis-kpis" id="customerMetrics"><div class="empty">正在读取客户链路…</div></div>
+    <div id="customerAnalysis">
     <div class="analysis-grid customer-grid">
       <section class="card analysis-panel"><div class="card-hd"><div><h2>高意向访客</h2><div class="hint">按询盘、TM、RFQ、联系方式和下单行为排序</div></div><span class="data-state is-live" id="customerPriorityCount">读取中</span></div><div id="customerPriority" class="priority-list"></div></section>
-      <section class="card analysis-panel"><div class="card-hd"><div><h2>最近会话</h2><div class="hint">只保留国家、时间、未读与标签</div></div></div><div id="customerConversations" class="conversation-list"></div></section>
     </div>
     <div class="insight-grid three"><section class="card compact-panel"><div class="card-hd"><div><h2>买家身份</h2><div class="hint">访客结构</div></div></div><div id="customerIdentity" class="rank-list"></div></section><section class="card compact-panel"><div class="card-hd"><div><h2>主要国家</h2><div class="hint">访客占比</div></div></div><div id="customerCountries" class="rank-list"></div></section><section class="card compact-panel"><div class="card-hd"><div><h2>进店词</h2><div class="hint">搜索意图</div></div></div><div id="customerKeywords" class="rank-list"></div></section></div>
     <div class="card"><div class="card-hd"><div><h2>访客明细</h2><div class="hint">作为下钻证据，不代替上方的运营优先级</div></div><div class="filters"><input type="text" id="visCountry" placeholder="国家，如 France"><label class="chk"><input type="checkbox" id="visAtm"> 有 TM 咨询</label><label class="chk"><input type="checkbox" id="visMc"> 有询盘</label><button id="visApply" class="primary sm">查询</button></div></div>
-      <div class="hint pad">访客查询窗口最长 1 个月，超出会自动收敛到结束日前 30 天</div><div id="visTable" class="tablewrap"></div><div class="pager"><button id="visPrev" class="ghost sm">上一页</button><span id="visPageInfo">第 1 页</span><button id="visNext" class="ghost sm">下一页</button></div>
+      <div class="hint pad">访客查询最长 1 个月；超限会提示调整，不会自动改动所选日期</div><div id="visTable" class="tablewrap"></div><div class="pager"><button id="visPrev" class="ghost sm">上一页</button><span id="visPageInfo">第 1 页</span><button id="visNext" class="ghost sm">下一页</button></div>
+    </div>
     </div>
   </section>
 
   <!-- ================= 关键词与广告：单页 ================= -->
   <section class="tab" id="tab-ads" aria-label="关键词与广告">
-    <div class="page-intro"><div><span class="section-kicker">店铺词库 + 广告资源 + 效果核验</span><h2>关键词与广告</h2><p>同一页先看已验证的高询盘词、高引流词与高 P4P 词，再看可售资源和效果状态。</p></div><span class="data-state is-live" id="adsDataDate">正在核验产出日期</span></div>
-    <div class="analysis-kpis" id="adsMetrics"><div class="empty">正在读取广告数据…</div></div>
-    <section class="notice-card" id="adsStatusNotice"><i class="ri-information-line" aria-hidden="true"></i><div><b>正在核验“无数据”的真实原因</b><p>系统会分开检查问鼎、顶展与店铺 90 天词库。</p></div></section>
-    <div class="analysis-grid ads-grid"><section class="card analysis-panel"><div class="card-hd"><div><h2>店铺核心词诊断</h2><div class="hint">近 90 天高询盘、高引流和高 P4P 信号合并</div></div></div><div id="adsCoreWords" class="tablewrap"></div></section><section class="card analysis-panel"><div class="card-hd"><div><h2>经营解读</h2><div class="hint">把重合和错位转成动作</div></div></div><div id="adsInsights" class="diagnosis-list"></div></section></div>
-    <section class="card"><div class="card-hd"><div><h2>可售关键词资源</h2><div class="hint">这是资源机会，不是已投放效果；页面只读，不会自动预定</div></div><span class="data-state is-live" id="adsKeywordCount">读取中</span></div><div id="adsKeywordTable" class="tablewrap"></div></section>
-    <section class="card"><div class="card-hd"><div><h2>广告效果链路</h2><div class="hint">公司 → 关键词 → 搜索词 → 商品 → 达标率</div></div><span class="data-state" id="adsEffectState">核验中</span></div><div id="adsEffectBody"></div></section>
+    <div class="ads-view-switch" role="group" aria-label="关键词与广告视图"><button type="button" data-ads-view="keywords" aria-pressed="true" aria-controls="adsKeywordView" class="is-active">查看关键词</button><button type="button" data-ads-view="advertising" aria-pressed="false" aria-controls="adsAdvertisingView">查看广告</button></div>
+    <div id="adsKeywordView">
+    <section class="card keyword-compare-card" aria-labelledby="keywordCompareTitle">
+      <div class="card-hd"><h2 id="keywordCompareTitle">核心词与市场需求对照</h2><div class="keyword-header-actions"><span id="adsDataDate" class="data-state">读取中</span><button id="adsCompareRefresh" type="button">更新词数据</button></div></div>
+      <div id="keywordSceneSpotlight" class="keyword-scene-spotlight"></div>
+      <div class="keyword-controls"><label class="keyword-search"><i class="ri-search-line" aria-hidden="true"></i><input id="keywordCompareSearch" type="search" placeholder="搜索关键词" aria-label="搜索对照关键词"></label></div>
+      <div id="adsCoreWords" class="keyword-dual"></div>
+      <div id="keywordSelection" class="keyword-selection" aria-live="polite"></div>
+      <div id="keywordCompareCount" class="keyword-table-footer" aria-live="polite"></div>
+      <details class="keyword-secondary keyword-source-details"><summary>数据来源与统计口径</summary><div id="keywordSourceStatus" class="keyword-source-status"></div><p class="keyword-scope">店铺信号仅表示进入相应词列表，不代表具体次数；跨渠道合并展示标签。行业词按APP/PC独立展示，年度指数0–1000，不是搜索次数。年度词池和场景热门词不是完整行业词库；来源周期独立，不随顶部日期统一变化。全站点击率与商机转化率的周期以接口为准。</p></details>
+    </section>
+    </div>
+    <div id="adsAdvertisingView" hidden>
+    <section class="card" id="adProductContext" aria-label="店铺基础资料">
+      <div class="card-hd"><div><h2>店铺基础资料</h2><div class="hint">主营行业与商品覆盖类目</div></div><button type="button" class="ghost sm" id="adContextRefresh">更新资料</button></div>
+      <div class="ad-context-summary"><div id="adMainCategory">正在识别主营类目…</div><div id="adBehaviorStatus">正在读取站内行为…</div></div>
+      <details class="ad-category-details" open><summary>商品覆盖类目</summary><div id="adCategoryPaths"></div><p class="hint">类目清单，不含商品数量或占比。</p></details>
+    </section>
+    <section id="advertisingWorkspace" class="advertising-workspace" aria-label="广告经营数据">
+      <nav class="ad-section-nav" aria-label="广告分区"><a href="#adEffects">广告效果</a><a href="#adPlans">推广计划</a><a href="#adFinance">账户资金</a><a href="#adDiagnosis">广告诊断</a><a href="#adIndustry">行业与方案</a><button type="button" id="adRefresh">更新广告数据</button></nav>
+      <section class="card" id="adEffects"><div class="card-hd"><div><h2>广告效果对比</h2><p class="ad-caption" id="adReportRange"></p></div><label class="ad-inline-label">对比指标 <select id="adChartMetric"><option value="spend">花费</option><option value="clicks">点击</option><option value="impressions">曝光</option><option value="opportunities">商机</option><option value="inquiries">询盘</option><option value="orders">订单</option></select></label></div><div id="adReportPanels" class="ad-report-panels"></div><div id="adReportChart" class="ad-report-chart"></div><p class="ad-footnote">效果按顶部所选日期查询；花费单位为人民币。空记录、读取失败与真实 0 分别显示。下方计划和余额为当前状态。</p></section>
+      <section class="card" id="adPlans"><div class="card-hd"><h2>推广计划</h2><span id="adPlanCount" class="hint"></span></div><div class="ad-plan-controls"><div class="ad-segment" id="adPlanTypes"><button data-kind="search" class="on">直通车</button><button data-kind="whole_site">全站推</button><button data-kind="ordinary">普通计划</button><button data-kind="groups">省心版计划组</button></div><label><input type="search" id="adPlanSearch" placeholder="搜索本页计划" aria-label="搜索计划"></label><select id="adPlanSort" aria-label="计划排序"><option value="date">创建时间</option><option value="budget">预算从高到低</option><option value="products">商品数从高到低</option></select></div><div id="adPlanSummary" class="ad-plan-summary"></div><div id="adPlanTable" class="ad-table-wrap"></div><div id="adPlanPagination" class="ad-pagination"></div></section>
+      <div class="ad-support-grid"><section class="card" id="adFinance"><div class="card-hd"><h2>账户资金</h2><span class="hint">当前余额 · CNY</span></div><div id="adFinanceContent"></div><div class="ad-card-actions"><button type="button" id="adHistoryOpen">查看资金流水 <i class="ri-arrow-right-s-line"></i></button></div></section>
+      <section class="card" id="adDiagnosis"><div class="card-hd"><h2>账户诊断</h2><button id="adDiagnosisRefresh" type="button" class="sm">读取诊断</button></div><div id="adDiagnosisContent" class="ad-diagnosis-content"><div class="ad-empty">按所选结束日前 7 天读取平台诊断</div></div></section></div>
+      <div class="ad-support-grid"><section class="card" id="adIndustry"><div class="card-hd"><h2>大促行业基准</h2><span id="adIndustryCategory" class="hint"></span></div><div id="adIndustryContent" class="ad-industry-content"></div><p class="ad-footnote">平台大促样本，独立于所选经营周期；比例与增幅不代表本店表现。</p></section>
+      <section class="card" id="adRecommendations"><div class="card-hd"><h2>平台推荐方案</h2><button id="adRecommendRefresh" type="button" class="sm">读取方案</button></div><div id="adRecommendationContent" class="ad-recommendations"><div class="ad-empty">查看适合当前店铺的推广方案、建议预算与商品范围</div></div><p class="ad-footnote">预算与目标成本为平台建议，尚未创建或修改任何投放。</p></section></div>
+    </section>
+    </div>
+    <dialog id="adDetailDialog" class="ad-dialog"><header><h2 id="adDialogTitle"></h2><button type="button" id="adDialogClose" aria-label="关闭广告详情">×</button></header><div id="adDialogBody"></div></dialog>
   </section>
 
   <!-- 旧地域路由仅保留兼容，实际内容已并入流量分析。 -->
@@ -291,11 +340,6 @@
   <!-- ================= RFQ 商机：列表、详情、报价记录和权益集中在同一页 ================= -->
 
   <section class="tab rfq-page" id="tab-rfq" aria-label="RFQ 商机">
-    <section class="page-intro">
-      <div><span class="section-kicker">采购需求雷达</span><h2>RFQ 商机</h2><p>把站内和站外采购需求汇成商机池，点击任一需求即可查看采购规格、买家行为、报价竞争与交易条件。</p></div>
-      <span class="data-state is-live" id="rfqPageState">正在读取 WorkCTL</span>
-    </section>
-
     <div class="analysis-kpis" id="rfqKpis" aria-label="RFQ 核心指标">
       <div class="analysis-kpi"><span>站内 RFQ</span><strong>—</strong><small>等待实时数据</small></div>
       <div class="analysis-kpi"><span>站外 RFQ</span><strong>—</strong><small>等待实时数据</small></div>
@@ -304,9 +348,9 @@
     </div>
 
     <section class="card rfq-filter-card" aria-label="RFQ 商机筛选">
-      <div class="rfq-search-copy"><b>商机搜索</b><span>默认使用店铺主营词 smart watch，可切换来源与国家。</span></div>
+      <div class="rfq-search-copy"><b>商机搜索</b><span>输入当前产品的英文关键词，可切换来源与国家。</span></div>
       <div class="filters rfq-filters">
-        <label class="rfq-search-field"><i class="ri-search-line" aria-hidden="true"></i><input id="rfqKeyword" type="text" value="smart watch" placeholder="输入英文产品词" aria-label="RFQ 搜索词"></label>
+        <label class="rfq-search-field"><i class="ri-search-line" aria-hidden="true"></i><input id="rfqKeyword" type="text" value="" placeholder="输入英文产品词" aria-label="RFQ 搜索词"></label>
         <select id="rfqSource" aria-label="RFQ 来源"><option value="all">全部来源</option><option value="internal">站内 RFQ</option><option value="external">站外 RFQ</option></select>
         <select id="rfqCountry" aria-label="RFQ 国家"><option value="all">全部国家</option></select>
         <button class="primary" id="rfqSearchBtn" type="button"><i class="ri-search-line" aria-hidden="true"></i>重新搜索</button>
@@ -321,6 +365,7 @@
           <button type="button" data-rfq-source="internal">站内</button>
           <button type="button" data-rfq-source="external">站外</button>
         </div>
+        <div class="rfq-batch-toolbar"><span id="rfqCompareCount">已选0条站内商机</span><button type="button" class="ghost sm" id="rfqCompareBtn" disabled>对比采购需求</button><small>勾选站内商机 · 最多20条</small></div>
         <div class="rfq-opportunity-list" id="rfqOpportunityList"><div class="empty"><span class="spin"></span> 正在读取商机…</div></div>
       </section>
 
@@ -330,21 +375,20 @@
       </aside>
     </div>
 
+    <section id="rfqComparisonResult" class="card rfq-inline-result" hidden aria-live="polite"></section>
     <div class="rfq-bottom-grid">
       <section class="card rfq-history-panel">
-        <div class="card-hd"><div><h2>最近报价记录</h2><div class="hint">平台报价历史，只保留国家、买家等级、时间和反馈状态</div></div><span class="data-state is-live" id="rfqHistoryCount">读取中</span></div>
-        <div class="table-wrap"><table><thead><tr><th>RFQ</th><th>国家 / 等级</th><th>报价时间</th><th>买家状态</th></tr></thead><tbody id="rfqHistoryBody"><tr><td colspan="4"><div class="empty">正在读取报价记录…</div></td></tr></tbody></table></div>
+        <div class="card-hd"><div><h2>最近报价记录</h2><div class="hint">查看已有报价的价格、数量和交易条件</div></div><span class="data-state is-live" id="rfqHistoryCount">读取中</span></div>
+        <div class="rfq-batch-toolbar"><span id="rfqQuoteCompareCount">已选0条报价</span><button type="button" class="ghost sm" id="rfqQuoteCompareBtn" disabled>对比报价</button><small>每批最多10条</small></div><div class="table-wrap"><table><thead><tr><th>选择</th><th>RFQ</th><th>国家 / 等级</th><th>报价时间</th><th>买家状态</th><th>操作</th></tr></thead><tbody id="rfqHistoryBody"><tr><td colspan="4"><div class="empty">正在读取报价记录…</div></td></tr></tbody></table></div>
       </section>
 
       <section class="card rfq-rights-panel">
-        <div class="card-hd"><div><h2>报价权益</h2><div class="hint">实时接口较慢时显示最近一次已核验快照</div></div><span class="data-state" id="rfqRightsState">读取快照</span></div>
+        <div class="card-hd"><div><h2>报价权益</h2><div class="hint">仅展示当前账号已核验的权益信息</div></div><span class="data-state" id="rfqRightsState">等待核验</span></div>
         <div class="rfq-rights-grid" id="rfqRightsGrid"><div class="empty">正在读取权益信息…</div></div>
       </section>
     </div>
+    <section id="rfqQuoteDetailResult" class="card rfq-inline-result" hidden aria-live="polite"></section>
 
-    <section class="notice-card has-data rfq-boundary-note">
-      <i class="ri-shield-check-line" aria-hidden="true"></i><div><b>当前能力边界</b><p>页面只做发现、筛选和详情查询，不会创建或提交报价。买家姓名、账号、RFQ 跳转链接和报价正文均不进入浏览器与 Demo。</p></div>
-    </section>
   </section>
 
   <section class="tab module-blueprint" id="tab-orders" aria-label="订单与物流">
@@ -377,10 +421,7 @@
     <div class="card">
       <div class="card-hd"><h2>员工绩效</h2>
         <div class="filters">
-          <select id="staffType">
-            <option value="month">按月</option><option value="week">按周</option><option value="day">按日</option>
-          </select>
-          <button id="staffApply" class="primary sm">查询</button>
+          <span class="hint">按顶部日期查询 · 周报以平台统计口径为准</span>
         </div>
       </div>
       <div id="staffTable" class="tablewrap"></div>
@@ -390,7 +431,7 @@
   <!-- ================= 命令控制台 ================= -->
   <section class="tab" id="tab-console">
     <div class="card">
-      <div class="card-hd"><h2>自由调用</h2><div class="hint">白名单内的只读端点,参数即 workctl 业务 flag</div></div>
+      <div class="card-hd"><h2>自由调用</h2><div class="hint">白名单内的只读端点,参数遵循平台查询要求</div></div>
       <div class="console">
         <div class="row">
           <select id="cEndpoint"></select>
@@ -403,7 +444,7 @@
     </div>
     <div class="card">
       <div class="card-hd"><h2>执行日志</h2>
-        <div class="hint">本会话内所有真实 workctl 调用</div>
+        <div class="hint">本会话内的数据请求记录</div>
       </div>
       <div id="logList" class="loglist"></div>
     </div>
@@ -415,6 +456,20 @@
 <div id="toast" class="toast"></div>
 <div id="modal" class="modal"><div class="modal-in"><button id="modalX">×</button><div id="modalBody"></div></div></div>
 
+<script src="/publish-product-utils.js"></script>
+<script src="/time-policy.js"></script>
+<script src="/ai-advisor.js"></script>
+<script src="/consultant.js"></script>
+<script src="/analysis-reports.js"></script>
+<script src="/advisor-services.js"></script>
+<script src="/advisor-design.js"></script>
+<script src="/planning-tasks.js"></script>
+<script src="/advisor-workflows.js"></script>
+<script src="/advisor-analytics.js"></script>
+<script src="/advisor-dashboard.js"></script>
 <script src="/app.js"></script>
+<script src="/advertising.js"></script>
+<script src="/risk-workspace.js"></script>
+<script src="/operations.js"></script>
 </body>
 </html>

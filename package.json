@@ -1,0 +1,28 @@
+{
+  "name": "lsou-workbench",
+  "version": "1.0.11",
+  "private": true,
+  "scripts": {
+    "dev": "vite --config vite.config.mjs",
+    "build:frontend": "vite build --config vite.config.mjs",
+    "prepare:desktop": "node scripts/prepare-desktop.mjs",
+    "build:desktop": "node scripts/build-desktop.mjs",
+    "package:plugin": "node scripts/package-plugin.mjs",
+    "release:check": "node scripts/manage-release.mjs check",
+    "release:version": "node scripts/manage-release.mjs version",
+    "release:publish": "node scripts/manage-release.mjs publish",
+    "release:prune": "node scripts/manage-release.mjs prune",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "html-react-parser": "^5.2.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "remixicon": "4.6.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.0",
+    "fflate": "^0.8.3",
+    "vite": "^7.3.0"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "lsou-desktop": {
+      "name": "来搜桌面工作台",
+      "description": "连接后待命，在 Accio 对话里显示来搜启动页，点击按钮打开 Tauri 工作台，支持状态查询与排障。",
+      "transport": "stdio",
+      "command": "node",
+      "args": [
+        "scripts/launch-mcp.cjs"
+      ],
+      "timeout": 180000,
+      "blocking": false
+    }
+  }
+}

@@ -1,0 +1,677 @@
+/* 仅覆盖八页设计工作区；产品发布及原数据区保留原样。 */
+.av-mode{--av-ink:#111a3e;--av-muted:#7782a1;--av-orange:#ff6509;background:#f3f6fa!important;color:var(--av-ink)}
+#avMast{display:none}.av-mode #avMast{display:flex;position:fixed;inset:0 0 auto;height:66px;z-index:90;background:#fff;border-bottom:1px solid #e6ebf3;align-items:center;justify-content:space-between;padding:0 27px}
+.av-brand{display:flex;align-items:center;gap:23px;color:#0c1638}.av-brand strong{font-size:28px;color:#ff6509;font-weight:900;letter-spacing:-2px}.av-brand b{font-size:17px}.av-account{display:flex;align-items:center;gap:20px;font-size:14px}.av-account button{border:0;background:none;color:#455277;padding:3px;font-size:13px}.av-avatar{display:grid;place-items:center;background:#ff6509;color:white;width:39px;height:39px;border-radius:50%;font-size:20px}.av-demo-label{font-size:11px;color:#a27151;background:#fff3e8;padding:4px 7px;border-radius:4px}
+.app-layout.av-mode .sidebar{top:66px;width:208px;padding:22px 8px 15px 0;background:#fff;border-right:1px solid #e4eaf3}.av-mode .sidebar .brand,.av-mode .status-pill,.av-mode .nav-label,.av-mode .consult-utilities,.av-mode .sidebar-footer{display:none}.av-mode .tabs{padding:0;margin:0}.av-mode .tabs-in{gap:8px}.app-layout.av-mode .tabs button{font-size:16px;min-height:52px;margin:0;padding:13px 20px 13px 28px;border-radius:0 8px 8px 0;border-left:5px solid transparent;color:#465174;font-weight:500}.app-layout.av-mode .tabs button i{font-size:22px;width:25px}.app-layout.av-mode .tabs button.on{background:#fff2e9;color:#ff6509;border-left-color:#ff6509;font-weight:700}.app-layout.av-mode .tabs button[data-tab="product-publish"]{margin-top:24px;border:0;border-top:1px solid #ecedf3;border-radius:0;background:#fff;color:#db620f;font-size:14px}
+.av-mode .workspace{margin-left:208px;padding-top:66px}.av-mode .topbar,.av-mode #consultModuleNav,.av-mode main>.tab{display:none!important}.av-mode main{padding:17px 26px 24px;max-width:none}.av-design{color:var(--av-ink);font-size:13px;line-height:1.5}/* 路由隐藏必须优先于各工作区的 display:flex，避免旧页面挤占产品发布编辑区。 */
+#advisorDesign[hidden]{display:none!important}.av-page-heading{display:flex;align-items:end;justify-content:space-between;gap:15px;min-height:66px;margin-bottom:15px}.av-breadcrumb{color:#7783a2;font-size:13px;margin-bottom:9px}.av-heading-line{display:flex;align-items:baseline;gap:19px}.av-heading-line h1{font-size:29px;line-height:1.2;margin:0;white-space:nowrap;font-weight:750;letter-spacing:-.7px}.av-heading-line p{font-size:13px;color:#7a85a2;margin:0;max-width:660px}.av-page-controls{display:flex;align-items:center;gap:12px;flex-shrink:0}.av-design button,.av-design input,.av-design select,.av-design textarea{font:inherit}.av-select{display:flex;gap:12px;align-items:center;border:1px solid #dfe5ef;background:#fff;padding:11px 14px;border-radius:5px;color:#344164}.av-period{display:flex;border:1px solid #dfe5ef;background:white;border-radius:5px;padding:2px}.av-period button{border:0;background:none;padding:7px 15px;color:#546183}.av-period .selected{background:#ff6509;color:white;border-radius:4px}
+.av-content{display:grid;gap:14px}.av-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;min-width:0}.av-card{background:#fff;border:1px solid #f1f4f8;border-radius:8px;padding:16px;min-width:0;box-shadow:none}.av-title{font-size:17px;font-weight:700;display:flex;align-items:center;gap:9px;margin:0 0 13px;line-height:1.5}.av-title:before{content:'';width:4px;height:19px;background:#ff6509;border-radius:3px;flex-shrink:0}.av-title small,.av-design .av-muted{font-size:12px;color:#818ba5;font-weight:400}.av-design h2,.av-design h3,.av-design h4{color:#121b3b}.av-table-scroll{overflow:auto}.av-table{border-collapse:collapse;width:100%;color:#344065;font-size:12px}.av-table th{background:#f3f6fa;text-align:left;font-weight:500;color:#445174;padding:8px 11px;white-space:nowrap}.av-table td{padding:9px 11px;border-bottom:1px solid #e9edf4;vertical-align:middle;line-height:1.5}.av-table tr:last-child td{border-bottom:0}.av-table button{font-size:12px}.av-pill{display:inline-block;border-radius:14px;padding:2px 11px;color:#1780f9;background:#edf5ff;white-space:nowrap;font-size:12px}.av-pill.orange{color:#ff6509;background:#fff0e7}.av-pill.green{color:#00a77a;background:#e1f8ef}.av-pill.gray{color:#69748e;background:#eff1f6}.av-pill.blue{color:#1780f9;background:#edf5ff}.av-btn{border:1px solid #ff6509;border-radius:5px;background:#ff6509;color:#fff;padding:9px 16px;cursor:pointer;font-size:13px;white-space:nowrap}.av-btn.secondary{background:#fff;color:#ff6509}.av-btn:disabled{opacity:.5;cursor:default}.av-tabs{display:flex;align-items:center;gap:5px;background:#fff;border-bottom:1px solid #e6ecf5}.av-tabs button{background:transparent;border:0;border-bottom:2px solid transparent;border-radius:0;padding:12px 23px;color:#3e4a70}.av-tabs button.active,.av-tabs button.selected{border-bottom-color:#ff6509;color:#ff6509}.av-design input,.av-design select,.av-design textarea{border:1px solid #dfe5ef;border-radius:5px;padding:8px 10px;background:white;color:#394568;max-width:100%}.av-design input[type=checkbox]{accent-color:#ff6509}.av-design button:hover{filter:brightness(.97)}.av-design button:focus-visible,.av-design input:focus-visible,.av-design select:focus-visible{outline:2px solid #ff6509;outline-offset:2px}.av-design a{color:#2083f7}.av-dialog{max-width:520px;border:1px solid #e5eaf1;border-radius:12px;padding:26px;color:#263554;box-shadow:0 15px 60px #24314c33}.av-dialog::backdrop{background:#15264255}.av-dialog p{line-height:1.9;margin:16px 0}.av-dialog .av-btn{float:right}
+@media(min-width:1300px){.av-mode main{padding-top:18px}.av-page-heading{min-height:71px}}@media(max-width:1200px){.av-heading-line{display:block}.av-heading-line p{margin-top:8px}.av-account{gap:12px}.av-demo-label{display:none}}@media(max-width:960px){.app-layout.av-mode .sidebar{position:relative;top:66px;width:100%;padding:5px}.av-mode .tabs-in{flex-direction:row;overflow:auto;gap:0}.app-layout.av-mode .tabs button{padding:9px 13px;min-height:40px;font-size:13px;flex-shrink:0}.app-layout.av-mode .tabs button[data-tab="product-publish"]{margin:0}.av-mode .workspace{margin-left:0;padding-top:68px}.av-mode main{padding:15px}.av-account>button,.av-account>b{display:none}.av-page-heading{flex-wrap:wrap}.av-grid{grid-template-columns:1fr}.av-heading-line h1{font-size:25px}.av-design .av-table{min-width:550px}}
+/* 同尺寸逐页对照后的密度校正，避免原表格样式改变字号和单元格对齐。 */
+.app-layout.av-mode .tabs-in{gap:4px}.app-layout.av-mode .tabs button{min-height:50px;padding-top:10px;padding-bottom:10px}
+#advisorDesign .av-heading-line h1{font-size:31px}#advisorDesign .av-table td,#advisorDesign .av-table th{text-align:left;font-size:13px;line-height:1.45}#advisorDesign .av-table td{padding-top:7px;padding-bottom:7px}#advisorDesign .av-table .av-btn{border:0;padding:0;min-height:0;background:transparent;color:#2084ff}#advisorDesign .av-title{font-size:18px}
+.av-mode:has(.av-overview) .av-page-heading{min-height:32px}.av-mode:has(.av-overview) main{padding-top:17px}
+#advisorDesign .av-overview .av-card{padding:13px}#advisorDesign .av-overview .av-table td,#advisorDesign .av-overview .av-table th{padding:5px 9px;font-size:12px;line-height:1.4}#advisorDesign .av-overview .av-dash-chart{height:157px}#advisorDesign .av-overview .av-layer-row{margin:17px 0}#advisorDesign .av-overview .av-dash-heading{margin-bottom:9px}#advisorDesign .av-overview .av-dash-heading h3{font-size:17px}#advisorDesign .av-overview .av-period{border:0;background:none;padding:0}#advisorDesign .av-overview .av-health-item{padding:9px 8px}
+.app-layout.av-mode main{padding:16px 20px 22px}
+#advisorDesign input[type=checkbox]{width:14px;height:14px;min-height:0;padding:0;margin:0;vertical-align:middle}
+#advisorDesign .av-table button{min-height:0;line-height:1.4}
+#advisorDesign .wf-flow{padding:6px 16px}#advisorDesign .wf-flow button{padding-top:7px;padding-bottom:7px}
+#advisorDesign .wf-position{grid-template-columns:295px minmax(0,1fr)}
+#advisorDesign .wf-checks{margin-bottom:14px}#advisorDesign .wf-checks>div{padding:12px}#advisorDesign .wf-campaign-items>div{padding:0 7px}
+#advisorDesign .av-overview .av-dash-two{margin-bottom:10px}#advisorDesign .av-overview .av-health-item{padding:6px 8px}#advisorDesign .av-overview .av-table td,#advisorDesign .av-overview .av-table th{padding-top:4px;padding-bottom:4px}
+@media(max-width:960px){.app-layout.av-mode main{padding:14px}#advisorDesign .wf-position{grid-template-columns:1fr}.av-page-controls{flex-wrap:wrap}}
+#advisorDesign .aa-tabs button{padding:8px 21px;border-radius:0}#advisorDesign .aa-tabs.compact button{padding:5px 14px}#advisorDesign .aa-kpis{padding:10px 20px;min-height:76px}#advisorDesign .aa-kpi p{margin-bottom:1px}#advisorDesign .aa-chart{height:169px}#advisorDesign .aa-chart.small{height:145px}#advisorDesign .aa-analytics .av-table td{font-size:12px;padding:4px 9px;line-height:1.4}#advisorDesign .aa-analytics .av-table th{font-size:12px;padding:6px 9px}#advisorDesign .aa-compact td{padding-top:4px;padding-bottom:4px}#advisorDesign .aa-track{padding:7px 0}#advisorDesign .aa-table-wrap .aa-thumb{width:32px;height:32px}
+#advisorDesign [data-analytics=product] .av-table td{font-size:13px;padding:8px 10px}#advisorDesign [data-analytics=product] .aa-table-wrap .aa-thumb{width:40px;height:40px}#advisorDesign [data-analytics=product] .aa-bubble{font-size:14px}#advisorDesign [data-analytics=product] .aa-detail .aa-thumb{width:62px;height:62px}#advisorDesign [data-analytics=product] .aa-detail p{font-size:13px}#advisorDesign [data-analytics=product] .aa-detail{grid-template-columns:1.8fr 1fr}
+#advisorDesign .av-visitor-main{grid-template-columns:minmax(0,1fr) 340px}#advisorDesign .av-visitor-feedback:empty{display:none}#advisorDesign .av-visitor-bar{margin:7px 0}#advisorDesign .av-visitor-bottom>.av-card{padding:13px}#advisorDesign .av-visitor-task{padding:8px 0}#advisorDesign .av-visitor-tabs{justify-content:space-between;gap:8px}
+@media(max-width:960px){#advisorDesign .av-visitor-main{grid-template-columns:1fr}.av-page-controls{max-width:100%}.av-heading-line p{max-width:100%}}
+#advisorDesign .wf-text-action{min-height:0;line-height:1.4}#advisorDesign .wf-deliver{position:relative;padding:9px 0;min-height:64px}#advisorDesign .wf-deliver button{position:absolute;right:0;top:13px}#advisorDesign .wf-deliver p{font-size:11px;margin:4px 0;white-space:nowrap}#advisorDesign .wf-deliver .wf-round{width:42px;height:42px}#advisorDesign .wf-check-item{padding:8px;margin-top:7px}#advisorDesign .wf-check-item p{line-height:1.4}#advisorDesign .wf-check{position:relative}#advisorDesign .wf-check .wf-text-action{position:absolute;right:12px;bottom:7px}#advisorDesign .wf-check p{margin:5px 0;font-size:12px;line-height:1.5}
+.av-mode:has(.aa-analytics) .av-page-heading{min-height:53px}
+#advisorDesign .aa-subtitle{margin:6px 0 5px}#advisorDesign .aa-track label{line-height:1.4}#advisorDesign .aa-track{padding:6px 0}#advisorDesign .aa-compact td{padding-top:2px;padding-bottom:2px}#advisorDesign .aa-card .av-title{margin-bottom:9px}#advisorDesign .aa-analytics[data-analytics=ads] .aa-chart{height:160px}#advisorDesign .aa-analytics[data-analytics=ads] .aa-grid .av-table td{padding-top:2px;padding-bottom:2px}
+#advisorDesign .av-content>*{min-width:0;max-width:100%}#advisorDesign .aa-diagnostic>div,#advisorDesign .aa-grid>*,#advisorDesign .av-dash-two>*,#advisorDesign .av-visitor-main>*{min-width:0}
+@media(max-width:960px){#advisorDesign .av-dash-two,#advisorDesign .aa-grid,#advisorDesign .aa-grid.equal,#advisorDesign .aa-diagnostic{grid-template-columns:minmax(0,1fr)}#advisorDesign .av-dash-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}#advisorDesign .aa-actions{flex-wrap:wrap}#advisorDesign .aa-row{flex-wrap:wrap}#advisorDesign .av-visitor-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}#advisorDesign .av-visitor-filters{grid-template-columns:repeat(2,minmax(0,1fr))}#advisorDesign .av-visitor-tabs{justify-content:flex-start}#advisorDesign .av-dash-kpi-foot{white-space:normal}#advisorDesign .aa-tabs{overflow:auto;max-width:100%}#advisorDesign .aa-tabs button{white-space:nowrap}#advisorDesign .aa-next{flex-wrap:wrap}#advisorDesign .aa-chart-row{display:block}}
+#advisorDesign:has(.wf-flow) .av-card:not(.wf-flow){padding:12px}#advisorDesign:has(.wf-flow) .av-table td,#advisorDesign:has(.wf-flow) .av-table th{padding-top:4px;padding-bottom:4px;font-size:12px}#advisorDesign:has(.wf-flow) .wf-check-item{padding:6px}#advisorDesign:has(.wf-flow) .wf-checklist .av-title{margin-bottom:7px}
+/* 真实商品长标题与多行平台记录：约束内容宽度，保留卡片布局及内部滚动。 */
+#advisorDesign .aa-product{max-width:250px;min-width:210px;align-items:flex-start}
+#advisorDesign .aa-product>span:last-child{min-width:0;white-space:normal;overflow-wrap:anywhere}
+#advisorDesign .aa-product b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;line-height:1.45}
+#advisorDesign [data-products] .aa-table-wrap{max-height:440px;overflow:auto}
+#advisorDesign [data-products] th{position:sticky;top:0;z-index:1}
+#advisorDesign [data-detail] .aa-product{max-width:none;margin-bottom:12px}
+#advisorDesign [data-detail] .aa-product b{-webkit-line-clamp:unset}
+#advisorDesign [data-ad-plans] .aa-table-wrap{max-height:260px;overflow:auto}
+#advisorDesign [data-ad-plans] td:first-child{max-width:220px;white-space:normal}
+#advisorDesign #wfKeywordTable .wf-table-scroll{max-height:440px;overflow:auto}
+#advisorDesign #wfKeywordTable td:nth-child(2),#advisorDesign #wfKeywordTable td:nth-child(3){max-width:250px;white-space:normal;overflow-wrap:anywhere}
+#advisorDesign .av-visitor-kpi{display:block!important}
+#advisorDesign .av-visitor-kpi .av-dash-kpi-top{gap:8px}
+#advisorDesign .av-visitor-kpi .av-dash-symbol{width:36px;height:36px;min-width:36px;font-size:21px}
+#advisorDesign .av-visitor-kpi .av-dash-kpi-foot{margin-top:8px}
+#advisorDesign .av-page-controls{flex-wrap:wrap}
+#advisorDesign .wf-content .av-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+#advisorDesign .wf-content .av-grid>*,#advisorDesign .wf-position>*,#advisorDesign .wf-mini{min-width:0}
+#advisorDesign .wf-mini .wf-table-scroll{max-width:100%;overflow:auto}
+#advisorDesign .wf-mini td{white-space:normal;overflow-wrap:anywhere}
+#advisorDesign .wf-mini td:first-child{max-width:240px}
+@media(max-width:960px){#advisorDesign .wf-content .av-grid{grid-template-columns:minmax(0,1fr)}}
+#advisorDesign .wf-mini .wf-table-scroll{max-height:340px}
+
+/* 统一顶部刷新入口在桌面与窄屏均可见。 */
+.av-account>button.av-refresh{display:inline-flex;align-items:center;gap:5px;color:#e96920;border:1px solid #f0b489;border-radius:5px;padding:6px 12px;background:#fff;white-space:nowrap}.av-account>button.av-refresh:disabled{opacity:.6;cursor:wait}
+/* 详细版保持六列两行；比较与统计口径放在悬停提示中，避免挤走首屏图表。 */
+#advisorDesign .av-metric-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:5px 0 8px;font-size:12px;color:#52617c}
+#advisorDesign .av-metric-toolbar [role=group]{display:flex;padding:2px;border:1px solid #e3e8f0;border-radius:5px;background:white}
+#advisorDesign .av-metric-toolbar button{min-height:26px;border:0;background:transparent;color:#63708a;padding:4px 12px;border-radius:3px;font-size:12px}
+#advisorDesign .av-metric-toolbar button.selected{background:#ff6a18;color:white}
+#advisorDesign .av-detailed-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;margin-bottom:12px;background:white;border:1px solid #edf0f5;border-radius:7px;overflow:hidden}
+#advisorDesign .av-detailed-kpi{background:white;border-right:1px solid #edf0f5;border-bottom:1px solid #edf0f5;padding:10px 12px;min-width:0}
+#advisorDesign .av-detail-label{display:flex;align-items:center;gap:5px;font-size:12px;color:#52617c;white-space:nowrap}
+#advisorDesign .av-detail-label i{color:#f4762d;font-size:14px}
+#advisorDesign .av-detailed-kpi>strong{display:block;font-size:23px;line-height:1.25;margin:5px 0 7px;color:#111b3a}
+#advisorDesign .av-peer-values{display:grid;gap:3px;font-size:10px;color:#7c88a1;line-height:1.4}
+#advisorDesign .av-peer-values span{display:flex;justify-content:space-between;gap:4px;white-space:nowrap}
+#advisorDesign .av-peer-values b{color:#3a4964;font-size:11px;font-weight:500}
+@media(max-width:800px){#advisorDesign .av-detailed-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:450px){#advisorDesign .av-detailed-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* 简洁版同行参考替代原脚注占位，保持两行紧凑显示。 */
+#advisorDesign .av-simple-peers{margin-top:9px;gap:3px;font-size:11px}
+
+/* 发布页共用运营顾问外壳，仅调整容器视觉，原编辑器及表单保持原DOM。 */
+.app-layout.av-mode.product-publish-mode .topbar{display:none!important}
+.app-layout.av-mode.product-publish-mode .topbar-in{padding:24px 20px 0;max-width:none}
+.app-layout.av-mode.product-publish-mode .workspace-heading h1{font-size:31px;color:#111a3e;line-height:1.2}
+.app-layout.av-mode.product-publish-mode .topbar-actions{display:none}
+.app-layout.av-mode.product-publish-mode #timeScope{font-size:12px;color:#7782a1;margin-top:8px}
+.app-layout.av-mode.product-publish-mode main>#tab-product-publish.on{display:flex!important}
+.app-layout.av-mode.product-publish-mode .tabs button[data-tab="product-publish"].on{background:#fff2e9;color:#ff6509;border-left:5px solid #ff6509;font-weight:700}
+.app-layout.av-mode.product-publish-mode .workspace{background:#f3f6fa}
+.app-layout.av-mode.product-publish-mode .publish-list-panel,.app-layout.av-mode.product-publish-mode .publish-editor-panel{border-color:#e6ebf3;border-radius:8px;box-shadow:none}
+
+/* 温暖的品牌底色与舒展的业务列表；顶部指标维持已确认密度。 */
+.app-layout.av-mode{--av-ink:#302b29;--av-muted:#8a817c;background:#fdfbf9!important;color:#302b29}
+.app-layout.av-mode .workspace{background:#fdfbf9}
+.av-mode #avMast{border-bottom-color:#f1e6dc;background:#fffefd}
+.av-brand{gap:14px;color:#302b29}.av-brand img{width:44px;height:44px;object-fit:contain;border-radius:11px}.av-brand b{font-size:18px}
+.app-layout.av-mode .sidebar{background:#fffefd;border-right-color:#f1e6dc}
+.app-layout.av-mode .tabs button{color:#66594f}
+.app-layout.av-mode .tabs button[data-tab="product-publish"]{background:transparent}
+.app-layout.av-mode.product-publish-mode .workspace{background:#fdfbf9}
+#advisorDesign .av-overview .av-card{padding:20px;border-color:#f3e9e1;border-radius:12px;box-shadow:0 2px 8px #75451c03}
+#advisorDesign .av-overview .av-dash-two{gap:16px;margin-bottom:16px}
+#advisorDesign .av-overview .av-dash-heading{margin-bottom:14px}
+#advisorDesign .av-overview .av-table th{background:#fcf8f4;color:#796554;padding:10px 12px}
+#advisorDesign .av-overview .av-table td{border-color:#f3eee9;color:#514943}
+#advisorDesign .av-overview .av-table tbody tr:hover{background:#fdfbf9}
+#advisorDesign .av-overview .av-visitor-note{color:#93877e;line-height:1.7;margin-bottom:12px}
+#advisorDesign #av-live-staff .av-table td{padding:11px 12px;font-size:13px}
+#advisorDesign #av-live-staff .av-table td:not(:first-child),#advisorDesign #av-live-staff .av-table th:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
+.av-staff-name{display:flex;align-items:center;gap:10px}.av-staff-avatar{display:grid;place-items:center;flex:0 0 28px;height:28px;border-radius:50%;background:#fff0e3;color:#c78044;font-size:12px;font-weight:600}
+#advisorDesign #av-live-products .av-table{table-layout:fixed;min-width:0}
+#advisorDesign #av-live-products .av-table th:first-child{width:68%}
+#advisorDesign #av-live-products .av-table td{padding:15px 10px;white-space:normal;vertical-align:middle}
+#advisorDesign #av-live-products .av-table td:not(:first-child),#advisorDesign #av-live-products .av-table th:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
+.av-ranked-product{display:flex;align-items:center;gap:12px;min-width:0}.av-rank{display:grid;place-items:center;flex:0 0 26px;height:28px;border-radius:7px;background:#fff0e2;color:#da762c;font-size:13px;font-weight:700}
+.av-product-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.65;font-size:13px;overflow-wrap:anywhere}
+#advisorDesign .av-overview .av-health{gap:8px;background:transparent;border:0}
+#advisorDesign .av-overview .av-health-item{padding:15px 10px;border:1px solid #f4e7dc;border-radius:8px;background:#fdfbf9;gap:9px}
+#advisorDesign .av-overview .av-health-item>i{background:#fff0e2;color:#ed843d;border-radius:8px;padding:6px;font-size:19px}
+#advisorDesign .av-overview .av-layer-track{background:#f8efe7}
+@media(max-width:1100px){#advisorDesign .av-overview .av-health{grid-template-columns:repeat(2,minmax(0,1fr))}}
+#advisorDesign .av-overview .av-dash-two{align-items:start}
+#advisorDesign .av-overview .av-health-item>i{align-self:start;line-height:1;width:31px;height:31px;box-sizing:border-box;display:grid;place-items:center;flex-shrink:0}
+#advisorDesign #av-live-countries .av-table td{padding:12px;font-size:13px}
+/* 七个业务页的服务入口与主题独立报告/对话抽屉。 */
+.av-services{background:#fff;border:1px solid #f0e7df;border-radius:10px;padding:16px 18px;margin-bottom:18px}.av-services-label{display:flex;align-items:center;gap:8px;font-size:14px;color:#44372d;margin-bottom:12px}.av-services-label i{color:#f47a2b}.av-services-label span{font-size:12px;color:#91867d;margin-left:8px}.av-service-buttons{display:flex;flex-wrap:wrap;gap:9px}.av-service-buttons button{display:flex;align-items:center;gap:18px;padding:10px 14px;border:1px solid #f0dfd0;border-radius:7px;background:#fffaf6;color:#82532e;font-size:13px;cursor:pointer}.av-service-buttons button:hover{background:#fff0e3;border-color:#ed9a5d}.av-service-drawer{position:fixed;inset:0 0 0 auto;margin:0;width:620px;max-width:100vw;height:100dvh;max-height:100dvh;padding:0;border:0;border-left:1px solid #eadfd5;background:#fffdfb;color:#38302b;box-shadow:-12px 0 60px #30201620}.av-service-drawer::backdrop{background:#352b252c}.av-service-drawer>header{display:flex;align-items:center;justify-content:space-between;padding:24px;border-bottom:1px solid #eee3da}.av-service-drawer h2{font-size:22px;margin:7px 0 0}.av-service-drawer header small{color:#ac7950}.av-service-drawer header button{background:none;border:0;font-size:28px;cursor:pointer}.av-service-drawer>nav{display:flex;gap:24px;padding:0 24px;border-bottom:1px solid #eee3da}.av-service-drawer>nav button{border:0;border-bottom:2px solid transparent;background:none;padding:15px 0;color:#8b7b6f;font-size:14px;cursor:pointer}.av-service-drawer>nav button.selected{color:#ee6c17;border-color:#ee6c17}.av-service-body{padding:24px}.av-service-actions{display:flex;gap:12px}.av-service-empty{padding:50px 12px;text-align:center;color:#897a6e;line-height:1.8}.av-service-empty>i{font-size:40px;color:#e89452}.av-service-empty h3{color:#4f4035}.av-service-report{font-size:14px;line-height:1.9}.av-service-report p{white-space:pre-wrap}.av-service-report section{padding:16px 0;border-top:1px solid #eee3da}.av-service-report h3{font-size:17px}.av-service-report h4{margin:12px 0 4px;font-size:14px}.av-service-error{background:#fff2e9;padding:10px 12px;border-radius:6px;font-size:13px;line-height:1.7;color:#995529}.av-service-questions{display:flex;flex-wrap:wrap;gap:8px}.av-service-questions button{background:#fff8f1;border:1px solid #efddce;border-radius:14px;padding:7px 10px;color:#875939;cursor:pointer}.av-service-messages{min-height:120px;margin:20px 0}.av-service-message{background:#f6f3f0;padding:14px;border-radius:9px;margin:12px 0;line-height:1.8}.av-service-message.user{background:#fff0e4;margin-left:30px}.av-service-message b{font-size:12px;color:#ad7042}.av-service-message p{white-space:pre-wrap;overflow-wrap:anywhere}.av-service-chat-form{display:grid;gap:12px}.av-service-chat-form label{font-size:13px}.av-service-chat-form textarea{width:100%;box-sizing:border-box;border:1px solid #e8d7ca;border-radius:8px;padding:12px;font:inherit;resize:vertical}.av-service-chat-form button{justify-self:end}@media(max-width:700px){.av-services-label{flex-wrap:wrap}.av-services-label span{margin-left:0}.av-service-drawer{width:100%}}
+
+/* 侧栏减轻视觉重量，保留原点击区域与间距。 */
+.app-layout.av-mode .tabs button{font-size:14px;font-weight:400}
+.app-layout.av-mode .tabs button i{font-size:19px}
+.app-layout.av-mode .tabs button.on,.app-layout.av-mode.product-publish-mode .tabs button[data-tab="product-publish"].on{font-weight:500}
+@media(max-width:960px){.app-layout.av-mode .tabs button{font-size:13px}}
+
+/* 业务页统一使用近白暖色，覆盖各模块内嵌的冷灰表格样式。保留指标密度与状态色。 */
+#advisorDesign :is(.wf-content,.aa-analytics,.av-visitor) .av-table{background:#fff;color:#514943;font-size:12px}
+#advisorDesign :is(.wf-content,.aa-analytics,.av-visitor) .av-table th{background:#fcf8f4;color:#796554;padding:11px 10px;border-bottom:1px solid #f0e7df;font-size:12px;font-weight:500}
+#advisorDesign :is(.wf-content,.aa-analytics,.av-visitor) .av-table td{padding:12px 10px;line-height:1.65;border-bottom:1px solid #f3eee9;color:#514943}
+#advisorDesign :is(.wf-content,.aa-analytics,.av-visitor) .av-table tbody tr:hover{background:#fdfbf9}
+#advisorDesign :is(.wf-content,.aa-analytics,.av-visitor) :is(.av-card,.aa-card){background:#fff;border:1px solid #f1e8e0;border-radius:10px;padding:16px}
+#advisorDesign .wf-mini{background:#fff;border-color:#f1e8e0;border-radius:9px;padding:12px}
+#advisorDesign .wf-brief,#advisorDesign .aa-bubble{background:#fdfbf9;border:1px solid #f2e9e1;color:#62564d;line-height:1.85}
+#advisorDesign .wf-service{border-bottom-color:#f3eee9;color:#514943}
+#advisorDesign .wf-service .wf-round{background:#fff5ed;color:#d8884e}
+#advisorDesign .wf-service.active .wf-round{background:#ffe9d9;color:#ff6509}
+#advisorDesign .aa-filters button{background:#fdfbf9;border-color:#eee5dd;color:#867467}
+#advisorDesign .aa-filters button.active{background:#fff3e9;border-color:#f3b68b;color:#e96616}
+#advisorDesign .av-visitor-left{background:#fff}
+#advisorDesign .av-visitor-detail{border-color:#fdfbf9}
+#advisorDesign .av-visitor-detail dl{color:#62564d}
+#advisorDesign .av-visitor-detail dt{color:#94877d}
+#advisorDesign .av-visitor-summary{background:#fdfbf9;color:#78685b;border:1px solid #f1e8e0}
+#advisorDesign .wf-flow button:not(.active) b{background:#fcf4ed;color:#b28460}
+#advisorDesign .av-visitor .av-layer-track{background:#f8f1eb}
+
+/* 采购需求直接嵌入商机页；原生详情折叠支持键盘，长列表在卡片内滚动。 */
+#advisorDesign .av-rfq-search{display:flex;gap:8px;margin:12px 0}
+#advisorDesign .av-rfq-search input{min-width:0;flex:1;border:1px solid #eadfd5;border-radius:6px;padding:9px;font:inherit;font-size:12px;background:#fff}
+#advisorDesign .av-rfq-count{font-size:11px;color:#968477;margin:10px 0}
+#advisorDesign .av-rfq-list{max-height:380px;overflow:auto;margin-bottom:14px;padding-right:3px}
+#advisorDesign .av-rfq-item{border:1px solid #f0e5dc;border-radius:9px;margin-bottom:9px;background:#fff}
+#advisorDesign .av-rfq-item summary{cursor:pointer;list-style:none;padding:13px}
+#advisorDesign .av-rfq-item summary::-webkit-details-marker{display:none}
+#advisorDesign .av-rfq-item summary:hover{background:#fdfbf9}
+#advisorDesign .av-rfq-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:13px;line-height:1.6;font-weight:500;color:#49382c}
+#advisorDesign .av-rfq-meta,#advisorDesign .av-rfq-quantity{display:flex;align-items:center;gap:5px;font-size:11px;color:#8a7a6c;margin-top:9px}
+#advisorDesign .av-rfq-meta>span,#advisorDesign .av-rfq-quantity>span{margin-left:auto}
+#advisorDesign .av-rfq-quantity b{color:#cf6a25;font-size:15px}
+#advisorDesign .av-rfq-description{padding:0 13px 13px;color:#6b5a4e;font-size:12px;line-height:1.8;overflow-wrap:anywhere}
+#advisorDesign .av-rfq-description p{white-space:pre-wrap}
+
+/* 业务工作区固定在视口内：资料与结果分别滚动，切换流程不改变页面总高度。 */
+#advisorDesign:has(.av-split-workbench),#advisorDesign:has(.av-position-workbench){height:calc(100dvh - 106px);min-height:480px;display:flex;flex-direction:column;overflow:hidden}
+#advisorDesign[hidden]{display:none}
+#advisorDesign .av-split-workbench,#advisorDesign .av-position-workbench{flex:1;min-height:0;overflow:hidden}
+#advisorDesign .av-split-workbench{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,36%);gap:16px}
+#advisorDesign .av-split-workbench>.av-content{min-width:0;overflow:auto;padding-right:4px;overscroll-behavior:contain}
+#avWorkflowPanel{min-height:0;overflow:auto;background:#fff;border:1px solid #f0e5dc;border-radius:12px;overscroll-behavior:contain}
+#advisorDesign .av-position-workbench>.av-content,#advisorDesign .av-position-workbench .wf-content{height:100%;min-height:0;overflow:hidden}
+#advisorDesign .av-position-workbench .wf-position{height:100%;margin:0;grid-template-columns:250px minmax(0,1fr)}
+#advisorDesign .av-position-workbench .wf-position>.av-card{overflow:auto;overscroll-behavior:contain;min-height:0}
+#advisorDesign .av-position-workbench .wf-content>.av-grid{display:none}
+#advisorDesign .av-context-actions{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 13px}
+#advisorDesign .av-inline-trigger{border:1px solid #edd9c8;border-radius:6px;background:#fffaf6;color:#a75a25;padding:7px 10px;font:inherit;font-size:12px;cursor:pointer}
+#advisorDesign .av-inline-trigger:hover{background:#fff0e4;border-color:#e59458}
+#advisorDesign .av-inline-result>header{padding:18px 18px 12px;border-bottom:1px solid #f1e8e0}
+#advisorDesign .av-inline-result header small{font-size:11px;color:#a18168}
+#advisorDesign .av-inline-result h2{font-size:19px;line-height:1.5;margin:6px 0 0;color:#46372c}
+#advisorDesign .av-inline-result>nav{display:flex;gap:22px;padding:0 18px;border-bottom:1px solid #f1e8e0}
+#advisorDesign .av-inline-result>nav button{background:none;border:0;border-bottom:2px solid transparent;padding:13px 0;color:#8f7d6e;cursor:pointer}
+#advisorDesign .av-inline-result>nav button.selected{border-color:#f47727;color:#e7691d}
+#advisorDesign .av-inline-result .av-service-body{padding:18px}
+#advisorDesign .av-inline-result .av-service-report h3{color:#594335;font-size:15px}
+#advisorDesign .av-inline-result .av-service-report section{border-color:#f0e5dc}
+#advisorDesign .av-inline-result .av-service-empty{padding:30px 8px}
+#advisorDesign .av-workflow-evidence{border-top:1px solid #eee2d8;padding:16px;margin:0 18px 15px}
+#advisorDesign .av-workflow-evidence>summary{color:#9a693f;cursor:pointer;margin-bottom:14px;font-size:13px}
+#advisorDesign .av-split-workbench :is(.aa-grid,.aa-diagnostic,.wf-foundation,.av-visitor-main,.av-visitor-bottom){grid-template-columns:minmax(0,1fr)}
+#advisorDesign .av-split-workbench .wf-flow{grid-template-columns:repeat(2,minmax(0,1fr))}
+#advisorDesign .av-split-workbench .av-dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:15px}
+#advisorDesign .av-split-workbench .av-visitor-detail{border-left:0;border-top:1px solid #f1e8e0}
+#advisorDesign .av-split-workbench .aa-funnel{flex-wrap:wrap;gap:16px}
+#advisorDesign .av-split-workbench .av-table-scroll,#advisorDesign .av-split-workbench .av-dash-tablewrap{max-width:100%;overflow:auto}
+@media(max-width:800px){#advisorDesign .av-split-workbench{grid-template-columns:minmax(0,1fr) minmax(280px,45%)}#advisorDesign .av-position-workbench .wf-position{grid-template-columns:185px minmax(0,1fr)}#advisorDesign .wf-service{padding:14px 8px;gap:7px}#advisorDesign .wf-service-number{display:none}}
+#advisorDesign:has(.av-split-workbench)>.av-page-heading,#advisorDesign:has(.av-position-workbench)>.av-page-heading{flex-shrink:0}
+#advisorDesign .av-workflow-evidence .av-grid{grid-template-columns:1fr}
+#advisorDesign .av-position-workbench .wf-position{grid-template-rows:minmax(0,1fr);min-height:0}
+#advisorDesign .av-position-workbench .wf-position>.av-card{height:100%;box-sizing:border-box}
+
+/* 原型式固定结果板块：四个业务维度，短结论与动作优先，细节按需展开。 */
+#advisorDesign .av-result-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
+#advisorDesign .av-result-card{min-width:0;background:#fff;border:1px solid #efe4db;border-radius:10px;padding:14px}
+#advisorDesign .av-result-card>header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+#advisorDesign .av-result-number{background:#fff0e4;color:#d87732;border-radius:6px;padding:4px 6px;font-size:12px}
+#advisorDesign .av-result-card h3{font-size:14px;color:#4b392b;margin:0;flex:1}
+#advisorDesign .av-result-card header small{font-size:10px;color:#a48c79;white-space:nowrap}
+#advisorDesign .av-result-basis{font-size:13px;font-weight:500;line-height:1.7;color:#604b3b;margin:10px 0;max-height:90px;overflow:auto}
+#advisorDesign .av-result-points{font-size:12px;color:#766454;line-height:1.8;padding-left:17px;max-height:125px;overflow:auto;margin:10px 0}
+#advisorDesign .av-result-points li{margin-bottom:6px}
+#advisorDesign .av-result-more{border-top:1px solid #f2e9e1;padding-top:9px;font-size:12px;line-height:1.7;color:#806e5f;max-height:210px;overflow:auto}
+#advisorDesign .av-result-more summary,#advisorDesign .av-result-overall summary{cursor:pointer;color:#b37345;font-size:12px}
+#advisorDesign .av-result-more h4{font-size:12px;margin:10px 0 4px}
+#advisorDesign .av-result-more ul{padding-left:17px;margin:5px 0}
+#advisorDesign .av-result-pending{background:#fdfbf9;border-radius:7px;padding:15px 10px;min-height:80px;color:#a09082;font-size:12px;line-height:1.8}
+#advisorDesign .av-result-pending i{font-size:22px;color:#d4a178}
+#advisorDesign .av-result-pending p{margin:6px 0 0}
+#advisorDesign .av-result-facts{border-radius:7px;background:#fffaf6;padding:10px;margin-bottom:10px}
+#advisorDesign .av-result-facts>span{font-size:10px;color:#a38b78}
+#advisorDesign .av-result-facts>div{display:flex;justify-content:space-between;gap:8px;padding:5px 0;font-size:12px}
+#advisorDesign .av-result-facts b{font-weight:400;color:#796454}
+#advisorDesign .av-result-facts strong{color:#d0783a;font-variant-numeric:tabular-nums}
+#advisorDesign .av-result-overall{margin-top:14px;border-top:1px solid #f0e6dd;padding-top:12px;font-size:12px;line-height:1.8;color:#847060}
+#avWorkflowPanel .av-result-grid{grid-template-columns:1fr}
+@media(max-width:1000px){#advisorDesign .av-result-grid{grid-template-columns:1fr}}
+#advisorDesign .av-credit-notice{font-size:12px;line-height:1.7;color:#9b744f;background:#fff8f0;border-radius:6px;padding:9px 11px;margin:12px 0}
+#advisorDesign .av-service-actions{flex-wrap:wrap}
+#advisorDesign .av-followup{margin-top:20px;padding-top:18px;border-top:1px solid #efdfd1}
+#advisorDesign .av-followup h3{font-size:16px;margin:0 0 6px;color:#57402f}
+#advisorDesign .av-followup-hint{font-size:12px;color:#a0846d;margin:0 0 14px}
+#advisorDesign .av-followup .av-service-messages:empty{display:none}
+#advisorDesign .wf-position-analyze{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:18px;padding-bottom:15px;border-bottom:1px solid #f0e6dd}
+#advisorDesign .wf-position-analyze span{font-size:12px;color:#a1836a}
+#advisorDesign .av-workflow-evidence .wf-position-analyze{display:none}
+/* 市场与客群数据图表：统一暖色编码，各卡片保留自己的数据口径。 */
+#advisorDesign .wf-market-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#advisorDesign .wf-market-card{min-width:0;border:1px solid #f0e5dc;border-radius:10px;background:#fff;padding:14px}
+#advisorDesign .wf-market-card h3{font-size:15px;display:block;margin:0 0 16px}
+#advisorDesign .wf-market-card h3 small{display:block;margin:5px 0 0;font-size:10px;font-weight:400;color:#9f8a78}
+#advisorDesign .wf-market-section{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:18px 0 12px;color:#70513a}
+#advisorDesign .wf-market-section span,#advisorDesign .wf-market-note{font-size:11px;color:#a08b79;line-height:1.8}
+#advisorDesign .wf-bars{display:grid;gap:14px;padding:6px 0}
+#advisorDesign .wf-bar-row{display:grid;grid-template-columns:minmax(65px,1fr) minmax(35px,1.2fr) auto;gap:9px;align-items:center;font-size:11px}
+#advisorDesign .wf-bar-row>span{white-space:nowrap;text-overflow:ellipsis;overflow:hidden;color:#7d6857}
+#advisorDesign .wf-bar-row b{font-weight:500;font-variant-numeric:tabular-nums;color:#996638;min-width:36px;text-align:right}
+#advisorDesign .wf-bar-track{height:9px;background:#fcf1e7;border-radius:3px;overflow:hidden}
+#advisorDesign .wf-bar-track i{display:block;height:100%;background:#ed9859;border-radius:3px}
+#advisorDesign .wf-buyer-chart{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px}
+#advisorDesign .wf-buyer-chart svg{width:125px;max-width:100%;flex-shrink:0}
+#advisorDesign .wf-buyer-chart text{fill:#8b715c;font-size:12px}
+#advisorDesign .wf-buyer-chart .wf-ring-note{font-size:9px;fill:#b3a394}
+#advisorDesign .wf-buyer-chart>div{flex:1;min-width:130px}
+#advisorDesign .wf-buyer-chart p{display:flex;align-items:center;gap:6px;font-size:11px;color:#8d7561;margin:12px 0}
+#advisorDesign .wf-buyer-chart p i{width:7px;height:7px;border-radius:50%}
+#advisorDesign .wf-buyer-chart p b{margin-left:auto;font-weight:500}
+#advisorDesign .wf-chart-empty{font-size:12px;color:#a59384;padding:35px 8px;text-align:center}
+#advisorDesign .wf-market-card .wf-table-scroll{max-height:280px;overflow:auto}
+#advisorDesign .wf-market-card td:last-child{white-space:normal;max-width:190px}
+@media(max-width:900px){#advisorDesign .wf-market-grid{grid-template-columns:1fr}}
+
+/* 公司定位：真实资料构成的图表和事实卡；沿用右侧工作区的内部滚动。 */
+.wf-company-identity{display:flex;align-items:center;gap:14px;margin:18px 0;color:#39342f}.wf-company-identity img{width:54px;height:54px;object-fit:contain;border:1px solid #f0e6dd;border-radius:10px}.wf-company-identity strong{font-size:17px}.wf-company-identity p{font-size:12px;color:#94897f;margin:6px 0}.wf-company-identity>span{margin-left:auto;font-size:11px;color:#9b8b7c;white-space:nowrap}.wf-company-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}.wf-company-stats>div{background:#fffaf6;border:1px solid #f2e7dc;border-radius:10px;padding:14px}.wf-company-stats span{display:block;font-size:12px;color:#8c7d70}.wf-company-stats strong{display:block;font-size:16px;margin-top:10px;line-height:1.5;overflow-wrap:anywhere}.wf-company-facts{margin:8px 0}.wf-company-facts>div{display:grid;grid-template-columns:86px minmax(0,1fr);gap:12px;padding:11px 0;border-bottom:1px solid #f4eee8;font-size:12px;line-height:1.7}.wf-company-facts dt{color:#948577}.wf-company-facts dd{margin:0;color:#4b423a;overflow-wrap:anywhere}.wf-company-tags{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 16px}.wf-company-tags span{background:#fff8f1;border:1px solid #f1e4d7;color:#886448;padding:5px 8px;border-radius:6px;font-size:12px}.wf-company-details{font-size:12px;line-height:1.8;margin-top:12px;color:#6b5d50}.wf-company-details summary{cursor:pointer;color:#ac6a36;padding:8px 0}.wf-company-details p{white-space:pre-line}.wf-company-certificates{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.wf-company-certificates>div{display:flex;align-items:center;gap:8px;min-width:0;font-size:12px}.wf-company-certificates img{width:40px;height:54px;object-fit:contain;background:#fffcf9}.wf-company-certificates span{overflow-wrap:anywhere;min-width:0}.wf-company-certificates small{display:block;color:#9b8d81;margin-top:4px;font-size:10px}.wf-company-gallery{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.wf-company-gallery figure{margin:0;min-width:0}.wf-company-gallery img{width:100%;height:92px;object-fit:contain;border-radius:8px;background:#fffcf9}.wf-company-gallery figcaption{font-size:11px;text-align:center;padding:8px;color:#756453}.wf-market-card h4{font-size:12px;color:#847161;margin:14px 0 8px}@media(max-width:1100px){.wf-company-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.wf-company-gallery{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.wf-company-pdf{display:grid;place-items:center;width:40px;height:54px;border-radius:5px;background:#fff2e6;color:#bc7540;font-size:11px}
+
+/* 公司资料紧凑排版：仅压缩留白，保留现有字号与完整资料。 */
+#advisorDesign #wfPositionBody:has(.wf-company-identity) .wf-market-grid{gap:10px}
+#advisorDesign #wfPositionBody:has(.wf-company-identity) .wf-market-card{padding:12px}
+#advisorDesign #wfPositionBody:has(.wf-company-identity) .wf-market-card h3{margin-bottom:10px}
+#advisorDesign #wfPositionBody:has(.wf-company-identity) .wf-market-card h3 small{margin-top:3px}
+#advisorDesign #wfPositionBody:has(.wf-company-identity) .wf-bars{gap:9px;padding:3px 0}
+#advisorDesign .wf-company-identity{margin:10px 0;gap:10px}
+#advisorDesign .wf-company-identity img{width:42px;height:42px}
+#advisorDesign .wf-company-identity p{margin:3px 0}
+#advisorDesign .wf-company-stats{gap:8px;margin-bottom:10px}
+#advisorDesign .wf-company-stats>div{padding:10px 12px}
+#advisorDesign .wf-company-stats strong{margin-top:5px;line-height:1.35}
+#advisorDesign .wf-company-facts{margin:3px 0}
+#advisorDesign .wf-company-facts>div{padding:6px 0;gap:8px;line-height:1.5}
+#advisorDesign .wf-company-tags{gap:5px;margin:7px 0 10px}
+#advisorDesign .wf-company-tags span{padding:3px 7px}
+#advisorDesign .wf-company-details{margin-top:7px;line-height:1.6}
+#advisorDesign .wf-company-details summary{padding:5px 0}
+#advisorDesign .wf-company-certificates{gap:8px;margin-top:10px}
+#advisorDesign .wf-company-gallery{gap:8px}
+#advisorDesign .wf-company-gallery img{height:76px}
+#advisorDesign .wf-company-gallery figcaption{padding:5px}
+#advisorDesign #wfPositionBody:has(.wf-company-identity) .wf-market-card h4{margin:9px 0 5px}
+/* 公司介绍默认可见，长文独立滚动，避免撑高同排认证卡片。 */
+#advisorDesign .wf-company-description-scroll{height:180px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:8px 10px;border:1px solid #f2e7dc;border-radius:6px;background:#fffcf9;color:#6b5d50;font-size:12px;line-height:1.65}
+#advisorDesign .wf-company-description-scroll p{white-space:pre-line;margin:0 0 10px;overflow-wrap:anywhere}
+#advisorDesign .wf-company-description-scroll p:last-child{margin-bottom:0}
+#advisorDesign .wf-company-description-scroll:focus-visible{outline:2px solid #eb9b61;outline-offset:2px}
+/* 产品定位复用紧凑资料卡，排名区独立滚动，标题完整内容可悬停查看。 */
+#advisorDesign .wf-product-dashboard .wf-market-grid{gap:10px}
+#advisorDesign .wf-product-dashboard .wf-market-card{padding:12px;min-width:0}
+#advisorDesign .wf-product-dashboard .wf-market-card h3{margin-bottom:10px}
+#advisorDesign .wf-product-dashboard .wf-bars{gap:10px}
+.wf-product-quadrants{display:grid;grid-template-columns:1fr 1fr;gap:8px}.wf-product-quadrants>div{padding:12px;background:#fff8f2;border:1px solid #f3e7dc;border-radius:8px}.wf-product-quadrants span{font-size:11px;color:#8b7461}.wf-product-quadrants strong{display:block;font-size:22px;color:#574333;margin-top:7px}.wf-product-quadrants small{font-size:11px;font-weight:400}
+.wf-product-ranking{max-height:345px;overflow:auto;overscroll-behavior:contain}.wf-product-ranking>div{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #f3ebe3}.wf-product-ranking section{flex:1;min-width:0}.wf-product-ranking img{width:36px;height:36px;object-fit:contain;border-radius:5px}.wf-product-ranking p{font-size:11px;line-height:1.5;margin:0 0 5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.wf-product-ranking small{font-size:10px;color:#a08a77;display:block;margin-top:4px}.wf-product-ranking b{font-size:14px;min-width:30px;text-align:right;font-variant-numeric:tabular-nums}.wf-product-rank{font-size:11px;color:#c88046}
+/* 产品定位移除流量分组后，分层图占整行，两张商品排名并排。 */
+#advisorDesign .wf-product-dashboard>.wf-market-grid>.wf-market-card:first-child{grid-column:1 / -1}
+
+/* 营销定位：顶部横向业务切换，下方宽数据栏与独立 AI 栏。 */
+#advisorDesign .av-position-workbench .wf-content{display:flex;flex-direction:column;gap:12px}
+#advisorDesign .wf-position-tabs{display:flex;flex-shrink:0;gap:6px;background:#fff;border:1px solid #f0e5dc;border-radius:10px;padding:6px;overflow-x:auto}
+#advisorDesign .wf-position-tabs button{flex:1;white-space:nowrap;border:0;border-radius:6px;background:transparent;color:#7e6d5e;font:inherit;font-size:13px;padding:11px 12px;cursor:pointer}
+#advisorDesign .wf-position-tabs button.active{background:#fff0e5;color:#e9691d;font-weight:600}
+#advisorDesign .av-position-workbench .wf-position{height:auto;flex:1;grid-template-columns:minmax(0,1.85fr) minmax(290px,1fr);gap:12px;min-height:0}
+#advisorDesign .av-position-workbench .wf-position>#wfPositionBody{height:100%;min-width:0;padding:14px;overflow:auto}
+#advisorDesign #wfPositionAI{height:100%;min-height:0;min-width:0;overflow:auto;background:#fff;border:1px solid #f0e5dc;border-radius:10px;overscroll-behavior:contain}
+#advisorDesign .wf-ai-placeholder{padding:18px}
+#advisorDesign .wf-ai-placeholder>small{font-size:11px;color:#a08065}
+#advisorDesign .wf-ai-placeholder h3{margin:8px 0 16px;font-size:17px}
+#advisorDesign .wf-ai-placeholder p{font-size:12px;color:#9a897b;line-height:1.7}
+#advisorDesign .wf-ai-stage{border-top:1px solid #f0e7df;margin-top:22px;padding-top:22px}
+#advisorDesign .wf-ai-stage i{font-size:26px;color:#eaa46e}
+#advisorDesign .wf-ai-stage h4{margin:10px 0 7px;font-size:14px;color:#776250}
+#advisorDesign #wfPositionAI .av-result-grid{grid-template-columns:1fr}
+#advisorDesign #wfPositionAI .av-service-body{padding:14px}
+@media(max-width:1000px){#advisorDesign .av-position-workbench .wf-position{grid-template-columns:minmax(0,1.65fr) minmax(260px,1fr)}#advisorDesign #wfPositionBody .wf-market-grid{grid-template-columns:1fr}}
+/* 装修文案的事实与素材预览：白底紧凑卡片，长图文在局部滚动。 */
+#advisorDesign .wf-decoration-dashboard{display:grid;gap:10px}
+#advisorDesign .wf-decoration-dashboard .wf-market-card{padding:12px;min-width:0}
+#advisorDesign .wf-decoration-dashboard .wf-market-card h3{margin-bottom:10px}
+#advisorDesign .wf-decoration-dashboard .wf-market-grid{gap:10px}
+#advisorDesign .wf-decoration-dashboard .wf-company-stats{margin-bottom:0}
+.wf-decoration-gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;max-height:285px;overflow:auto;overscroll-behavior:contain}
+.wf-decoration-gallery figure{margin:0;min-width:0}.wf-decoration-gallery img{width:100%;height:100px;object-fit:contain;border-radius:7px;background:#fffcf9}.wf-decoration-gallery figcaption{font-size:11px;line-height:1.5;color:#8e7968;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:5px}
+.wf-decoration-select{display:grid;gap:7px;font-size:12px;color:#8c7663}.wf-decoration-select select{width:100%;min-width:0;border:1px solid #eddfd2;border-radius:6px;padding:9px;background:#fff;color:#635245;font-size:12px}
+.wf-detail-hero{display:flex;gap:16px;align-items:center}.wf-detail-hero>img{width:120px;height:150px;object-fit:contain;flex-shrink:0}.wf-detail-hero>div{min-width:0}.wf-detail-hero h4{font-size:13px;line-height:1.6;margin:0 0 12px}.wf-detail-hero span{font-size:11px;color:#9d8774;display:block;margin-top:8px}.wf-detail-hero strong{display:block;font-size:16px;color:#ba7740;margin-top:4px}.wf-decoration-copy{font-size:13px;color:#776350;line-height:1.7;max-height:100px;overflow:auto}
+/* 词工具直接切换真实来源；流程入口保留清晰的当前选择。 */
+#advisorDesign .wf-keyword-tabs{display:flex;gap:6px;margin:14px 0 10px}
+#advisorDesign .wf-keyword-tabs button{flex:1;cursor:pointer;font:inherit;font-size:12px;padding:10px 7px;border:1px solid #efe2d7;border-radius:6px;background:#fffaf6;color:#89715e}
+#advisorDesign .wf-keyword-tabs button.active{background:#fff0e5;border-color:#ffb285;color:#e9691d}
+#advisorDesign .wf-flow button{cursor:pointer}
+#advisorDesign #wfKeywordTable .wf-table-scroll{max-height:480px;overflow:auto}
+
+/* 词表按卡片宽度分配列：长词仅视觉省略，原始值和导出保持完整。 */
+/* 按视口给分页按钮预留空间，只缩短滚动区，不压缩表格行距。 */
+#advisorDesign #wfKeywordTable .wf-table-scroll{max-height:clamp(180px,calc(100dvh - 560px),380px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+#advisorDesign #wfKeywordTable .av-table thead{position:sticky;top:0;z-index:1;background:#fcf8f4}
+#advisorDesign #wfKeywordTable .av-table{width:100%;min-width:0;table-layout:fixed}
+#advisorDesign #wfKeywordTable .av-table th{white-space:normal;overflow-wrap:anywhere;line-height:1.35;padding:7px 6px;font-size:11px}
+#advisorDesign #wfKeywordTable .av-table td{padding:12px 6px;font-size:12px;line-height:1.65;white-space:nowrap;max-width:none}
+#advisorDesign #wfKeywordTable .wf-keyword-value{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
+#advisorDesign #wfKeywordTable [data-keyword-kind="0"] th:nth-child(1){width:38%}
+#advisorDesign #wfKeywordTable [data-keyword-kind="0"] th:nth-child(2){width:32%}
+#advisorDesign #wfKeywordTable [data-keyword-kind="0"] th:nth-child(n+3){width:15%}
+#advisorDesign #wfKeywordTable [data-keyword-kind="1"] th:nth-child(1){width:21%}
+#advisorDesign #wfKeywordTable [data-keyword-kind="1"] th:nth-child(2){width:29%}
+#advisorDesign #wfKeywordTable [data-keyword-kind="1"] th:nth-child(n+3){width:16.66%}
+#advisorDesign #wfKeywordTable [data-keyword-kind="2"] th:first-child{width:30%}
+#advisorDesign #wfKeywordTable [data-keyword-kind="2"] th:nth-child(n+2){width:14%}
+#advisorDesign .wf-keyword-tabs{margin:8px 0 6px}
+#advisorDesign .wf-keyword-tabs button{padding:7px 4px}
+#advisorDesign #wfKeywordTable>.wf-market-note{margin:5px 0 8px;font-size:11px}
+/* 缩小步骤导航占用，为当前页完整的买家搜索记录留出空间。 */
+#advisorDesign .av-split-workbench [data-wf-page="foundation"] .wf-flow{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:8px}
+#advisorDesign [data-wf-page="foundation"] .wf-flow button{gap:6px;padding:8px 4px;min-width:0}
+#advisorDesign [data-wf-page="foundation"] .wf-flow b{width:26px;height:26px;font-size:14px}
+#advisorDesign [data-wf-page="foundation"] .wf-flow strong{font-size:12px;margin-bottom:3px;white-space:nowrap}
+#advisorDesign [data-wf-page="foundation"] .wf-flow small{font-size:10px}
+
+/* 词本身即复制入口，保持原表格行高与省略布局。 */
+#advisorDesign #wfKeywordTable .wf-keyword-copy{width:100%;min-width:0;border:0;background:transparent;padding:0;text-align:left;font:inherit;color:inherit;cursor:copy}
+#advisorDesign #wfKeywordTable .wf-keyword-copy:hover{color:#e9691d}
+#advisorDesign #wfKeywordTable .wf-keyword-copy:focus-visible{outline:2px solid #ffb285;outline-offset:2px;border-radius:2px}
+#wfKeywordCopyStatus{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:10000;padding:10px 18px;border:1px solid #f1d5c0;border-radius:8px;background:#fffaf6;color:#65432e;box-shadow:0 4px 20px #51351b18;font-size:13px}
+
+/* 投放计划恢复舒展行距，内容在卡片内纵向浏览。 */
+#advisorDesign .aa-analytics[data-analytics=ads] [data-ad-plans] .av-table td{padding:12px 10px;line-height:1.65;font-size:12px}
+#advisorDesign [data-ad-plans] .aa-table-wrap{max-height:480px;overflow-y:auto}
+#avMast .av-credit-balance{border-left:1px solid #eee2d9;padding-left:16px;margin-left:4px;display:flex;flex-direction:column;gap:3px;white-space:nowrap}
+#avMast .av-credit-balance span{font-size:11px;color:#917c6c}
+#avMast .av-credit-balance strong{font-size:14px;color:#9b7253}
+#advisorDesign .wf-keyword-pager{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;font-size:12px;color:#8a7666}
+#advisorDesign .wf-keyword-pager .av-btn{padding:7px 12px}
+#advisorDesign #wfKeywordTable [data-keyword-kind="1"] th:nth-child(1){width:13%}
+#advisorDesign #wfKeywordTable [data-keyword-kind="1"] th:nth-child(2){width:19%}
+#advisorDesign #wfKeywordTable [data-keyword-kind="1"] th:nth-child(3){width:25%}
+#advisorDesign #wfKeywordTable [data-keyword-kind="1"] th:nth-child(4),#advisorDesign #wfKeywordTable [data-keyword-kind="1"] th:nth-child(5){width:13%}
+#advisorDesign #wfKeywordTable [data-keyword-kind="1"] th:nth-child(6){width:17%}
+
+/* 规划先展示浅层对标方向；不以红色告警暗示已定位业务原因。 */
+#advisorDesign .wf-plan-directions{margin-bottom:14px}
+#advisorDesign .wf-direction-list{display:grid;gap:10px;margin-top:12px}
+#advisorDesign .wf-direction-list article{border:1px solid #efe4da;border-radius:9px;padding:14px;background:#fffdfa}
+#advisorDesign .wf-direction-list h4{margin:0;font-size:15px;color:#554638}
+#advisorDesign .wf-direction-list p{font-size:12px;line-height:1.7;color:#827263;margin:8px 0 12px}
+#advisorDesign .wf-direction-list small{font-size:11px;color:#958574}
+#advisorDesign .wf-rule-status{font-size:10px;white-space:nowrap;color:#827263;background:#f7f3ee;padding:4px 7px;border-radius:4px}
+#advisorDesign .wf-rule-status.below{background:#fff0e3;color:#be6a30}
+#advisorDesign .wf-rule-status.strong{background:#edf7f1;color:#447d5b}
+#advisorDesign .wf-rule-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:10px}
+#advisorDesign .wf-rule-values strong{display:block;font-size:19px;margin-top:4px;color:#554638}
+#advisorDesign .wf-plan-directions details{font-size:12px;margin-top:12px;color:#958574}
+
+/* 关注点收为三行摘要；具体排查建议按需展开，卡片内部滚动。 */
+#advisorDesign .wf-plan-directions{max-height:390px;overflow-y:auto}
+#advisorDesign .wf-direction-list{gap:6px;margin-top:8px}
+#advisorDesign .wf-direction-list .wf-direction-item{margin:0;border:1px solid #efe4da;border-radius:7px;background:#fffdfa;color:#827263}
+#advisorDesign .wf-direction-item summary{padding:10px 12px;cursor:pointer;list-style:none}
+#advisorDesign .wf-direction-item summary::-webkit-details-marker{display:none}
+#advisorDesign .wf-direction-list h4{font-size:13px}
+#advisorDesign .wf-direction-list p{margin:5px 0 0;font-size:11px;line-height:1.55}
+#advisorDesign .wf-rule-inline{display:flex;flex-wrap:wrap;align-items:center;gap:5px 12px;margin-top:7px;font-size:11px}
+#advisorDesign .wf-rule-inline>b{font-weight:400;color:#917b67}
+#advisorDesign .wf-rule-inline strong{font-size:12px;color:#554638}
+#advisorDesign .wf-rule-inline i{margin-left:auto}
+#advisorDesign .wf-direction-item[open] .wf-rule-inline i{transform:rotate(180deg)}
+#advisorDesign .wf-rule-detail{padding:0 12px 10px;border-top:1px solid #f3ece6}
+#advisorDesign .wf-rule-detail ol{margin:8px 0;padding-left:18px;line-height:1.7;font-size:12px}
+#advisorDesign .wf-rule-detail .wf-rule-signal{background:#fff4ea;padding:7px 9px;border-radius:4px;margin-top:8px}
+
+/* 经营关注点：图标与正文分栏，本店数值优先，轻边界保持低视觉负担。 */
+#advisorDesign .wf-plan-directions{background:#fff;max-height:390px;border-color:#eee5dd}
+#advisorDesign .wf-plan-directions>.av-title{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+#advisorDesign .wf-plan-directions>.av-title small{margin-left:auto;background:#fff5ed;border-radius:20px;padding:3px 9px;color:#a57550;font-size:10px}
+#advisorDesign .wf-plan-directions>.wf-market-note{font-size:10px;margin:0 0 12px;color:#a1968c}
+#advisorDesign .wf-direction-list{gap:0;margin:0}
+#advisorDesign .wf-direction-list .wf-direction-item{background:#fff;border:0;border-bottom:1px solid #f1ece7;border-radius:0}
+#advisorDesign .wf-direction-list .wf-direction-item:last-child{border-bottom:0}
+#advisorDesign .wf-direction-item summary{display:flex;align-items:flex-start;gap:12px;padding:13px 0}
+#advisorDesign .wf-direction-item summary:hover{background:#fffcf9}
+#advisorDesign .wf-direction-icon{display:grid;place-items:center;width:34px;height:34px;flex-shrink:0;border-radius:10px;background:#fff1e6;color:#ef7a35;font-size:19px;margin-top:1px}
+#advisorDesign .wf-direction-content{flex:1;min-width:0}
+#advisorDesign .wf-direction-content .wf-spread{gap:8px}
+#advisorDesign .wf-direction-list h4{font-size:13px;font-weight:600;color:#453b32}
+#advisorDesign .wf-rule-status.below{background:transparent;color:#bc824f;font-size:10px;padding:0}
+#advisorDesign .wf-rule-inline{gap:4px 14px;margin-top:8px;line-height:1.5;color:#a09387}
+#advisorDesign .wf-rule-inline>b{font-size:10px;color:#94867a}
+#advisorDesign .wf-rule-inline strong{font-size:12px;font-weight:500;color:#736559}
+#advisorDesign .wf-rule-inline .mine strong{font-size:16px;font-weight:650;color:#db712f}
+#advisorDesign .wf-direction-content p{font-size:11px;color:#9b8e81;margin-top:6px}
+#advisorDesign .wf-direction-expand{align-self:center;color:#b7aa9c;font-size:16px;transition:transform .15s}
+#advisorDesign .wf-direction-item[open] .wf-direction-expand{transform:rotate(180deg)}
+#advisorDesign .wf-rule-detail{margin:0 0 10px 46px;padding:9px 12px;background:#fdfaf7;border:0;border-radius:7px}
+#advisorDesign .wf-rule-detail .wf-rule-signal{background:transparent;padding:0;color:#956945}
+#advisorDesign .wf-direction-item summary:focus-visible{outline:2px solid #f1b187;outline-offset:2px;border-radius:6px}
+
+#advisorDesign .wf-plan-all{width:100%;margin-top:10px;padding:7px;font-size:12px}
+
+/* AW 接管分析后撤下空结果栏，保留固定工作区和数据内部滚动。 */
+#advisorDesign:has(.av-data-workbench){height:calc(100dvh - 106px);min-height:480px;display:flex;flex-direction:column;overflow:hidden}
+#advisorDesign:has(.av-data-workbench)>.av-page-heading{flex-shrink:0}
+#advisorDesign .av-data-workbench{flex:1;min-height:0;overflow:hidden}
+#advisorDesign .av-data-workbench>.av-content{height:100%;min-width:0;overflow:auto;overscroll-behavior:contain}
+#advisorDesign .av-position-workbench .wf-position{grid-template-columns:minmax(0,1fr)}
+#advisorDesign .wf-aw-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-shrink:0}
+#advisorDesign .wf-aw-toolbar [data-aw-status]{font-size:12px;color:#887c72;line-height:1.6}
+#advisorDesign .wf-aw-toolbar .av-btn{flex-shrink:0}
+@media(max-width:650px){#advisorDesign .wf-aw-toolbar{align-items:flex-start;flex-direction:column;gap:8px}}
+
+/* 三个词表共享固定卡片高度：表格单独滚动，页码始终留在卡片底部。 */
+#advisorDesign .wf-foundation{--keyword-card-height:clamp(480px,calc(100dvh - 340px),600px);align-items:stretch}
+#advisorDesign .wf-foundation>section.av-card{height:var(--keyword-card-height);box-sizing:border-box;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+#advisorDesign .wf-foundation>section.av-card>.wf-spread{flex-shrink:0}
+#advisorDesign #wfKeywordTable{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+#advisorDesign #wfKeywordTable>.wf-keyword-tabs,#advisorDesign #wfKeywordTable>.wf-market-note,#advisorDesign #wfKeywordTable>.wf-keyword-pager{flex-shrink:0}
+#advisorDesign #wfKeywordTable>.wf-keyword-data{flex:1;min-height:0;overflow:hidden}
+#advisorDesign #wfKeywordTable .wf-keyword-data>.wf-table-scroll{height:100%;max-height:none;overflow-y:auto;overflow-x:hidden}
+#advisorDesign #wfKeywordTable>.wf-keyword-pager{margin-top:auto;padding-top:12px}
+#advisorDesign #wfKeywordTable>.wf-chart-empty{flex:1;min-height:0;overflow:auto}
+#advisorDesign .wf-foundation>aside{height:var(--keyword-card-height);min-height:0;display:grid;grid-template-columns:1fr;grid-template-rows:1fr 1fr;gap:12px}
+#advisorDesign .wf-foundation>aside>.av-card{min-height:0;overflow-y:auto;margin:0;box-sizing:border-box}
+@media(min-width:801px){#advisorDesign .wf-foundation{grid-template-columns:minmax(0,2.8fr) minmax(235px,1fr)}}
+@media(max-width:800px){#advisorDesign .wf-foundation{grid-template-columns:1fr}}
+
+/* 经营关注点按三列并排；展开内容留在各自卡片内，不改变其他卡片状态。 */
+#advisorDesign .wf-direction-list{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:stretch}
+#advisorDesign .wf-direction-list .wf-direction-item,#advisorDesign .wf-direction-list .wf-direction-item:last-child{border:1px solid #f0e6dd;border-radius:9px;background:#fffdfa}
+#advisorDesign .wf-direction-item summary{padding:14px 12px;gap:9px}
+#advisorDesign .wf-direction-content .wf-spread{flex-wrap:wrap;gap:6px}
+#advisorDesign .wf-rule-inline{gap:5px 10px}
+#advisorDesign .wf-rule-inline>b{flex-basis:100%}
+#advisorDesign .wf-rule-detail{margin:0 10px 10px;padding:10px}
+@media(max-width:700px){#advisorDesign .wf-direction-list{grid-template-columns:1fr}}
+
+/* 全局reset清除了原生dialog的auto margin，统一恢复所有模态窗口居中。 */
+html body dialog:modal{position:fixed;inset:0;margin:auto;max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px);overflow:auto}
+html body .av-date-popover{position:fixed;inset:auto;margin:0;width:340px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);overflow:auto;box-sizing:border-box;padding:18px;background:#fff;border:1px solid #eddfd4;border-radius:10px;box-shadow:0 12px 32px #49332320;color:#554638;font-size:13px}
+.av-date-popover::backdrop{background:transparent}
+.av-date-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.av-date-fields label{display:grid;gap:8px;font-size:12px}
+.av-date-fields input{width:100%;min-width:0;box-sizing:border-box;padding:8px;border:1px solid #e7ded7;border-radius:6px;background:#fff;color:#453b32;font:inherit}
+.av-date-popover p{font-size:11px;color:#918478;margin:10px 0}
+.av-date-popover #avDateError{color:#bd552e}
+.av-date-popover #avDateError:empty{display:none}
+.av-date-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+/* 广告只读工作区：卡片内滚动、正常行距；详情内容不撑破主页面。 */
+.aa-ad-scroll{max-height:420px;overflow-y:auto;overflow-x:hidden;margin-top:12px}
+.aa-ad-scroll table{table-layout:fixed;width:100%}.aa-ad-scroll td,.aa-ad-scroll th{overflow-wrap:anywhere;white-space:normal!important;padding:12px 9px!important}
+.aa-ad-pages,.aa-ad-detail-tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0}
+.aa-ad-pages{justify-content:space-between}.aa-ad-detail-tabs .active{background:#fff0e4;color:#f60;border-color:#f60}
+.aa-ad-detail-tabs input{flex:1;min-width:160px}.aa-ad-detail-tabs input,.aa-ad-detail-tabs select,.aa-ad-dialog input{border:1px solid #eaded4;padding:9px;border-radius:6px;color:#554638}
+.aa-ad-finance{display:grid;grid-template-columns:1fr auto;gap:8px;padding:12px 0;border-bottom:1px solid #f0e8e0}.aa-ad-finance b{color:#f60;font-size:21px}.aa-ad-finance small{grid-column:1/-1;color:#988575}
+.aa-ad-bar{display:grid;grid-template-columns:85px 1fr 60px;gap:12px;align-items:center;margin:14px 0;font-size:12px}.aa-ad-bar meter{width:100%;height:12px}.aa-ad-bar meter::-webkit-meter-optimum-value{background:#ff853e}
+.aa-ad-dialog{width:800px;border:1px solid #eaded4;border-radius:12px;padding:22px;color:#554638}.aa-ad-dialog::backdrop{background:#17213455}.aa-ad-dialog>header{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:16px}.aa-ad-dialog h3{margin:0}
+.aa-ad-detail-data{max-height:400px;overflow-y:auto;overflow-x:hidden;margin:10px 0}.aa-ad-facts{margin:0}.aa-ad-facts>div{display:grid;grid-template-columns:minmax(90px,1fr) minmax(0,3fr);gap:12px;padding:10px;border-bottom:1px solid #f1e8e0;font-size:12px}.aa-ad-facts dt{color:#94806f;overflow-wrap:anywhere}.aa-ad-facts dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}.aa-ad-record{padding:8px 0;border-bottom:1px solid #eaded4}.aa-ad-dialog summary{cursor:pointer}.aa-ad-dialog button:disabled{opacity:.45;cursor:not-allowed}
+.aa-ad-detail-data table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px}.aa-ad-detail-data th,.aa-ad-detail-data td{padding:12px 8px;text-align:left;border-bottom:1px solid #eee6df;overflow-wrap:anywhere}.aa-ad-detail-data th{background:#fcf7f2}.aa-ad-product{display:flex;gap:10px;align-items:center}.aa-ad-product img{width:42px;height:42px;object-fit:contain;flex:none}.aa-ad-detail-data th:first-child{width:40%}
+/* 当前账号公司身份只在全局顶栏展示，长公司名省略并保留完整悬停提示。 */
+.av-company-identity{display:flex;align-items:center;gap:10px;min-width:0}.av-company-identity>b{display:block;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.av-company-identity .av-avatar{flex:none;overflow:hidden;background:#fff2e8;color:#f60}.av-company-identity img{width:100%;height:100%;object-fit:contain;background:white}@media(max-width:1100px){.av-company-identity>b{max-width:160px}}@media(max-width:700px){.av-company-identity>b{max-width:100px}}
+/* 公司身份位于品牌右侧，日期与刷新靠右；标题区仅保留紧凑页面说明。 */
+#avMast .av-brand{flex:none;width:165px;gap:14px}#avMast .av-mast-period{display:flex;align-items:center;gap:9px;margin:0;font-size:12px;flex:none}#avMast .av-mast-period:empty{display:none}#avMast .av-mast-period .av-select{padding:8px 10px;gap:7px;white-space:nowrap;font-size:12px}#avMast .av-period button{padding:6px 11px;cursor:pointer}#avMast .av-account{gap:14px;margin-left:18px}#avMast .av-account>.av-refresh{margin-left:3px}#avMast .av-company-identity>b{max-width:220px}
+#advisorDesign>.av-page-heading{min-height:32px;align-items:center;margin-bottom:10px;gap:12px}#advisorDesign>.av-page-heading .av-breadcrumb{display:none}#advisorDesign>.av-page-heading h1{font-size:24px;line-height:1.3}#advisorDesign>.av-page-heading .av-heading-line{display:flex;align-items:center;gap:16px}#advisorDesign>.av-page-heading p{font-size:12px;margin:0}#advisorDesign>.av-page-heading .av-page-controls:empty{display:none}.av-mode main{padding-top:10px!important}#advisorDesign>.av-page-heading .av-select,#advisorDesign>.av-page-heading .av-btn{padding:6px 10px}
+@media(max-width:1150px){#avMast .av-account{gap:9px;margin-left:10px}#avMast .av-company-identity>b{max-width:140px}#avMast .av-account>[data-av-action="help"],#avMast .av-account>[data-av-action="notifications"]{display:none}}
+@media(max-width:850px){#avMast .av-company-identity>b{display:none}#avMast .av-brand{width:auto}#avMast .av-brand b{display:none}#avMast .av-mast-period{margin-left:12px}#advisorDesign>.av-page-heading p{display:none}}
+@media(max-width:550px){.av-mode #avMast{padding:0 10px}#avMast .av-mast-period{gap:4px}#avMast .av-period button{padding:6px}#avMast .av-company-identity{display:none}#avMast .av-mast-period .av-select{font-size:10px;padding:8px 5px}}
+
+#avMast>.av-company-identity{margin-left:14px;margin-right:auto}#avMast .av-account .av-mast-period{margin:0}
+/* 公司全名直接展示；可用空间不足时换行，不以省略号截断。 */
+#avMast>.av-company-identity{flex:1;min-width:0;display:flex}#avMast .av-company-identity>b{display:block;max-width:none;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.35}#avMast .av-account{flex-shrink:0}
+/* 顶部重复页名已移除；历史规划并入内容卡片，不再占独立标题行。 */
+#advisorDesign .wf-plan-heading-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}#advisorDesign .wf-plan-heading-actions .av-title{margin:0}#advisorDesign .wf-plan-heading-actions .av-btn{padding:5px 10px;font-size:12px}
+
+/* 商机首屏先展示画像与采购需求；明细保留在下方，卡内滚动避免撑长概况。 */
+#advisorDesign .av-visitor-bottom{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.45fr);margin:0 0 14px;align-items:stretch}
+#advisorDesign .av-visitor-bottom>.av-card{height:360px;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+#advisorDesign .av-visitor-bottom .av-dash-heading{flex-shrink:0;flex-wrap:wrap}
+#advisorDesign :is(#av-vis-country,#av-vis-level,#av-rfq-results){min-height:0;overflow:auto;flex:1}
+#advisorDesign .av-visitor-bottom .av-table{min-width:0}
+#advisorDesign .av-rfq-list{max-height:none;overflow:visible}
+#advisorDesign .av-rfq-card>.av-dash-link{flex-shrink:0;margin-top:10px;text-align:left}
+@media(max-width:760px){#advisorDesign .av-visitor-bottom{grid-template-columns:minmax(0,1fr)}#advisorDesign .av-visitor-bottom>.av-card{height:320px}}
+/* 将原RFQ能力嵌入商机页，限定样式范围，保留唯一控件和查询事件。 */
+#advisorDesign .av-rfq-workspace{margin-top:16px;scroll-margin-top:12px}
+#advisorDesign #av-rfq-dock>#tab-rfq{display:block}
+#advisorDesign #av-rfq-dock{--tx:#49382c;--tx2:#6b5a4e;--tx3:#968477;--line:#efe3d9;--acc:#ff6509;color:#49382c}
+#advisorDesign #av-rfq-dock .card,#advisorDesign #av-rfq-dock .analysis-kpi{background:#fff;border:1px solid #efe3d9;border-radius:10px;box-shadow:none}
+#advisorDesign #av-rfq-dock .card-hd{padding:16px;border-bottom:1px solid #efe3d9}
+#advisorDesign #av-rfq-dock h2{font-size:16px;color:#101b3c}
+#advisorDesign #av-rfq-dock :is(.hint,.data-state,.rfq-search-copy span,.rfq-batch-toolbar,.rfq-card-copy>small,.rfq-card-bottom,.rfq-detail-heading p,.rfq-detail-subhead span,.rfq-rights-note){font-size:12px;line-height:1.65}
+#advisorDesign #av-rfq-dock :is(.rfq-card-copy>strong,.rfq-search-copy b,.rfq-detail-subhead b){font-size:14px}
+#advisorDesign #av-rfq-dock :is(.rfq-card-top em,.rfq-card-top b,.rfq-purchase-grid span,.rfq-purchase-grid strong,.rfq-signal-grid span,.rfq-signal-grid strong,.rfq-rights-summary span,.rfq-equity-list span){font-size:12px}
+#advisorDesign #av-rfq-dock :is(button,input,select){font:inherit}
+#advisorDesign #av-rfq-dock .rfq-filter-card{flex-wrap:wrap;padding:16px}
+#advisorDesign #av-rfq-dock .rfq-filters{flex-wrap:wrap;gap:8px}
+#advisorDesign #av-rfq-dock .rfq-workspace{grid-template-columns:minmax(0,1fr) minmax(0,1fr);height:560px;align-items:stretch}
+#advisorDesign #av-rfq-dock .rfq-workspace>.card{height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden;margin:0}
+#advisorDesign #av-rfq-dock .rfq-detail-panel{position:static}
+#advisorDesign #av-rfq-dock :is(.rfq-opportunity-list,.rfq-detail-content,.rfq-detail-empty){flex:1;min-height:0;overflow:auto;max-height:none}
+#advisorDesign #av-rfq-dock .rfq-bottom-grid{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}
+#advisorDesign #av-rfq-dock table{width:100%;table-layout:fixed}
+#advisorDesign #av-rfq-dock :is(th,td){padding:12px 8px;font-size:12px;overflow-wrap:anywhere;white-space:normal}
+#advisorDesign #av-rfq-dock .rfq-history-panel td b{white-space:normal}
+#advisorDesign #av-rfq-dock .rfq-source-strip button.on{background:#fff0e7;color:#e56616}
+@media(max-width:760px){#advisorDesign #av-rfq-dock :is(.rfq-workspace,.rfq-bottom-grid){grid-template-columns:1fr;height:auto}#advisorDesign #av-rfq-dock .rfq-workspace>.card{height:460px}}
+
+/* 商品详情在右侧以双列指标展示，避免七列表格产生横向滚动。 */
+#advisorDesign .aa-product-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}
+#advisorDesign .aa-product-metrics>div{padding:12px;background:#fdf8f3;border:1px solid #f0e5dc;border-radius:8px}
+#advisorDesign .aa-product-metrics span{display:block;font-size:12px;color:#968477}
+#advisorDesign .aa-product-metrics strong{display:block;font-size:20px;color:#17213f;margin-top:5px}
+#advisorDesign .aa-product-detail .aa-muted{line-height:1.8;overflow-wrap:anywhere}
+
+/* 标题、象限筛选、导出共用一行；小屏可换行但不产生横向滚动。 */
+#advisorDesign .aa-product-toolbar{gap:10px;flex-wrap:wrap;margin-bottom:12px}
+#advisorDesign .aa-product-toolbar>.av-title{margin:0;white-space:nowrap}
+#advisorDesign .aa-product-toolbar .aa-filters{margin:0;flex:1;gap:5px;flex-wrap:wrap}
+#advisorDesign .aa-product-toolbar .aa-filters button{padding:5px 9px;white-space:nowrap}
+#advisorDesign .aa-product-toolbar .aa-actions{margin-left:auto}
+
+/* 优爆品详情作为商品相邻行展开，内容允许换行，不挤压列表列宽。 */
+#advisorDesign .aa-expanded-product>td{background:#fff9f3;padding:16px;white-space:normal}
+#advisorDesign .aa-expanded-product [data-detail]{min-width:0}
+#advisorDesign .aa-expanded-product .aa-muted{white-space:normal;line-height:1.7}
+/* 业务员与国家榜同排等高；长业务员名单在卡片内部滚动。 */
+#advisorDesign .av-dash-two:has(#av-live-staff)>.av-card{height:340px;display:flex;flex-direction:column;overflow:hidden;margin-bottom:0}
+#advisorDesign .av-dash-two:has(#av-live-staff) .av-dash-heading{flex-shrink:0}
+#advisorDesign :is(#av-live-staff,#av-live-countries){flex:1;min-height:0;overflow:auto}
+
+/* RFQ指标独立等高卡片，清晰区分名称、数值与数据说明。 */
+#advisorDesign #av-rfq-dock #rfqKpis{gap:12px;border:0;border-radius:0;background:transparent;box-shadow:none;overflow:visible}
+#advisorDesign #av-rfq-dock #rfqKpis .analysis-kpi{min-height:120px;padding:18px 20px;display:flex;flex-direction:column;justify-content:center;gap:10px}
+#advisorDesign #av-rfq-dock #rfqKpis .analysis-kpi>span{font-size:13px;color:#6b5a4e;line-height:1.4}
+#advisorDesign #av-rfq-dock #rfqKpis .analysis-kpi>strong{font-size:28px;color:#15203d;line-height:1.1;margin:0;font-weight:650}
+#advisorDesign #av-rfq-dock #rfqKpis .analysis-kpi>strong.rfq-kpi-status{font-size:20px;color:#968477;font-weight:500}
+#advisorDesign #av-rfq-dock #rfqKpis .analysis-kpi>small{font-size:11px;line-height:1.5;white-space:normal;overflow-wrap:anywhere;color:#968477}
+
+/* 两项买家画像合并成卡片，饼图与图例并列分栏。 */
+#advisorDesign .av-visitor-bottom{grid-template-columns:minmax(0,2fr) minmax(0,1.45fr)}
+#advisorDesign .av-portrait-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;min-height:0;overflow:auto}
+#advisorDesign .av-portrait-pair>section{min-width:0}
+#advisorDesign .av-portrait-pair h4{margin:0 0 12px;font-size:13px;color:#17213f}
+#advisorDesign .av-portrait-pair h4 small{font-size:11px;font-weight:400;color:#968477;margin-left:8px}
+#advisorDesign .av-portrait-pie{width:136px;height:136px;border-radius:50%;margin:0 auto 14px}
+#advisorDesign .av-portrait-legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 12px}
+#advisorDesign .av-portrait-legend>div{display:flex;align-items:center;gap:5px;font-size:11px;min-width:0}
+#advisorDesign .av-portrait-legend i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+#advisorDesign .av-portrait-legend span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#advisorDesign .av-portrait-legend b{margin-left:auto;font-weight:500;white-space:nowrap}
+@media(max-width:760px){#advisorDesign .av-visitor-bottom{grid-template-columns:1fr}#advisorDesign .av-portrait-pair{gap:12px}#advisorDesign .av-portrait-legend{grid-template-columns:1fr}}
+
+/* 翻页期间旧列表原位保留；加载标记不参与布局，不能把表格压成空态高度。 */
+#advisorDesign #av-vis-table{position:relative;min-height:480px}
+#advisorDesign #av-vis-table[aria-busy="true"]{pointer-events:none}
+#advisorDesign #av-vis-table[aria-busy="true"]::after{content:"正在读取…";position:absolute;inset:0;display:grid;place-items:center;background:#ffffffb3;color:#9a775b;font-size:13px;z-index:2}
+
+/* 看板同排卡片齐平，超出内容在卡内滚动。 */
+#advisorDesign .av-dash-two:has(#av-live-channels)>.av-card{height:260px;margin-bottom:0;display:flex;flex-direction:column;overflow:hidden}
+#advisorDesign #av-live-channels{display:flex;align-items:center;gap:24px;flex:1;min-height:0;overflow:auto}
+#advisorDesign #av-live-channels .av-portrait-pie{width:148px;height:148px;flex-shrink:0;margin:0}
+#advisorDesign #av-live-channels .av-portrait-legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));flex:1;gap:12px 16px}
+#advisorDesign #av-live-channels .av-portrait-legend>div{font-size:12px}
+#advisorDesign .av-dash-two:has(#av-live-products)>.av-card{height:340px;display:flex;flex-direction:column;overflow:hidden;margin-bottom:0}
+#advisorDesign .av-dash-two:has(#av-live-products) .av-dash-heading{flex-shrink:0}
+#advisorDesign :is(#av-live-products,#av-live-health){flex:1;min-height:0;overflow:auto}
+/* 唯一滚动容器为业务员卡片内容，避免内层overflow截断sticky表头。 */
+#advisorDesign #av-live-staff .av-dash-tablewrap{overflow:visible}
+#advisorDesign #av-live-staff .av-table{border-collapse:separate;border-spacing:0}
+#advisorDesign #av-live-staff .av-table th{position:sticky;top:0;z-index:2;background:#fcf8f4}
+
+/* 执行任务直接展示事项与原因，不以折叠详情增加阅读步骤。 */
+#advisorDesign .pt-tabs{display:flex;gap:24px;border-bottom:1px solid #eee5de;margin-top:12px}
+#advisorDesign .pt-tabs button{border:0;background:none;padding:12px 0;color:#8b7b70;font:inherit;cursor:pointer}
+#advisorDesign .pt-tabs button.active{color:#ff6509;border-bottom:2px solid #ff6509}
+#advisorDesign .pt-row{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) 90px;gap:28px;padding:20px 12px;border-bottom:1px solid #f0e9e3;align-items:start;font-size:13px;line-height:1.8}
+#advisorDesign .pt-head{padding:10px 12px;background:#fff;color:#9a918a;font-size:12px}
+#advisorDesign .pt-work,#advisorDesign .pt-reason{white-space:pre-line;overflow-wrap:anywhere}
+#advisorDesign .pt-work{color:#182443;font-weight:500}
+#advisorDesign .pt-reason{color:#7c7067}
+#advisorDesign .pt-actions{display:flex;gap:14px;white-space:nowrap}
+#advisorDesign .pt-actions button,#advisorDesign .pt-notice button{border:0;background:none;padding:0;color:#ff6509;cursor:pointer;font:inherit}
+#advisorDesign .pt-done .pt-work{color:#96918b;text-decoration:line-through}
+#advisorDesign .pt-empty{padding:24px;color:#958a81}
+#advisorDesign .pt-field{display:block;margin:12px 0;color:#65584e}
+#advisorDesign .pt-field textarea{display:block;width:100%;box-sizing:border-box;border:1px solid #e8ded5;border-radius:6px;padding:10px;font:inherit;line-height:1.7;margin-top:6px;resize:vertical}
+#advisorDesign .pt-edit-actions{display:flex;justify-content:flex-end;gap:8px}
+@media(max-width:760px){#advisorDesign .pt-row{grid-template-columns:1fr;gap:10px}#advisorDesign .pt-head{display:none}}
+
+/* 任务区所有交互共享固定外框，只允许正文内部滚动，避免空列表/编辑状态改变页面高度。 */
+#advisorDesign [data-planning-tasks]{height:390px;min-height:390px;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden;overflow-anchor:none}
+#advisorDesign [data-planning-tasks]>.wf-spread,#advisorDesign [data-planning-tasks]>.pt-tabs{flex-shrink:0}
+#advisorDesign .pt-tabs button{border-bottom:2px solid transparent}
+#advisorDesign .pt-body{flex:1;min-height:0;overflow:auto;scrollbar-gutter:stable;overflow-anchor:none}
+#advisorDesign .pt-head{position:sticky;top:0;z-index:1}
+#advisorDesign .pt-body [data-pt-editor]{border:0;box-shadow:none;margin:0;padding:12px}
+#advisorDesign .pt-body [data-pt-editor] h3{margin:0 0 10px}
+#advisorDesign .pt-body .pt-field textarea{resize:none}
+#advisorDesign .pt-row{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) 110px}
+@media(max-width:760px){#advisorDesign .pt-row{grid-template-columns:1fr}}
+
+/* 空列表不保留表头，以低对比图形和一句说明呈现，外框高度沿用固定布局。 */
+#advisorDesign .pt-list-empty{height:100%;min-height:180px;display:grid;place-items:center}
+#advisorDesign .pt-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;margin:0;padding:24px;gap:10px}
+#advisorDesign .pt-empty svg{width:42px;height:42px;stroke:#d5c9be;stroke-width:1.5;margin-bottom:2px}
+#advisorDesign .pt-empty strong{color:#80756c;font-size:14px;font-weight:500}
+#advisorDesign .pt-empty p{margin:0;color:#aaa098;font-size:12px;line-height:1.6}
+
+/* 定位记录在原卡片编辑，固定外框避免切换编辑状态时页面跳动。 */
+#advisorDesign .wf-position-notes{height:286px;box-sizing:border-box;margin-top:18px;padding:20px;border:1px solid #eee5de;border-radius:8px;background:#fff;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+#advisorDesign .wf-notes-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#advisorDesign .wf-notes-heading h4{margin:0;font-size:14px;color:#182443}
+#advisorDesign .wf-notes-heading>span{font-size:12px;color:#a3978e}
+#advisorDesign .wf-notes-content{flex:1;min-height:0;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8;color:#65584e}
+#advisorDesign .wf-notes-content.is-empty{display:grid;place-items:center;color:#a3978e;font-size:13px}
+#advisorDesign .wf-notes-field{display:flex;flex:1;min-height:0;flex-direction:column;gap:8px;font-size:12px;color:#80756c}
+#advisorDesign .wf-notes-field textarea{width:100%;flex:1;min-height:0;box-sizing:border-box;resize:none;border:1px solid #e8ded5;border-radius:6px;padding:12px 14px;font:inherit;font-size:13px;line-height:1.8;color:#182443;background:#fffdfa;outline:none}
+#advisorDesign .wf-notes-field textarea:focus{border-color:#ff8b49;box-shadow:0 0 0 3px #fff1e7}
+#advisorDesign .wf-notes-field textarea::placeholder{color:#b1a69d}
+#advisorDesign .wf-notes-actions{display:flex;justify-content:flex-end;gap:8px;flex-shrink:0}
+
+/* 报告工具条保持紧凑；历史浮层和沙箱正文独立于业务卡固定高度。 */
+.av-design .ar-toolbar{flex:none;grid-column:1/-1;padding:8px 12px;background:#fff;border:1px solid #e9edf3;border-radius:7px;margin-bottom:10px;position:relative;z-index:4}
+.av-design .ar-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px}
+.av-design .ar-controls label{display:flex;align-items:center;gap:8px}.av-design .ar-controls select{max-width:230px;padding:6px;border:1px solid #dce3ee;border-radius:4px}
+.av-design .ar-controls input{flex:1;min-width:160px;padding:7px;border:1px solid #dce3ee;border-radius:4px;font:inherit}
+.av-design .ar-status{font-size:11px;color:#758299;margin:5px 0 0}.av-design .ar-history{margin-left:auto}.av-design .ar-history summary{cursor:pointer;color:#53617d}
+.av-design .ar-history>div{position:absolute;right:0;top:45px;width:min(600px,90vw);max-height:360px;overflow:auto;background:#fff;border:1px solid #dce3ee;box-shadow:0 8px 30px #17244320;padding:12px;border-radius:7px}
+.av-design .ar-history-row{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:8px 0;border-bottom:1px solid #edf0f5}.av-design .ar-history-row small{display:block;color:#8490a6;margin-top:3px}
+.ar-dialog{width:min(1200px,94vw);height:88vh;max-width:94vw;max-height:92vh;padding:0;border:1px solid #dce3ee;border-radius:10px;box-shadow:0 20px 90px #16243c38;overflow:hidden}.ar-dialog::backdrop{background:#18213666}.ar-dialog[open]{display:flex;flex-direction:column}.ar-dialog header{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid #e6ebf3;flex:none}.ar-dialog header>div{flex:1}.ar-dialog h3{margin:0 0 4px;font:600 16px system-ui}.ar-dialog small{color:#718099;font:12px system-ui}.ar-dialog iframe{border:0;width:100%;flex:1;min-height:0;background:white}.ar-dialog button{cursor:pointer;padding:7px 12px}

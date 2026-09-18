@@ -1,0 +1,373 @@
+/* 运营规划、营销定位、运营基建：只读 平台服务 数据与明确区分的本页规划草稿。 */
+(() => {
+  'use strict';
+  let service=0, version=0, decorationProduct=-1;
+  const live={products:[],total:null,words:[],countries:[],status:'正在读取店铺数据…',errors:[],at:'',wordReady:false,countryReady:false,productScope:''};
+  const market={identity:[],channels:[],countries:[],categories:[],scenes:[],category:'',pending:true,errors:{}};
+  const productPosition={data:null,pending:true,error:'',scope:''};
+  const company={profile:null,pending:true,error:''};
+  const keywordTools={tab:0,step:null,pending:true,ads:[],scenes:[],errors:{},category:'',cateId:null,pages:{ads:1,scenes:1},hasNext:{ads:true,scenes:true},loading:{ads:false,scenes:false}};
+  let planShowAll=false;
+  let planDiagnostic={pending:true,result:null,error:''};
+  const local={goals:'',notes:'',tasks:[]};
+  const notesEditor={open:false,draft:''};
+  const services=[['市场与客群定位','当前店铺买家国家分布','map-pin-line'],['公司定位','企业实力、认证与服务资料','file-text-line'],['产品定位','当前店铺商品和类目','clipboard-line'],['店铺装修文案','依据真实资料编写文案','store-line'],['详情页装修文案','进入原产品编辑工作区','file-list-line']];
+  /** 转义不可信平台文本。参数任意值，返回安全 HTML 文本，不抛错。 */
+  function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  /** 固定内部图标名转成图标 HTML，无异常。 */
+  function icon(name){return `<i class="ri-${name}" aria-hidden="true"></i>`;}
+  /** 标准标题；输入标题/补充纯文本，返回 HTML。 */
+  function title(text,sub=''){return `<h3 class="av-title">${esc(text)} <small>${esc(sub)}</small></h3>`;}
+  /** 内部表格模板，单元格须调用者转义，空数组显示真实空态。 */
+  function table(headers,rows,empty='暂无记录'){return `<div class="wf-table-scroll"><table class="av-table"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.length?rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${headers.length}" style="padding:28px;color:#7c87a3">${esc(empty)}</td></tr>`}</tbody></table></div>`;}
+  /** 页面按钮只触发本模块受控动作，返回 HTML。 */
+  function btn(label,action,secondary=false){return `<button class="av-btn ${secondary?'secondary':''}" data-wf-action="${action}">${esc(label)}</button>`;}
+  /** 原工作区导航，不执行平台写操作。 */
+  function route(label,tab){return `<button class="av-btn secondary" data-wf-real="${tab}">${esc(label)} →</button>`;}
+  /** 数值格式保留缺失和零的区别，返回字符串。 */
+  function val(v){return v==null||v===''?'—':Number.isFinite(Number(v))?Number(v).toLocaleString('zh-CN'):esc(v);}
+  /** 国家代码转换成本地名称，未知代码保留原值。 */
+  function country(code){try{return new Intl.DisplayNames(['zh-CN'],{type:'region'}).of(code==='UK'?'GB':code)||code;}catch{return code;}}
+  function styles(){return `<style>
+.av-design .wf-muted,.av-design .wf-next p,.av-design .wf-service small{color:#7c87a3;font-size:12px}.av-design .wf-row{display:flex;align-items:center;gap:12px}.av-design .wf-spread{display:flex;justify-content:space-between;align-items:center;gap:12px}.av-design .wf-round{width:48px;height:48px;border-radius:50%;background:#fff1e8;color:#ff640c;display:grid;place-items:center;font-size:25px;flex-shrink:0}.av-design .wf-table-scroll{overflow:auto}.av-design .av-title small{font-size:12px;color:#8992aa;font-weight:400}.av-design .wf-plan-goals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:center}.av-design .wf-plan-goals>div{border-right:1px solid #e4e9f1;min-width:0}.av-design .wf-plan-goals>div:last-child{border:0}.av-design .wf-plan-goals strong{display:block;font-size:24px;margin:4px 0}.av-design .wf-plan-goals h3{font-size:16px;margin:0 0 8px}.av-design select,.av-design input.wf-input{border:1px solid #dce3ee;border-radius:5px;padding:7px 9px;color:#263555;background:#fff;font:inherit;max-width:100%}.av-design .wf-sop{background:#fff6f1;border:6px solid #fff;padding:14px;border-radius:9px}.av-design .wf-sop .av-title{font-size:18px}.av-design .wf-sop p{font-size:12px;color:#8390a8;margin:5px 0}.av-design .wf-steps{display:flex;padding-top:19px;gap:9px}.av-design .wf-step{flex:1;position:relative;text-align:center;font-size:12px;min-width:0}.av-design .wf-step:before{content:'';height:1px;position:absolute;left:50%;right:-60%;top:13px;background:#ffb497}.av-design .wf-step:last-child:before{display:none}.av-design .wf-step b{position:relative;display:grid;place-items:center;border-radius:50%;width:26px;height:26px;color:#fff;background:#ff660d;margin:0 auto 12px;font-size:13px}.av-design .wf-step strong{display:block;min-height:32px}.av-design .wf-step small{color:#8c94aa;font-size:11px;display:block;line-height:1.65;margin-top:7px}.av-design .wf-campaign-head{display:flex;align-items:center;gap:13px;border-bottom:1px solid #edf0f5;padding-bottom:12px}.av-design .wf-campaign-head>i{font-size:29px;color:#ff6509}.av-design .wf-campaign-head strong{font-size:17px}.av-design .wf-campaign-head p{margin:5px 0 0;color:#8a93a9;font-size:12px}.av-design .wf-campaign-head>small{margin-left:auto;white-space:nowrap;color:#7d8aa1}.av-design .wf-campaign-items{display:grid;grid-template-columns:repeat(5,1fr);padding-top:15px}.av-design .wf-campaign-items>div{padding:0 10px;border-right:1px solid #e8edf4;font-size:11px}.av-design .wf-campaign-items>div:last-child{border:0}.av-design .wf-campaign-items i{font-size:22px;color:#ff6509;vertical-align:middle;margin-right:5px}.av-design .wf-campaign-items p{color:#7d89a1;line-height:1.8;margin:12px 0 0}.av-design .wf-next{display:flex;align-items:center;gap:15px;background:#fff6ef}.av-design .wf-next>.av-btn{margin-left:auto;flex-shrink:0}.av-design .wf-next p{margin:5px 0 0}.av-design .wf-position{display:grid;grid-template-columns:270px 1fr;gap:12px}.av-design .wf-service{border:0;border-bottom:1px solid #eaf0f5;width:100%;text-align:left;background:white;display:flex;gap:12px;align-items:center;padding:20px 11px;color:#172443}.av-design .wf-service.active{background:#fff0e7;color:#ff640c;border-radius:7px;border-color:transparent}.av-design .wf-service .wf-round{width:38px;height:38px;font-size:20px;background:#e8f3ff;color:#187afa}.av-design .wf-service.active .wf-round{background:#ffdfc5;color:#ff630b}.av-design .wf-service strong{display:block;font-size:14px;color:#172443;margin-bottom:5px}.av-design .wf-service small{font-size:11px}.av-design .wf-service-number{font-size:14px}.av-design .wf-market-table td{vertical-align:top;line-height:1.5}.av-design .wf-market-table th{font-size:14px}.av-design .wf-market-table td:first-child{width:112px;background:#f7f9fc;font-weight:600}.av-design .wf-market-table td{padding:8px 10px}.av-design .wf-market-table ul{padding-left:16px;margin:0}.av-design .wf-market-table tr:last-child td{background:#fff6ee}.av-design .wf-mini{border:1px solid #e9eef5;border-radius:7px;padding:7px}.av-design .wf-mini h4{font-size:13px;margin:0 0 7px;display:flex;gap:7px;align-items:center}.av-design .wf-mini .av-table td{font-size:11px;padding:5px}.av-design .wf-actions{display:flex;gap:8px;margin-top:10px}.av-design .wf-actions>*{flex:1}.av-design .wf-report-name{display:block;max-width:100%;white-space:normal;font-size:12px}.av-design .wf-text-action{background:none;border:0;padding:2px 4px;color:#1779fd;font:inherit;font-size:12px;cursor:pointer}.av-design .wf-flow{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}.av-design .wf-flow button{display:flex;align-items:center;gap:16px;border:1px solid transparent;background:#fff;color:#172443;text-align:left;padding:10px;border-radius:5px}.av-design .wf-flow button.active{border-color:#ffbd95;background:#fff5ed;color:#ff650b}.av-design .wf-flow b{width:50px;height:50px;display:grid;place-items:center;background:#e7eaf2;border-radius:50%;font-size:25px;flex-shrink:0}.av-design .wf-flow .active b{background:#ff650b;color:#fff}.av-design .wf-flow strong{display:block;font-size:14px;margin-bottom:6px}.av-design .wf-flow small{font-size:12px;color:#8992a8;line-height:1.5}.av-design .wf-foundation{display:grid;grid-template-columns:minmax(0,2.8fr) minmax(235px,1fr);gap:13px}.av-design .wf-foundation .av-table{font-size:11px;white-space:nowrap}.av-design .wf-foundation .av-table td,.av-design .wf-foundation .av-table th{padding:8px 9px}.av-design .wf-source{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:14px 0}.av-design .wf-source button{font-size:12px;padding:8px 12px}.av-design .wf-checks{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}.av-design .wf-check{background:#fff4ec;padding:13px;display:flex;align-items:flex-start;gap:10px;border-radius:6px}.av-design .wf-check>i{font-size:23px;color:#ff6609}.av-design .wf-check:first-child>i{color:#03b478}.av-design .wf-check strong{font-size:13px}.av-design .wf-check p{font-size:11px;color:#8090a6;margin:7px 0 0;line-height:1.6}.av-design .wf-deliver{display:flex;gap:14px;align-items:center;padding:13px 0;border-bottom:1px solid #eaf0f6}.av-design .wf-deliver:last-child{border:0}.av-design .wf-deliver strong{font-size:14px}.av-design .wf-deliver p{font-size:11px;color:#8590a9;margin:6px 0}.av-design .wf-deliver button{margin-left:auto;white-space:nowrap;color:#ff650a;font-size:11px}.av-design .wf-checklist{margin-top:12px;background:#fff7f2}.av-design .wf-check-item{display:flex;gap:10px;background:#fff;border-radius:4px;padding:11px;margin-top:9px}.av-design .wf-check-item b{background:#ff660d;border-radius:50%;width:23px;height:23px;color:#fff;display:grid;place-items:center;flex-shrink:0}.av-design .wf-check-item strong{font-size:12px}.av-design .wf-check-item p{font-size:11px;color:#8290a8;line-height:1.55;margin:3px 0}.av-design .wf-edit-input{width:145px;border:1px solid #ff9a51;padding:4px;color:#182845}.av-design .wf-content{display:grid;gap:12px}.av-design .wf-position .av-title{font-size:17px}.av-design .wf-position h3{margin-top:0}.av-design .wf-position p.wf-muted{line-height:1.7;margin:9px 0}.av-design .wf-brief{background:#f7faff;padding:14px;border-radius:7px;font-size:13px;line-height:1.7}.av-design .wf-brief h4{margin:0 0 8px}.av-design .wf-brief textarea{width:100%;box-sizing:border-box;min-height:120px;border:1px solid #e0e5ee;border-radius:5px;padding:12px;font:inherit;color:#263552}.av-design .wf-brief .av-table{margin-bottom:14px}@media(max-width:1100px){.av-design .wf-position{grid-template-columns:220px 1fr}.av-design .wf-plan-goals{gap:9px}.av-design .wf-plan-goals .wf-round{display:none}.av-design .wf-foundation{grid-template-columns:1fr}.av-design .wf-foundation>aside{display:grid;grid-template-columns:1fr 1fr;gap:12px}.av-design .wf-checklist{margin:0}}@media(max-width:760px){.av-design .wf-position{grid-template-columns:1fr}.av-design .wf-service{padding:11px}.av-design .wf-plan-goals{grid-template-columns:1fr 1fr}.av-design .wf-flow{grid-template-columns:1fr 1fr;gap:5px}.av-design .wf-steps{overflow:auto}.av-design .wf-step{min-width:60px}.av-design .wf-campaign-items{overflow:auto}.av-design .wf-campaign-items>div{min-width:75px}.av-design .wf-next{flex-wrap:wrap}.av-design .wf-checks{grid-template-columns:1fr}.av-design .wf-actions{flex-wrap:wrap}}
+</style>`;}
+
+  /** 仅在查询失败时提示，不展示成功读取和缓存来源说明。 */
+  function source(){return live.errors.length?`<p role="alert" class="wf-muted">${live.errors.map(esc).join('；')}</p>`:'';}
+  /** 保留已批准 SOP 结构，流程名仅表示通用步骤，不表示完成状态。 */
+  function sop(name,steps){return `<article class="wf-sop">${title(name,'流程参考 · 尚未确认执行计划')}<div class="wf-steps">${steps.map((x,i)=>`<div class="wf-step"><b>${i+1}</b><strong>${x}</strong><small>待制定</small></div>`).join('')}</div></article>`;}
+  /** 当前会话的用户自建任务，明确与平台来源分离。 */
+  function tasks(){return '<section class="av-card" data-planning-tasks>正在读取执行任务…</section>'; }
+  /** 从同批店铺日快照生成浅层关注点。rows为接口数组，range为所选日期；返回最多三个方向和缺项说明，无外部调用或异常。 */
+  function planRules(rows,range,extra={}){
+    const valid=rows.filter(r=>r.statDate>=range.startDate&&r.statDate<=range.endDate).sort((a,b)=>b.statDate.localeCompare(a.statDate));
+    const row=valid[0],result={ruleVersion:'3',date:row?.statDate||'',items:[],allItems:[],skipped:[],basis:'仅比较同一记录内的本店与同行字段；关注方向不是原因诊断'};
+    if(!row){result.skipped.push('经营对标：所选区间没有日记录');return result;}
+    const numeric=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))&&Number(v)>=0?Number(v):null;
+    const rules=[
+      {key:'totalImpsCnt',label:'曝光量',group:'traffic',title:'关注曝光获取',hint:'进一步查看商品覆盖与流量来源。',format:'number'},
+      {key:'uvCnt',label:'访客数',group:'traffic',title:'关注访客获取',hint:'结合曝光与点击表现，确定下一步查看方向。',format:'number'},
+      {key:'seCtr',label:'搜索点击率',group:'click',title:'关注点击吸引力',hint:'进一步查看主图、标题与搜索词匹配。',format:'percent',denominator:'seImpsCnt'},
+      {key:'uvAbRate',label:'商机转化率',group:'conversion',title:'关注商机转化',hint:'进一步查看商品详情、交易条件和接待表现。',format:'percent',denominator:'uvCnt'},
+      {key:'validProdCnt',label:'有效商品数',group:'supply',title:'关注商品覆盖',hint:'核对可售商品与核心类目覆盖，数量差距不等于必须增加商品。',format:'number'},
+      {key:'goodProdCnt',label:'优品数',group:'quality',title:'关注优品储备',hint:'先查看现有商品质量与平台分层，再选择候选商品优化。',format:'number'},
+      {key:'topProdCnt',label:'爆品数',group:'quality',title:'关注核心商品储备',hint:'结合优品与商机表现复查核心商品，不以数量差距承诺升品。',format:'number'},
+      {key:'seImpsCnt',label:'搜索曝光',group:'channel',title:'关注搜索渠道',hint:'查看搜索词覆盖与主推商品曝光分布，先确认差距来源。',format:'number'},
+      {key:'fstReplyRate30d',label:'首次回复率',group:'reply',title:'关注接待效率',hint:'进一步查看回复及时性与接待安排。',format:'percent',rolling:true},
+      {key:'fst5minReplyRate30d',label:'5分钟回复率',group:'reply',title:'关注快速响应',hint:'查看非工作时段、接待分工和首轮回复速度。',format:'percent',rolling:true},
+      {key:'avgReplyTime30d',label:'平均回复时长',group:'reply',title:'关注接待效率',hint:'进一步查看回复及时性与接待安排。',format:'hours',lower:true,rolling:true}
+    ];
+    const candidates=[];
+    for(const rule of rules){
+      const mine=numeric(row[rule.key]),average=numeric(row[rule.key+'RivalAvg']),excellent=numeric(row[rule.key+'RivalGood']);
+      if(mine===null||average===null||(rule.format==='percent'&&[mine,average,excellent].some(v=>v!==null&&v>1))||(rule.denominator&&!(numeric(row[rule.denominator])>0))){result.skipped.push(rule.label+'：缺少有效指标、对标或分母');continue;}
+      const below=rule.lower?mine>average:mine<average;
+      const good=excellent!==null&&(rule.lower?excellent<=average:excellent>=average)?excellent:null;
+      const strong=good!==null&&(rule.lower?mine<=good:mine>=good);
+      candidates.push({...rule,mine,average,excellent:good,status:below?'below':strong?'strong':'average',statusLabel:below?'低于行业均值':strong?'达到行业优秀':'达到行业均值',scope:rule.rolling?'截至 '+row.statDate+' 的近30天滚动值':row.statDate+' 单日',title:below?rule.title:strong?'保持当前优势':'后续提升空间',hint:below?rule.hint:strong?'保持观察，结合后续数据复查。':'已达到行业均值，可作为后续优化参考。'});
+    }
+    // 组合规则仅决定排查顺序，不将相关性解释成原因；只使用同日同类指标。
+    const byKey=Object.fromEntries(candidates.map(item=>[item.key,item]));
+    const checks={
+      totalImpsCnt:['按搜索、推荐、广告等来源查看曝光分布，先找差距集中的渠道。','核对在售商品覆盖与关键词相关性，再决定是否扩品或调整推广。'],
+      uvCnt:['对照曝光与点击表现，区分获客规模和点击吸引力两个方向。','查看主要国家与流量渠道，避免只凭访客总量调整全部商品。'],
+      seCtr:['先查看有搜索曝光的商品，比较主图辨识度、标题相关性与价格展示。','每次选少量商品测试一项改动，后续用同口径点击率复查。'],
+      uvAbRate:['检查主推商品的规格、MOQ、交期、定制和询价入口是否清楚。','再结合访客来源与实际商机内容核对匹配度，不能由转化率直接认定详情差。'],
+      fstReplyRate30d:['检查未回复会话与接待交接，先确认是否存在漏回。','区分工作时段与非工作时段安排，复查首次回复覆盖。'],
+      fst5minReplyRate30d:['查看消息高峰与在线接待安排，确认首轮响应是否及时。','检查常见问题回复准备情况，响应速度与答复质量分别复查。'],
+      avgReplyTime30d:['先查看等待较长的会话及跨时区接待安排。','结合回复覆盖率一起看，不仅追求速度，还要核对答复完整性。']
+    };
+    for(const item of candidates){
+      item.checks=item.status==='below'?(checks[item.key]||[item.hint,'结合商品明细与后续同口径数据复查，不仅凭总量作决定。']):['继续观察同口径数据，确认优势或达标表现能否保持。','需要进一步提升时，先选少量商品或会话复查，避免全店同时改动。'];
+      item.signal='';
+      if(item.denominator)item.checks=[...item.checks,'本日'+(item.denominator==='uvCnt'?'访客':'搜索曝光')+'为 '+row[item.denominator]+'；单日比率可能波动，应结合更多日期复查，不作为稳定转化能力结论。'];
+      if(item.key==='seCtr'&&item.status==='below'){
+        const exposure=numeric(row.seImpsCnt),peer=numeric(row.seImpsCntRivalAvg);
+        if(exposure!==null&&peer!==null)item.signal=exposure<peer?'搜索曝光与点击率均低于均值：同时关注搜索覆盖和点击吸引力，不只增加流量。':'搜索曝光已达均值，但点击率偏低：先核对有曝光商品的展示与搜索匹配。';
+      }
+      if(item.key==='uvAbRate'&&item.status==='below'&&byKey.uvCnt&&byKey.uvCnt.status!=='below')item.signal='访客量已达均值，但商机转化偏低：优先查看访客匹配与页面承接，不急于扩大流量。';
+      if(item.group==='reply'&&item.status==='below'&&byKey.fstReplyRate30d?.status!=='below'&&byKey.fstReplyRate30d)item.signal='首次回复覆盖已达均值，响应速度仍有差距：重点查看等待时长与接待时段。';
+      // 连续性仅作补充观察，必须为连续三个自然日且类目相同，不把缺日当持续异常。
+      if(!item.rolling&&item.status==='below'&&valid.length>=3){
+        const recent=valid.slice(0,3),continuous=recent.every((r,i)=>r.cateId===row.cateId&&Date.parse(row.statDate)-Date.parse(r.statDate)===i*86400000);
+        if(continuous&&recent.every(r=>{const a=numeric(r[item.key]),b=numeric(r[item.key+'RivalAvg']);return a!==null&&b!==null&&a<b&&(!item.denominator||numeric(r[item.denominator])>0);}))item.signal+=(item.signal?' ':'')+'最近连续3个经营日均低于均值，可优先复查；这不是原因结论。';
+      }
+    }
+    // 补充观察只陈述已知事实；不把未接通的数据或样本结果当成全店诊断。
+    const add=(key,label,mine,hint,scope,checks,comparison)=>candidates.push({key,label,mine,average:null,excellent:null,format:'number',group:key,status:'observe',statusLabel:'建议复查',title:label,hint,scope,checks,signal:'',comparison});
+    const expected=Math.round((Date.parse(range.endDate)-Date.parse(range.startDate))/86400000)+1;
+    const days=new Set(valid.map(r=>r.statDate)).size;
+    if(days<expected)add('coverage','经营数据未覆盖完整区间',days,'先补齐缺失日期，再比较周期变化。',range.startDate+' — '+range.endDate,['当前只对已返回记录作判断，不将缺日填为零。','复查日期范围和平台数据更新情况。'],[['已返回天数',days],['所选天数',expected]]);
+    // 用当前区间最后14个连续日划为两个7日窗口；不平均比率，不跨类目拼接。
+    const recent=valid.slice(0,14);
+    if(recent.length===14&&recent.every((r,i)=>r.cateId===row.cateId&&Date.parse(row.statDate)-Date.parse(r.statDate)===i*86400000)){
+      for(const [key,label] of [['totalImpsCnt','曝光'],['uvCnt','访客'],['abCnt','商机']]){
+        if(!recent.every(r=>numeric(r[key])!==null)){result.skipped.push(label+'趋势：存在缺项');continue;}
+        const now=recent.slice(0,7).reduce((s,r)=>s+Number(r[key]),0),before=recent.slice(7).reduce((s,r)=>s+Number(r[key]),0);
+        if(now<before)add('trend-'+key,'近7日'+label+'减少',now,'较前7日减少 '+((before-now)/before*100).toFixed(1)+'%；先核对渠道和商品变化。',recent[13].statDate+' — '+row.statDate,['这只是前后两段各7天的变化，不代表长期趋势或原因。','对照活动、商品上下架及流量来源，再确定是否需要调整。'],[['近7日',now],['前7日',before]]);
+      }
+    }else result.skipped.push('周期趋势：需所选区间内连续14日同类目完整记录');
+    const products=extra.products;
+    if(products){
+      const list=['highExposureHighCtr','highExposureLowCtr','lowExposureHighCtr','lowExposureLowCtr'].flatMap(k=>products.focusProducts?.[k]||[]);
+      const unique=[...new Map(list.map((r,i)=>[r.productRef||r.analysisRef||i,r])).values()];
+      const productScope=(extra.productScope||'商品独立周期')+' · 已返回样本 '+unique.length+' 件 / 平台总数 '+(products.recordCount??'未知');
+      for(const [key,label,filter,hint] of [
+        ['noClick','有曝光未获点击的商品',r=>numeric(r.exposure)>0&&numeric(r.clicks)===0,'查看主图、标题与曝光来源；少量曝光不代表商品无效。'],
+        ['noLead','有访客暂无商机行为的商品',r=>numeric(r.visitors)>0&&numeric(r.inquiries)===0&&numeric(r.tmInquiries)===0,'查看商品承接与访客匹配；零询盘和零TM不等于永久无需求。']
+      ]){const count=unique.filter(filter).length;if(count)add(key,label,count,hint,productScope,['只统计当前返回样本，不视作全店完整问题商品数。','逐个核对商品流量规模与明细，再选择少量商品复查。'],[['样本内商品数',count]]);}
+      result.skipped.push('长期无效果商品：当前样本没有跨期逐商品历史，暂不判定');
+    }else result.skipped.push('商品效率：商品样本未读取成功');
+    for(const scope of ['search','whole_site']){
+      const ad=extra.ads?.[scope],label=scope==='search'?'直通车':'全站推';
+      if(!ad?.rows?.length){result.skipped.push(label+'效果：当前区间没有有效报表');continue;}
+      const rows=ad.rows,keys=['spend','clicks','inquiries'];
+      if(!rows.every(r=>keys.every(k=>numeric(r[k])!==null))){result.skipped.push(label+'效果：花费/点击/询盘字段不完整');continue;}
+      const totals=Object.fromEntries(keys.map(k=>[k,rows.reduce((s,r)=>s+Number(r[k]),0)]));
+      if(totals.spend>0&&(totals.clicks===0||totals.inquiries===0))add('ads-'+scope,label+'花费与反馈复查',totals.spend,totals.clicks===0?'已返回记录有花费但未返回点击，先核对报表与投放明细。':'已返回记录有花费、暂无询盘；还需结合TM和订单，不判定投放无效。',range.startDate+' — '+range.endDate+' · 已返回广告记录',['先检查计划与商品明细，并核实点击、TM和订单反馈。','缺少成本基准与预算目标，不自动停投或断言成本过高。'],[['花费（元）',totals.spend],['点击',totals.clicks],['询盘',totals.inquiries]]);
+      result.skipped.push(label+'成本对标：缺少可比行业成本/业务目标，不判断高低');
+    }
+    result.skipped.push('推荐等其他渠道：当前未取得独立可比对标，不推断渠道异常');
+    // 低于均值优先，再按相对差距排序；这只是展示顺序，不是风险评分。
+    const order={below:0,observe:1,average:2,strong:3};
+    const gap=item=>item.average>0?Math.abs(item.mine-item.average)/item.average:0;
+    candidates.sort((a,b)=>order[a.status]-order[b.status]||gap(b)-gap(a));
+    result.allItems=candidates;
+    const groups=new Set();for(const item of candidates){if(groups.has(item.group))continue;groups.add(item.group);result.items.push(item);if(result.items.length===3)break;}
+    return result;
+  }
+  /** 渲染免费规则卡片；数值来自规则输出，长内容自然换行，不执行Workflow。 */
+  function planDirections(){
+    const r=planDiagnostic.result;
+    const value=(item,v)=>v===null?'—':item.format==='percent'?(v*100).toFixed(2)+'%':Number(v).toLocaleString('zh-CN',{maximumFractionDigits:2})+(item.format==='hours'?' 小时':'');
+    return `<section class="av-card wf-plan-directions"><div class="wf-plan-heading-actions">${title('经营关注点','免费速览')}<button class="av-btn secondary" data-av-action="history">历史规划</button></div>${planDiagnostic.pending?'<p>正在读取行业对标…</p>':planDiagnostic.error?`<p role="alert">${esc(planDiagnostic.error)}</p>`:!r?.items.length?'<p>当前缺少可比数据，暂不生成关注方向。</p>':`<p class="wf-market-note">${esc(r.date)} 最新经营日 · 各项周期见详情 · 点击展开建议</p><div class="wf-direction-list">${r.items.map(item=>`<details class="wf-direction-item"><summary><span class="wf-direction-icon">${icon({traffic:'eye-line',click:'cursor-line',conversion:'chat-check-line',reply:'time-line'}[item.group]||'bar-chart-line')}</span><div class="wf-direction-content"><div class="wf-spread"><h4>${esc(item.title)}</h4><span class="wf-rule-status ${item.status}">${item.statusLabel}</span></div><div class="wf-rule-inline"><b>${esc(item.label)}</b>${(item.comparison||[['本店',item.mine],['均值',item.average],['优秀',item.excellent]]).map(([label,v])=>`<span class="${label==='本店'?'mine':''}">${label} <strong>${value(item,v)}</strong></span>`).join('')}</div><p>${esc(item.hint)}</p></div><span class="wf-direction-expand" aria-hidden="true"><i class="ri-arrow-down-s-line"></i></span></summary><div class="wf-rule-detail">${item.signal?`<p class="wf-rule-signal">${esc(item.signal)}</p>`:''}<ol>${item.checks.map(check=>`<li>${esc(check)}</li>`).join('')}</ol><small>${esc(item.scope)} · 仅提示方向，不判定原因或执行操作。</small></div></details>`).join('')}</div>`}</section>`;
+  }
+  /** 读取同一店铺日指标；导航版本变化时丢弃结果。失败仅呈现错误，不补造指标。 */
+  async function loadPlanDirections(current,range){
+    try{
+      const period=productPeriod(range),summaryPath='/api/q/shop-summary?'+new URLSearchParams({startDate:range.startDate,endDate:range.endDate,statisticsType:'day'});
+      const paths=[summaryPath,'/api/dashboard/product-analysis?'+new URLSearchParams(period),...['search','whole_site'].map(scope=>'/api/advertising/report?'+new URLSearchParams({scope,startDate:range.startDate,endDate:range.endDate}))];
+      const results=await Promise.allSettled(paths.map(path=>window.AdvisorLive.fetch(path)));if(current!==version)return;
+      if(results[0].status!=='fulfilled')throw new Error('summary failed');
+      const data=i=>results[i].status==='fulfilled'?results[i].value.data:null;
+      planDiagnostic.result=planRules(Array.isArray(data(0))?data(0):[],range,{products:data(1),productScope:period.statDate+' '+(period.statisticsType==='month'?'自然月':'单日'),ads:{search:data(2),whole_site:data(3)}});
+    }
+    catch{if(current===version)planDiagnostic.error='行业对标暂未读取成功，请刷新重试。';}
+    finally{if(current===version){planDiagnostic.pending=false;render('plan');}}
+  }
+  window.AdvisorPlanRules=planRules;
+  window.AdvisorPlanContext=()=>planDiagnostic.result;
+  /** 运营规划页：平台事实作为制定目标依据，目标保持未设定。 */
+  function plan(internal=false){if(!internal)resetLive();return styles()+`<div id="wfLivePage" data-wf-page="plan" class="wf-content">${planDirections()}${live.errors.length?`<p role="alert" class="wf-muted">${live.errors.map(esc).join('；')}</p>`:''}<div class="av-grid">${sop('新店运营规划 SOP',['启动会','市场与公司定位','产品定位','装修与词库','发品','流量获取','优爆品培育','诊断复盘'])}${sop('老店运营诊断规划 SOP',['店铺诊断','问题排序','整改动作','负责人和时间','执行复盘'])}</div><div class="av-grid">${['3月新贸节作战计划','9月采购节作战计划'].map(name=>`<section class="av-card"><div class="wf-campaign-head">${icon('calendar-2-line')}<div><strong>${name}</strong><p>活动资格、规则和时间需以平台当前信息确认。</p></div></div><div class="wf-campaign-items">${['报名条件','预算与产能','主推品','团队分工','复盘时间'].map(x=>`<div><b>${x}</b><p>未设定</p></div>`).join('')}</div></section>`).join('')}</div>${tasks()}<div class="av-card wf-next"><strong>下一步：根据真实市场与商品资料确认定位</strong>${btn('前往营销定位','position',true)}</div></div>`;}
+  /** 读取当前主营类目的行业场景词和广告词池，仅查询，不预定或投放。 */
+  async function loadKeywordTools(current,range){
+    try{
+      const summary=await window.AdvisorLive.fetch('/api/q/shop-summary?'+new URLSearchParams({startDate:range.startDate,endDate:range.endDate,statisticsType:'day'}));
+      if(current!==version)return;const category=(summary.data||[]).find(r=>r.cateId);if(!category)throw new Error('暂无店铺类目');keywordTools.category=category.zhDisplay||category.enDisplay||'';
+      keywordTools.cateId=category.cateId;
+      await Promise.all(['ads','scenes'].map(key=>loadKeywordPage(key,1,current)));
+
+    }catch{if(current===version)keywordTools.errors={ads:'未取得店铺类目，暂无法读取',scenes:'未取得店铺类目，暂无法读取'};}
+    finally{if(current===version){keywordTools.pending=false;render('foundation');}}
+  }
+  /** 读取指定来源的一页。key为ads/scenes，page为1起始页，current为导航版本；失败保留原页并提示，不向外抛异常。 */
+  async function loadKeywordPage(key,page,current=version){
+    if(!keywordTools.cateId||keywordTools.loading[key]||page<1)return;
+    keywordTools.loading[key]=true;delete keywordTools.errors[key];
+    const repaint=()=>{const host=document.getElementById('wfKeywordTable');if(current===version&&host)host.innerHTML=keywordToolBody();};
+    repaint();
+    const size=key==='ads'?20:10;
+    const params=key==='ads'?{productId:'110102001',cateIdList:JSON.stringify([Number(keywordTools.cateId)]),requestPage:JSON.stringify({pageIndex:page,pageSize:size}),requestOrderProperty:JSON.stringify({orderProperty:'yearImps',orderDirection:'desc'})}:{cateId:keywordTools.cateId,currentPage:page,pageSize:size,statCycle:'90d',terminalType:'TOTAL'};
+    try{
+      const result=await window.AdvisorLive.fetch('/api/q/'+(key==='ads'?'ads-keywords':'market-opportunities')+'?'+new URLSearchParams(params));
+      if(current!==version)return;
+      const rows=key==='ads'?(result.data?.data?.items||[]):(Array.isArray(result.data)?result.data:[]);
+      // 接口没有可靠总页数，按返回数量探测末页；空的下一页不清空当前页。
+      keywordTools.hasNext[key]=rows.length>=size;
+      if(rows.length||page===1){keywordTools[key]=rows;keywordTools.pages[key]=page;}
+    }catch{if(current===version)keywordTools.errors[key]='读取失败，请重试翻页';}
+    finally{if(current===version){keywordTools.loading[key]=false;repaint();}}
+  }
+  /** 返回当前词工具的表头与原始值，供表格和导出共用；保留渠道与数据范围。 */
+  function keywordTableData(){
+    if(keywordTools.tab===1)return {headers:['国家/地区','行业场景','热门词','需求指数','供需比','统计日期'],rows:keywordTools.scenes.flatMap(r=>String(r.top3HotKw||'').split('|').filter(Boolean).map(word=>[r.countryId==='all'?'全球':['os','core17'].includes(r.countryId)?'地区分组（'+r.countryId+'）':country(r.countryId),r.sceneNameCn||r.sceneName,word,r.needsIndex,r.supplyNeedsRate,r.statDate]))};
+    if(keywordTools.tab===2)return {headers:['关键词','渠道','曝光指数','点击指数','搜索点击率','关联优爆品'],rows:keywordTools.ads.map(r=>[r['关键词'],r['关键词渠道'],r['全站搜索曝光指数'],r['全站搜索点击指数'],r['全站搜索点击率'],r['关联优爆品数量']])};
+    return {headers:['买家搜索原词','归一化词','访客数','访问商品数'],rows:live.words.map(r=>[r.queryRaw,r.query,r.shopUv,r.visitProdCnt])};
+  }
+  /** 三个只读词工具入口及独立来源说明；不把行业指数当作店铺流量。 */
+  function keywordToolBody(){
+    const data=keywordTableData(),key=keywordTools.tab===1?'scenes':'ads';
+    const note=['店铺近30天买家搜索记录','行业近90天各国家/地区场景词；指数属于场景，不是单词指标','当前类目广告词池，每页20条；指数不是实际次数'][keywordTools.tab];
+    return `<nav class="wf-keyword-tabs" aria-label="关键词工具">${['买家搜索词','行业场景热词','广告关键词'].map((label,i)=>`<button data-keyword-tab="${i}" class="${keywordTools.tab===i?'active':''}" aria-pressed="${keywordTools.tab===i}">${label}</button>`).join('')}</nav><p class="wf-market-note">${note}</p>${keywordTools.tab&&keywordTools.pending?'<p class="wf-chart-empty">正在读取词数据…</p>':keywordTools.tab&&keywordTools.errors[key]?`<p role="alert" class="wf-market-note">${esc(keywordTools.errors[key])}</p>`:`<div class="wf-keyword-data" data-keyword-kind="${keywordTools.tab}">${table(data.headers,data.rows.map(row=>row.map((v,column)=>keywordCell(v,column))),'当前没有返回记录')}</div>`}${keywordTools.tab?`<div class="wf-keyword-pager"><button class="av-btn secondary" data-keyword-page="${keywordTools.pages[key]-1}" ${keywordTools.pages[key]===1||keywordTools.loading[key]||keywordTools.pending?'disabled':''}>上一页</button><span>第 ${keywordTools.pages[key]} 页${keywordTools.loading[key]?' · 读取中…':''}</span><button class="av-btn secondary" data-keyword-page="${keywordTools.pages[key]+1}" ${!keywordTools.hasNext[key]||keywordTools.loading[key]||keywordTools.pending?'disabled':''}>下一页</button></div>`:''}`;
+  }
+  /** 渲染词单元格。value为原始值，column为列索引；仅词列可复制，返回转义HTML，无外部调用。 */
+  function keywordCell(value,column){
+    const text=String(value??'—');
+    const isWord=keywordTools.tab===0?column<2:keywordTools.tab===1?column===2:column===0;
+    return isWord&&text!=='—'&&text?`<button type="button" class="wf-keyword-value wf-keyword-copy" data-copy-keyword="${esc(text)}" title="点击复制：${esc(text)}" aria-label="复制关键词：${esc(text)}">${esc(text)}</button>`:`<span class="wf-keyword-value" title="${esc(text)}">${esc(text)}</span>`;
+  }
+  /** 将按钮携带的完整词写入剪贴板；捕获权限失败，反馈结果而不误报成功。参数为按钮，无返回值。 */
+  async function copyKeyword(button){
+    let status=document.getElementById('wfKeywordCopyStatus');
+    if(!status){status=document.createElement('div');status.id='wfKeywordCopyStatus';status.setAttribute('role','status');document.body.append(status);}
+    try{await navigator.clipboard.writeText(button.dataset.copyKeyword);status.textContent='已复制完整关键词';}
+    catch{status.textContent='复制失败，请选中文字后手动复制';}
+    status.hidden=false;
+    clearTimeout(copyKeyword.timer);
+    copyKeyword.timer=setTimeout(()=>{status.hidden=true;},2200);
+  }
+  /** 商品表仅展示当前接口页返回的真实商品，不扩展为全店画像。 */
+  function products(){return table(['商品','平台类目','曝光','点击'],live.products.slice(0,8).map(r=>[esc(r.subject||r.prodName||'未返回标题'),esc(r.cateName||'未返回'),val(r.sumProdShowNum),val(r.sumProdClickNum)]),'未读取到商品；请查看上方读取状态。');}
+  /** 安全解析图表数值，缺失及负值返回null，不把缺数据画成0。 */
+  function chartValue(value){if(value===null||value===undefined||value==='')return null;const n=Number(value);return Number.isFinite(n)&&n>=0?n:null;}
+  /** 横条图，rows为[label,value]，ratio指定百分比；只显示最多六项，提供原始数值。 */
+  function marketBars(rows,ratio=false){
+    const values=rows.map(([label,value])=>[label,chartValue(value)]).filter(([,value])=>value!==null).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    if(!values.length)return '<p class="wf-chart-empty">暂无可用数据</p>';
+    const max=ratio?1:Math.max(...values.map(([,v])=>v),1);
+    return `<div class="wf-bars">${values.map(([label,value])=>`<div class="wf-bar-row"><span title="${esc(label)}">${esc(label)}</span><div class="wf-bar-track"><i style="width:${Math.min(100,value/max*100)}%"></i></div><b>${ratio?(value*100).toFixed(1)+'%':val(value)}</b></div>`).join('')}</div>`;
+  }
+  /** 买家构成环图使用平台占比；不从国家或词推断身份，比例不完整时回退横条。 */
+  function buyerChart(){
+    const names={offline_retailer:'线下零售商',online_retailer:'线上零售商',wholesale:'批发商',manufacturer:'制造商'};
+    const rows=market.identity.map(r=>[names[r.byrIdentity]||r.byrIdentity,chartValue(r.visitorRate)]).filter(([,v])=>v!==null);
+    const sum=rows.reduce((total,[,v])=>total+v,0);if(!rows.length||Math.abs(sum-1)>0.02)return marketBars(rows,true);
+    const colors=['#f58238','#edb27e','#d5bc9f','#a59d8e'];let offset=0;
+    return `<div class="wf-buyer-chart"><svg viewBox="0 0 140 140" role="img" aria-label="店铺买家身份访客占比"><circle cx="70" cy="70" r="50" fill="none" stroke="#faf2eb" stroke-width="18"/>${rows.map(([label,v],i)=>{const length=v/sum*314.159,position=offset;offset+=length;return `<circle cx="70" cy="70" r="50" fill="none" stroke="${colors[i%colors.length]}" stroke-width="18" stroke-dasharray="${length} 314.159" stroke-dashoffset="${-position}" transform="rotate(-90 70 70)"><title>${esc(label)} ${(v*100).toFixed(1)}%</title></circle>`;}).join('')}<text x="70" y="68" text-anchor="middle">买家构成</text><text x="70" y="85" text-anchor="middle" class="wf-ring-note">近30天</text></svg><div>${rows.map(([label,v],i)=>`<p><i style="background:${colors[i%colors.length]}"></i><span>${esc(label)}</span><b>${(v*100).toFixed(1)}%</b></p>`).join('')}</div></div>`;
+  }
+  /** 原型市场/客群/需求维度对应的真实图表；行业与店铺口径独立，不生成定位结论。 */
+  function marketDashboard(){
+    const panel=(name,scope,body)=>`<section class="wf-market-card">${title(name,scope)}${body}</section>`;
+    const industryDate=[...market.countries,...market.categories,...market.scenes].map(row=>row.statDate).filter(Boolean).sort().at(-1);
+    const industry=(key,body)=>market.errors[key]?`<p class="wf-chart-empty">${esc(market.errors[key])}</p>`:market.pending?'<p class="wf-chart-empty">正在读取行业数据…</p>':body;
+    return `<div class="wf-market-section"><b>店铺客群与需求</b><span>近30天 · 当前店铺访客画像</span></div><div class="wf-market-grid">${panel('买家国家分布','访客占比 · TOP6',marketBars(live.countries.map(r=>[country(r.country),r.visitorRate]),true))}${panel('买家身份构成','平台返回身份',market.errors.identity?`<p class="wf-chart-empty">${esc(market.errors.identity)}</p>`:buyerChart())}${panel('获客渠道','访客占比',market.errors.channels?`<p class="wf-chart-empty">${esc(market.errors.channels)}</p>`:marketBars(market.channels.map(r=>[r.source,r.visitorRate]),true))}${panel('买家搜索需求','搜索词带来的店铺访客数',marketBars(live.words.map(r=>[r.queryRaw||r.query,r.shopUv])))}</div><div class="wf-market-section"><b>行业市场机会</b><span>${esc(market.category||'正在识别店铺类目')} · 行业数据</span></div><div class="wf-market-grid">${panel('国家商机分布','蓝海国家样本 · 商机量'+(industryDate?' · '+industryDate:''),industry('countries',marketBars(market.countries.map(r=>[country(r.countryId),r.abCnt]))))}${panel('细分类目机会','机会类目样本 · 商机量'+(industryDate?' · '+industryDate:''),industry('categories',marketBars(market.categories.map(r=>[r.cateCnName||r.cateName||r.cateId,r.abCnt]))))}</div><section class="wf-market-card" style="margin-top:12px">${title('需求场景','近90天 · 全球场景 · 指数不代表实际人数')}${industry('scenes',table(['场景','需求指数','供需比','热门搜索词'],market.scenes.filter(r=>r.countryId==='all').slice(0,6).map(r=>[esc(r.sceneNameCn||r.sceneName),val(r.needsIndex),val(r.supplyNeedsRate),esc(String(r.top3HotKw||'—').split('|').join(' · '))]),'当前没有返回全球需求场景'))}</section><p class="wf-market-note">国家排名与类目机会使用接口默认统计周期；店铺画像为近30天，需求场景为近90天。以上为数据参考，不等同于已确认的目标市场或客户痛点。</p>`;
+  }
+  /** 独立读取新增画像与行业数据；current为页面读取版本，迟到响应不更新已切换页面。 */
+  async function loadMarket(current,range){
+    const valid=()=>current===version;
+    const read=path=>window.AdvisorLive.fetch('/api/q/'+path);
+    const profileJobs=[['identity','byr_identity'],['channels','source']].map(async([key,dimension])=>{
+      try{const response=await read('customer-profile?'+new URLSearchParams({nd:'30d',dimensionType:dimension,terminalType:'TOTAL'}));if(!valid())return;market[key]=(Array.isArray(response.data)?response.data:[]).flatMap(group=>Array.isArray(group[dimension])?group[dimension]:[]);}
+      catch{if(valid())market.errors[key]='暂未读取到数据，请刷新重试';}if(valid())render('position');
+    });
+    const industryJob=(async()=>{
+      try{
+        const summary=await read('shop-summary?'+new URLSearchParams({startDate:range.startDate,endDate:range.endDate,statisticsType:'day'}));if(!valid())return;
+        const category=(Array.isArray(summary.data)?summary.data:[]).find(r=>r.cateId);if(!category)throw new Error('未取得店铺类目');
+        market.category=category.enDisplay||String(category.cateId);
+        const endpoints=[['countries','market-country',{rankType:'blueOcean',orderBy:'supplyDemandRate',orderModel:'ASC'}],['categories','market-categories',{rankType:'opportunity',orderBy:'abCnt',orderModel:'DESC'}],['scenes','market-opportunities',{currentPage:1,pageSize:10,statCycle:'90d',terminalType:'TOTAL'}]];
+        await Promise.all(endpoints.map(async([key,endpoint,params])=>{try{const result=await read(endpoint+'?'+new URLSearchParams({cateId:category.cateId,...params}));if(valid())market[key]=Array.isArray(result.data)?result.data:[];}catch{if(valid())market.errors[key]='暂未读取到行业数据，请刷新重试';}}));
+      }catch{if(valid())for(const key of ['countries','categories','scenes'])market.errors[key]='店铺类目未就绪，暂不展示行业数据';}
+      finally{if(valid())render('position');}
+    })();
+    await Promise.allSettled([...profileJobs,industryJob]);
+    if(valid()){market.pending=false;render('position');}
+  }
+  /** 公司资料独立读取，不调用模型；版本检查防止旧请求覆盖新页面。 */
+  async function loadCompany(current){
+    try{const response=await window.AdvisorLive.fetch('/api/workspaces/storefront');if(current!==version)return;company.profile=response.data?.companyProfile||null;company.pages=response.data?.pages||[];company.error=company.profile?'':'暂无公司资料';}
+    catch{if(current===version)company.error='公司资料暂未读取成功，请点击顶部刷新重试';}
+    finally{if(current===version){company.pending=false;render('position');}}
+  }
+  /** 只接受 HTTPS 图片地址；外部资料不能注入脚本或任意协议。 */
+  function companyImage(value){try{const url=new URL(String(value||'').replace(/^\/\//,'https://'));return url.protocol==='https:'?esc(url.href):'';}catch{return '';}}
+  /** 公司市场比例从明确百分数解析，保留原始地域标签；不推断未返回份额。 */
+  function companyMarkets(value){return [...String(value||'').matchAll(/([^,()]+)\(([\d.]+)%\)/g)].map(m=>[m[1].trim(),Number(m[2])]).filter(([,n])=>Number.isFinite(n)&&n>=0&&n<=100);}
+  /** 企业事实可视化：规模范围保持原文，资料数量不等同于能力评分或认证有效性。 */
+  function companyDashboard(){
+    if(company.pending)return '<p class="wf-chart-empty">正在读取公司资料…</p>';
+    if(!company.profile)return `<p class="wf-chart-empty">${esc(company.error||'暂无公司资料')}</p>`;
+    const p=company.profile,b=p.companyBasicInfo||{},base=b.companyBasicInfo||{},capacity=b.productionCapacity||{},extra=p.companyExtraInfo||{},ext=extra.companyBasicInfoExt||{},trade=extra.foreignTradeExportCapability||{},exports=b.exportCapability||{};
+    const certificates=p.certificationInfo?.certificates||[],materials=p.imageMaterials?.materials||[],groups=Array.isArray(p.productGroup)?p.productGroup:[];
+    const panel=(name,scope,body)=>`<section class="wf-market-card">${title(name,scope)}${body}</section>`;
+    const facts=rows=>`<dl class="wf-company-facts">${rows.map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${esc(value??'未提供')||'未提供'}</dd></div>`).join('')}</dl>`;
+    const chips=value=>String(value||'').split(',').filter(Boolean).map(v=>`<span>${esc(v.trim())}</span>`).join('')||'<span>未提供</span>';
+    const names={'North America':'北美','Western Europe':'西欧','South America':'南美','Domestic Market':'国内','Eastern Europe':'东欧','Southeast Asia':'东南亚','Southern Europe':'南欧','Eastern Asia':'东亚','Northern Europe':'北欧'};
+    const regions=companyMarkets(exports.mainMarket).sort((a,b)=>b[1]-a[1]);
+    const regionChart=`<div class="wf-bars">${regions.map(([name,n])=>`<div class="wf-bar-row"><span>${esc(names[name]||name)}</span><div class="wf-bar-track"><i style="width:${n}%"></i></div><b>${n}%</b></div>`).join('')||'<p>未提供市场占比</p>'}</div>`;
+    const logo=companyImage(ext.companyLogo);
+    const counts=new Map();certificates.forEach(c=>counts.set(c.certificateName||'未命名证书',(counts.get(c.certificateName||'未命名证书')||0)+1));
+    return `<div class="wf-company-identity">${logo?`<img src="${logo}" alt="公司标识">`:''}<div><strong>${esc(base.companyName||'当前店铺公司')}</strong><p>${esc(b.businessCategories?.mainBusiness||'主营业务未提供')}</p></div><span>店铺公司资料</span></div><div class="wf-company-stats">${[['成立年份',base.registrationYear],['员工规模',base.totalEmployees],['年销售额',exports.lastYearSales],['出口比例',trade.exportRatio]].map(([label,value])=>`<div><span>${label}</span><strong>${esc(value||'未提供')}</strong></div>`).join('')}</div><div class="wf-market-grid">${panel('主要销售市场','公司填报比例 · 非访客画像',regionChart)}${panel('生产与研发','范围按公司资料展示',facts([['厂房面积',capacity.factoryArea],['办公面积',ext.officeArea],['研发人员',capacity.rAndDStaffCount],['质检人员',capacity.qualityInspectorsCount],['外贸人员',trade.foreignTradeStaffCount],['工厂地址',capacity.factoryAddress]]))}${panel('定制与主营产品','公司自述',facts([['加工与设计',ext.processingTradeSupportType]])+`<div class="wf-company-tags">${chips(ext.additionalProducts)}</div><div class="wf-company-description"><h4>公司优势与介绍</h4><div class="wf-company-description-scroll" role="region" aria-label="公司优势与介绍" tabindex="0"><p>${esc(ext.coreAdvantages||'未提供优势说明')}</p><p>${esc(ext.companyDetailDescription||'未提供公司介绍')}</p></div></div>`)}${panel('品质与认证资料',`${certificates.length} 份上传记录 · 有效期需核验`,marketBars([...counts])+`<div class="wf-company-certificates">${certificates.map(c=>{const image=companyImage(c.certificateImage);return `<div>${image?`<a href="${image}" target="_blank" rel="noopener noreferrer">${/\.pdf(?:[?#]|$)/i.test(image)?'<span class="wf-company-pdf">PDF</span>':`<img loading="lazy" src="${image}" alt="${esc(c.certificateName)}证书">`}</a>`:''}<span>${esc(c.certificateName)}<small>${esc(c.certificateNumber||'未提供编号')}</small></span></div>`;}).join('')}</div>`)}${panel('交付与服务','公司填写的服务条件',facts([['备货时间',trade.preparationTimeDays!=null?trade.preparationTimeDays+' 天（资料值）':null],['出口起始年',trade.exportStartYear],['出口方式',trade.exportMethods],['最近出口港',trade.nearestExportPort]])+`<h4>交付条款</h4><div class="wf-company-tags">${chips(trade.deliveryTerms)}</div><h4>服务语言</h4><div class="wf-company-tags">${chips(trade.languageCapabilities)}</div>`)}${panel('交易与结算','支持方式按公司资料展示',`<h4>付款方式</h4><div class="wf-company-tags">${chips(trade.acceptedPaymentMethods)}</div><h4>结算币种</h4><div class="wf-company-tags">${chips(trade.acceptedCurrencies)}</div>`+facts([['经营地址',base.operatingAddress],['注册地址',base.registeredAddress],['公司网站',ext.companyWebsite]]))}</div><section class="wf-market-card" style="margin-top:12px">${title('产品系列与企业实景','店铺资料图片')}<div class="wf-company-gallery">${groups.map(g=>{const image=companyImage(g.groupImage);return `<figure>${image?`<img loading="lazy" src="${image}" alt="${esc(g.groupName)}">`:''}<figcaption>${esc(g.groupName)}</figcaption></figure>`;}).join('')}</div>${materials.map(m=>`<details class="wf-company-details"><summary>${esc({'Company/Factory Photos':'公司与工厂','Production Process Photos':'生产流程','Exhibition Photos':'展会照片','Customer Case Photos':'客户案例'}[m.materialName]||m.materialName)} · ${(m.images||[]).length} 张</summary><div class="wf-company-gallery">${(m.images||[]).map(i=>{const image=companyImage(i.imageUrl);return image?`<figure><img loading="lazy" src="${image}" alt="${esc(i.description||'企业资料')}"></figure>`:'';}).join('')||'暂无图片'}</div></details>`).join('')}</section><p class="wf-market-note">以上为店铺公司填报资料。认证有效性、具体订单交期及售后条款需另行确认；平台国家和语言选项库不计入企业覆盖范围。</p>`;
+  }
+  /** 读取既有商品分析聚合端点，沿用自然日/月口径；不调用付费分析。 */
+  async function loadProductPosition(current,params){
+    productPosition.scope=live.productScope;
+    try{const response=await window.AdvisorLive.fetch('/api/dashboard/product-analysis?'+new URLSearchParams(params));if(current===version)productPosition.data=response.data||null;}
+    catch{if(current===version)productPosition.error='商品数据读取失败，请点击顶部刷新重试';}
+    finally{if(current===version){productPosition.pending=false;render('position');}}
+  }
+  /** 产品定位看板仅依据返回商品分层与经营表现，分组不是选品结论；缺项不补零。 */
+  function productDashboard(){
+    if(productPosition.pending)return '<p class="wf-chart-empty">正在读取商品表现…</p>';
+    const d=productPosition.data;if(!d)return `<p class="wf-chart-empty">${esc(productPosition.error||'暂无商品数据')}</p>`;
+    const names={highExposureHighCtr:'高曝光 · 高点击率',highExposureLowCtr:'高曝光 · 低点击率',lowExposureHighCtr:'低曝光 · 高点击率',lowExposureLowCtr:'低曝光 · 低点击率'};
+    const rows=Object.keys(names).flatMap(key=>Array.isArray(d.focusProducts?.[key])?d.focusProducts[key]:[]);
+    const panel=(name,note,body)=>`<section class="wf-market-card">${title(name,note)}${body}</section>`;
+    const ranked=(field,label)=>{const items=rows.filter(r=>chartValue(r[field])!==null).sort((a,b)=>b[field]-a[field]).slice(0,6);const max=Math.max(1,...items.map(r=>Number(r[field])));return `<div class="wf-product-ranking">${items.map((r,i)=>{const image=companyImage(r.image);return `<div><span class="wf-product-rank">${i+1}</span>${image?`<img loading="lazy" src="${image}" alt="商品图片">`:''}<section><p title="${esc(r.title)}">${esc(r.title||'未返回名称')}</p><div class="wf-bar-track"><i style="width:${Number(r[field])/max*100}%"></i></div><small>${esc(r.level||'未返回分层')}</small></section><b>${val(r[field])}<small>${label}</small></b></div>`;}).join('')||'<p>暂无返回商品</p>'}</div>`;};
+    const groups=company.profile?.productGroup||[];
+    return `<div class="wf-product-dashboard"><p class="wf-market-note">${esc(productPosition.scope)} · 已读取 ${val(d.population)} / ${val(d.recordCount)} 件商品${d.population===d.recordCount?'':' · 以下按已返回商品统计'}</p><div class="wf-company-stats">${[['商品样本',d.population],['搜索曝光',d.totals?.exposure],['搜索点击',d.totals?.clicks],['加权点击率',chartValue(d.thresholds?.storeWeightedCtr)===null?'—':(d.thresholds.storeWeightedCtr*100).toFixed(2)+'%']].map(([label,value])=>`<div><span>${label}</span><strong>${val(value)}</strong></div>`).join('')}</div><div class="wf-market-grid">${panel('商品分层','平台返回分层 · 商品数量',marketBars(Object.entries(d.layerCounts||{})))}${panel('询盘表现 TOP6','已返回商品排名',ranked('inquiries','询盘'))}${panel('曝光表现 TOP6','已返回商品排名',ranked('exposure','曝光'))}</div><section class="wf-market-card" style="margin-top:10px">${title('产品系列','当前店铺商品分组 · 不代表销量占比')}<div class="wf-company-gallery">${groups.map(g=>{const image=companyImage(g.groupImage);return `<figure>${image?`<img loading="lazy" src="${image}" alt="${esc(g.groupName)}">`:''}<figcaption>${esc(g.groupName)}</figcaption></figure>`;}).join('')||'<p class="wf-market-note">暂无返回产品系列</p>'}</div></section><section class="wf-market-card" style="margin-top:10px">${title('待关注商品','按返回记录统计 · 原因需进一步分析')}<div class="wf-company-stats">${[['有点击无询盘',d.diagnostics?.clickedNoInquiry],['有询盘无起草单',d.diagnostics?.inquiryNoDraft]].map(([label,n])=>`<div><span>${label}</span><strong>${val(n)}</strong></div>`).join('')}</div><p class="wf-market-note">起草单不等于成交。当前资料未提供成本、利润及供应能力，不自动推定主推款或利润款。</p></section></div>`;
+  }
+  /** 装修素材卡复用实际店铺资料；不生成宣传文案、不推断产品证书适用性。 */
+  function decorationDashboard(detail=false){
+    if(company.pending)return '<p class="wf-chart-empty">正在读取店铺装修素材…</p>';
+    const p=company.profile;if(!p)return `<p class="wf-chart-empty">${esc(company.error||'暂无店铺素材')}</p>`;
+    const base=p.companyBasicInfo?.companyBasicInfo||{},ext=p.companyExtraInfo?.companyBasicInfoExt||{},trade=p.companyExtraInfo?.foreignTradeExportCapability||{};
+    const materials=p.imageMaterials?.materials||[],certs=p.certificationInfo?.certificates||[],groups=p.productGroup||[],items=p.productList?.companyProducts||[];
+    const panel=(name,note,body)=>`<section class="wf-market-card">${title(name,note)}${body}</section>`;
+    const gallery=(rows,limit=30)=>`<div class="wf-decoration-gallery">${rows.slice(0,limit).map(r=>{const url=companyImage(r.imageUrl||r.groupImage||r.image);return url?`<figure><img loading="lazy" src="${url}" alt="${esc(r.description||r.groupName||r.subject||'店铺素材')}"><figcaption title="${esc(r.description||r.groupName||r.subject||'')}">${esc(r.description||r.groupName||r.subject||'店铺素材')}</figcaption></figure>`:'';}).join('')||'<p class="wf-market-note">暂无返回素材</p>'}</div>`;
+    const stats=rows=>`<div class="wf-company-stats">${rows.map(([k,v])=>`<div><span>${esc(k)}</span><strong>${val(v)}</strong></div>`).join('')}</div>`;
+    const intro=panel('公司介绍与优势','店铺现有原文',`<div class="wf-company-description-scroll" role="region" aria-label="现有公司文案" tabindex="0"><p>${esc(ext.coreAdvantages||'暂无优势说明')}</p><p>${esc(ext.companyDetailDescription||'暂无公司介绍')}</p></div>`);
+    const serviceFacts=panel('服务文案依据','公司资料 · 具体订单需确认',`<dl class="wf-company-facts">${[['定制与设计',ext.processingTradeSupportType],['备货时间',trade.preparationTimeDays!=null?trade.preparationTimeDays+' 天':null],['付款方式',trade.acceptedPaymentMethods],['交付条款',trade.deliveryTerms]].map(([k,v])=>`<div><dt>${k}</dt><dd>${esc(v||'未提供')}</dd></div>`).join('')}</dl>`);
+    const certificateNames=panel('认证素材','公司上传资料 · 不代表全部商品已获认证',`<div class="wf-company-tags">${certs.map(c=>`<span>${esc(c.certificateName||'证书')}</span>`).join('')||'暂无证书资料'}</div>`);
+    if(!detail)return `<div class="wf-decoration-dashboard">${stats([['产品系列',groups.length],['商品素材',items.length],['企业图片',materials.reduce((n,m)=>n+(m.images||[]).length,0)],['证书记录',certs.length]])}${panel('品牌与首屏资料','当前店铺基础资料',`<div class="wf-company-identity">${companyImage(ext.companyLogo)?`<img src="${companyImage(ext.companyLogo)}" alt="公司标识">`:''}<div><strong>${esc(base.companyName||'未提供公司名称')}</strong><p>${esc(p.companyBasicInfo?.businessCategories?.mainBusiness||'')}</p></div></div>`)}<div class="wf-market-grid">${panel('可用图片分布','平台素材分类 · 图片张数',marketBars(materials.map(m=>[{'Company/Factory Photos':'公司与工厂','Production Process Photos':'生产流程','Exhibition Photos':'展会照片','Customer Case Photos':'客户案例'}[m.materialName]||m.materialName,(m.images||[]).length])))}${certificateNames}</div>${panel('产品导航与系列图','当前店铺产品分组',gallery(groups))}${panel('商品展示素材','接口返回商品 · 不代表推荐主推顺序',gallery(items,20))}<div class="wf-market-grid">${intro}${serviceFacts}</div>${materials.filter(m=>(m.images||[]).length).map(m=>panel({'Company/Factory Photos':'公司与工厂实景','Exhibition Photos':'展会展示'}[m.materialName]||m.materialName,'店铺已有素材',gallery(m.images))).join('')}</div>`;
+    const index=decorationProduct,item=items[index];
+    if(!item)return `<label class="wf-decoration-select">选择参考商品<select data-decoration-product aria-label="选择详情页参考商品"><option value="-1">请选择商品</option>${items.map((r,i)=>`<option value="${i}">${esc(r.subject||'未命名商品')}</option>`).join('')}</select></label><p class="wf-chart-empty">${items.length?'请先选择需要分析的商品。':'暂无返回商品素材'}</p>`;
+    const image=companyImage(item.image);
+    return `<div class="wf-decoration-dashboard"><label class="wf-decoration-select">选择参考商品<select data-decoration-product aria-label="选择详情页参考商品">${items.map((r,i)=>`<option value="${i}" ${i===index?'selected':''}>${esc(r.subject||'未命名商品')}</option>`).join('')}</select></label><p class="wf-market-note">当前返回 ${items.length} 件参考商品 · 切换只查看资料，不生成文案</p>${panel('商品首屏资料','当前选中商品',`<div class="wf-detail-hero">${image?`<img src="${image}" alt="${esc(item.subject)}">`:''}<div><h4>${esc(item.subject||'未提供标题')}</h4><span>现有价格</span><strong>${esc(item.price||'未提供')}</strong><span>起订量</span><strong>${val(item.moq)}</strong></div></div>`)}${panel('现有商品标题','原文保留 · 尚未优化',`<div class="wf-decoration-copy">${esc(item.subject||'未提供标题')}</div>`)}<div class="wf-market-grid">${serviceFacts}${certificateNames}</div>${intro}${panel('公司实景素材','公司公共素材 · 可供详情页选用',gallery(materials.filter(m=>m.materialType==='COMPANY_FACILITY_PHOTO').flatMap(m=>m.images||[])))}${panel('更多商品资料','参数、规格、阶梯价格与商详原文',`<p class="wf-market-note">当前装修资料接口没有返回这些字段。可在产品编辑工作区选择店铺商品，读取完整资料后核对。</p>${route('打开产品编辑工作区','product-publish')}`)}</div>`;
+  }
+  /** 定位服务主体：使用国家真实占比和商品事实，不编造认证/产能/客户类型。 */
+  /** 返回定位记录卡片HTML，无参数；草稿保存在内存，异步数据重绘不丢失输入。 */
+  function positionNotes(){return `<section class="wf-position-notes"><div class="wf-notes-heading"><h4>人工定位记录</h4><span>仅本页保留 · 刷新后清空</span></div>${notesEditor.open?`<label class="wf-notes-field"><span>定位思路与补充说明</span><textarea aria-label="定位思路与补充说明" placeholder="记录目标客户、核心优势，或需要进一步确认的定位思路…">${esc(notesEditor.draft)}</textarea></label><div class="wf-notes-actions">${btn('取消','notes-cancel',true)}${btn('保存记录','notes-save')}</div>`:`<div class="wf-notes-content${local.notes?'':' is-empty'}">${esc(local.notes||'还没有定位记录，可以补充你的判断与思路。')}</div><div class="wf-notes-actions">${btn(local.notes?'编辑记录':'填写定位记录','notes',true)}</div>`}</section>`;}
+  /** 原位更新记录卡片；无参数、无返回值，不改变页面滚动或触发外部请求。 */
+  function refreshNotes(){const card=document.querySelector('.wf-position-notes');if(card)card.outerHTML=positionNotes();}
+  /** 持续保留输入中的草稿，避免平台资料读取完成时重绘覆盖用户内容。 */
+  document.addEventListener('input',event=>{if(event.target.matches('.wf-notes-field textarea'))notesEditor.draft=event.target.value;});
+  function positionBody(){let body='';if(service===0){body=marketDashboard();}else if(service===1){body=companyDashboard();}else if(service===2){body=productDashboard();}else{body=decorationDashboard(service===4);}return `${title(services[service][0],'')}${body}${service===3?'':positionNotes()}`;}
+  /** 渲染营销定位页面及真实资料入口。 */
+  function position(internal=false){if(!internal)resetLive();return styles()+`<div id="wfLivePage" data-wf-page="position" class="wf-content"><nav class="wf-position-tabs" aria-label="定位类型">${services.map(([name],i)=>`<button class="${service===i?'active':''}" data-wf-service="${i}" aria-pressed="${service===i}">${esc(i===0?'市场定位':name)}</button>`).join('')}</nav>${source()}<div class="wf-aw-toolbar" id="wfPositionHandoff"><span data-aw-status role="status">用当前资料生成分析报告，完成后可在报告历史查看与下载。</span><button class="av-btn" data-position-analyze="${service}">开始分析</button></div><div class="wf-position"><section class="av-card" id="wfPositionBody">${positionBody()}</section></div>${service===3?'':`<div class="av-grid">${tasks()}<section class="av-card">${title('历史报告')}<p class="wf-muted">已生成的分析保存在顶部“报告历史”，可跨刷新查看和下载。</p>${btn('前往运营基建','foundation',true)}</section></div>`}</div>`;}
+  /** 关键词表为平台原始搜索词，不推测词类、审核状态或关联商品。 */
+  function words(){return table(['#','买家搜索原词','归一化词','访客数','访问商品数','来源'],live.words.map((r,i)=>[i+1,esc(r.queryRaw||'—'),esc(r.query||'—'),val(r.shopUv),val(r.visitProdCnt),'店铺近30天搜索画像']),'当前未返回买家搜索词；不会补充热门词或示例词。');}
+  /** 基建保留步骤、词表、交付和检查列表，所有未提供业务字段显示待处理。 */
+  function foundation(internal=false){if(!internal)resetLive();return styles()+`<div id="wfLivePage" data-wf-page="foundation" class="wf-content">${source()}<section class="av-card wf-flow">${[['商品资料','查看真实商品','product'],['整理关键词','真实买家搜索词','keywords'],['批量标题','生成标题建议','publish'],['批量发品规划','查看发品资料','publish']].map(([a,b,c],i)=>`<button data-service-page="foundation" data-service-index="${i}" class="${i===keywordTools.step?'active':''}"><b>${i+1}</b><span><strong>${a}</strong><small>${b}</small></span></button>`).join('')}</section><div class="wf-foundation"><section class="av-card"><div class="wf-spread">${title('关键词整理','当前账号')}${btn('导出真实词表','export',true)}</div><div id="wfKeywordTable">${keywordToolBody()}</div></section><aside><section class="av-card">${title('交付成果')}${[['当前词表','导出当前所选词工具的数据','export'],['商品布词表','尚未建立对应关系','unavailable'],['标题草稿','在产品发布中编辑','publish']].map(([a,b,c])=>`<div class="wf-deliver"><span class="wf-round">${icon('file-list-line')}</span><div><strong>${a}</strong><p>${b}</p></div>${btn(c==='export'?'导出':c==='publish'?'进入':'查看',c,true)}</div>`).join('')}</section><section class="av-card wf-checklist">${title('发品前人工核对')}${['商品图片、参数、规格和价格','平台类目和必填属性','标题、图片与描述内容'].map((a,i)=>`<div class="wf-check-item"><b>${i+1}</b><div><strong>${a}</strong><p>请在产品发布工作区逐项确认</p></div></div>`).join('')}</section></aside></div><div class="av-grid">${tasks()}<section class="av-card">${title('本次数据来源')}<p class="wf-muted">买家搜索画像与商品效果数据来自当前登录店铺。</p><p>分析报告可在顶部“报告历史”查看和下载。</p>${route('保留原完整产品发布','product-publish')}</section></div></div>`;}
+  /** 仅替换当前三页容器，不触碰产品发布 DOM。参数页面键，返回 void。 */
+  function render(page){const el=document.getElementById('wfLivePage');if(el&&el.dataset.wfPage===page)el.outerHTML=({plan,position,foundation}[page])(true);}
+  /** 清空前一轮页面结果，避免切页时把旧日期或旧账号数据当成新结果。 */
+  function resetLive(){planShowAll=false;planDiagnostic={pending:true,result:null,error:''};Object.assign(keywordTools,{tab:0,step:null,pending:true,ads:[],scenes:[],errors:{},category:'',cateId:null,pages:{ads:1,scenes:1},hasNext:{ads:true,scenes:true},loading:{ads:false,scenes:false}});Object.assign(productPosition,{data:null,pending:true,error:'',scope:''});Object.assign(company,{profile:null,pages:[],pending:true,error:''});Object.assign(market,{identity:[],channels:[],countries:[],categories:[],scenes:[],category:'',pending:true,errors:{}});live.products=[];live.total=null;live.words=[];live.countries=[];live.at='';live.errors=[];live.wordReady=false;live.countryReady=false;live.productScope='';live.status='正在读取店铺数据…';}
+  /** 商品端点仅支持日/月；周和自定义范围采用上个完整月并显式说明。参数为范围对象，返回合法查询参数。 */
+  function productPeriod(range){if(range.mode==='day'||range.mode==='month'){const statDate=range.mode==='month'?range.startDate.slice(0,7)+'-01':range.startDate;live.productScope=range.mode==='month'?statDate.slice(0,7)+'（按月）':statDate+'（按日）';return {statDate,statisticsType:range.mode};}const previous=new Date();previous.setDate(1);previous.setMonth(previous.getMonth()-1);const month=previous.getFullYear()+'-'+String(previous.getMonth()+1).padStart(2,'0');live.productScope=month+'（上个完整自然月；商品接口不支持所选周/自定义范围）';return {statDate:month+'-01',statisticsType:'month'};}
+  /** 查询只读接口并分开处理失败；版本号防止旧日期结果覆盖新日期。 */
+  async function mount(page){const current=++version;live.status='正在读取店铺数据…';live.errors=[];live.at='';live.products=[];live.words=[];live.countries=[];live.total=null;live.wordReady=false;live.countryReady=false;render(page);const range=window.AdvisorLive.range();const productParams=productPeriod(range);if(page==='plan')void loadPlanDirections(current,range);if(page==='foundation')void loadKeywordTools(current,range);if(page==='position'){void loadMarket(current,range);void loadCompany(current);void loadProductPosition(current,productParams);}render(page);const paths=[['商品','/api/q/shop-product?'+new URLSearchParams({...productParams,pageNo:1,pageSize:20})],['买家搜索词','/api/q/customer-profile?nd=30d&dimensionType=shop_keyword&terminalType=TOTAL'],['买家国家','/api/q/customer-profile?nd=30d&dimensionType=country&terminalType=TOTAL']];const responses=await Promise.allSettled(paths.map(([,p])=>window.AdvisorLive.fetch(p)));if(current!==version)return;responses.forEach((r,i)=>{if(r.status==='rejected'){live.errors.push(paths[i][0]+'：读取失败，请重试');return;}const j=r.value;if(i===0){live.products=Array.isArray(j.data?.data)?j.data.data:[];live.total=j.data?.recordCount??null;}else if(i===1){live.wordReady=true;live.words=(Array.isArray(j.data)?j.data:[]).flatMap(x=>Array.isArray(x.shop_keyword)?x.shop_keyword:[]);}else{live.countryReady=true;live.countries=(Array.isArray(j.data)?j.data:[]).flatMap(x=>Array.isArray(x.country)?x.country:[]);}});live.at=new Date().toLocaleTimeString('zh-CN');live.status=live.errors.length===3?'平台服务 读取失败':live.errors.length?'部分平台数据已读取':'已读取当前店铺真实数据';render(page);}
+  /** 本页人工草稿编辑，参数本地字段名；不持久化、不写平台。 */
+  function edit(key){if(key==='notes'){notesEditor.open=true;notesEditor.draft=local.notes;refreshNotes();document.querySelector('.wf-notes-field textarea')?.focus({preventScroll:true});return;}const d=document.createElement('dialog');d.className='av-dialog';d.innerHTML=`<form><h2>${key==='task'?'添加任务':key==='goals'?'填写经营目标':'填写定位记录'}</h2><p>用户本页记录；刷新后清空，不提交平台。</p><textarea aria-label="记录内容" rows="5" style="width:100%">${esc(local[key]||'')}</textarea><div class="wf-actions"><button type="button" class="av-btn secondary" data-cancel>取消</button><button class="av-btn">保存本页记录</button></div></form>`;document.body.append(d);d.querySelector('[data-cancel]').onclick=()=>{d.close();d.remove();};d.querySelector('form').onsubmit=e=>{e.preventDefault();const value=d.querySelector('textarea').value.trim();if(key==='task'){if(value)local.tasks.push(value);}else local[key]=value;d.close();d.remove();render(document.getElementById('wfLivePage')?.dataset.wfPage);};d.showModal();}
+  /** 导出实际返回的词表，保护 CSV 公式注入；无数据时不生成假文件。 */
+  function exportWords(){const data=keywordTableData();if(!data.rows.length){window.AdvisorDesign.dialog('没有可导出数据','当前接口没有返回搜索词，请重新读取或检查连接。');return;}const cell=v=>'"'+String(v??'').replace(/^[=+@-]/,"'$&").replace(/"/g,'""')+'"';const csv='\ufeff'+[data.headers,...data.rows].map(r=>r.map(cell).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=['买家搜索词','行业场景热词','广告关键词'][keywordTools.tab]+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+  /** 委托本模块交互；读取、导航和本页草稿均无平台写入。 */
+  document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!b.closest('#wfLivePage'))return;const page=document.getElementById('wfLivePage').dataset.wfPage;if(b.hasAttribute('data-plan-all')){planShowAll=!planShowAll;document.querySelector('.wf-plan-directions').outerHTML=planDirections();}else if(b.dataset.keywordPage!=null){void loadKeywordPage(keywordTools.tab===1?'scenes':'ads',Number(b.dataset.keywordPage));}else if(b.dataset.copyKeyword!=null){void copyKeyword(b);}else if(b.dataset.servicePage==='foundation'){keywordTools.step=Number(b.dataset.serviceIndex);document.querySelectorAll('.wf-flow [data-service-index]').forEach(x=>x.classList.toggle('active',Number(x.dataset.serviceIndex)===keywordTools.step));}else if(b.dataset.keywordTab!=null){keywordTools.tab=Number(b.dataset.keywordTab);document.getElementById('wfKeywordTable').innerHTML=keywordToolBody();}else if(b.dataset.wfService!=null){window.AdvisorServices.showData();service=Number(b.dataset.wfService);render(page);}else if(b.dataset.wfReal){window.AdvisorDesign.real(b.dataset.wfReal);}else{const a=b.dataset.wfAction;if(a==='notes-save'||a==='notes-cancel'){if(a==='notes-save')local.notes=notesEditor.draft.trim();notesEditor.open=false;refreshNotes();}else if(a==='refresh')mount(page);else if(['goals','notes','task'].includes(a))edit(a);else if(['position','foundation'].includes(a))window.AdvisorDesign.navigate(a);else if(a==='publish')window.AdvisorDesign.real('product-publish');else if(a==='product')window.AdvisorDesign.navigate('product');else if(a==='keywords')document.getElementById('wfKeywordTable')?.scrollIntoView({behavior:'smooth'});else if(a==='export')exportWords();else if(a==='unavailable')window.AdvisorDesign.dialog('尚未生成商品布词表','当前搜索词接口没有返回词与商品的对应关系，需要人工匹配后再使用。');}});
+  /** 商品选择仅切换已读取资料，不请求模型或写入商品。 */
+  document.addEventListener('change',event=>{if(!event.target.matches('[data-decoration-product]'))return;decorationProduct=Number(event.target.value);window.AdvisorServices.showData();render('position');});
+  /** 给显式文案分析提供用户选中的商品事实，避免分析其他参考商品；没有选择时返回null。 */
+  /** 打包当前定位页内存数据；index须匹配所选主题。返回独立JSON快照，加载或切换中抛错，避免混入其他页面记录。 */
+  window.AdvisorPositionExport=index=>{
+    if(index!==service||document.getElementById('wfLivePage')?.dataset.wfPage!=='position')throw new Error('定位页已切换，请在当前页面重新点击。');
+    if(!live.at||(index===0&&market.pending)||((index===1||index>=3)&&company.pending)||(index===2&&productPosition.pending))throw new Error('资料仍在读取，请稍后点击分析。');
+    const data={source:'当前营销定位页面已读取的平台数据',read_at:live.at,manual_notes:local.notes,limitations:['仅包含接口已返回的记录，不能视为全店或全行业完整数据。','近30天画像、行业90天场景、商品日/月数据与所选经营日期分别解释。'],errors:live.errors};
+    if(index===0)Object.assign(data,{buyer_profile:{source:'/api/q/customer-profile',period:'近30天',countries:live.countries,words:live.words,identity:market.identity,channels:market.channels},industry:{source:'market-country / market-categories / market-opportunities',scene_period:'90d，第一页10个场景',country_category_period:'接口默认周期，以记录statDate为准',category:market.category,countries:market.countries,categories:market.categories,scenes:market.scenes,errors:market.errors}});
+    if(index===1||index>=3)Object.assign(data,{company:{source:'/api/workspaces/storefront',profile:company.profile,pages:company.pages||[],error:company.error}});
+    if(index===2)Object.assign(data,{products:{source:'/api/dashboard/product-analysis 和 /api/q/shop-product',scope:productPosition.scope||live.productScope,analysis:productPosition.data,records:live.products,total:live.total,error:productPosition.error}});
+    if(index===4)data.selected_product=window.AdvisorPositionContext();
+    return JSON.parse(JSON.stringify(data));
+  };
+  window.AdvisorPositionContext=()=>{const items=company.profile?.productList?.companyProducts||[];return service===4?items[decorationProduct]||null:null;};
+  window.AdvisorPages={...window.AdvisorPages,plan,position,foundation};
+  window.AdvisorMounts={...window.AdvisorMounts,plan:()=>mount('plan'),position:()=>mount('position'),foundation:()=>mount('foundation')};
+})();

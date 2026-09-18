@@ -1,0 +1,1152 @@
+{
+  "schema_version": "lsou.analysis-skills.v1",
+  "reviewed_on": "2026-09-18",
+  "purpose": "当前业务Skill与已绑定入口清单；lib/analysis-runs.js读取报告目录并执行白名单路由，任务使用独立回传接口",
+  "reference_sources": [
+    "docs/references/国际站运营SOP.md",
+    "来搜运营顾问plugin-panel-分享版(1).html：运营顾问及AI_ANALYSIS最后生效条目",
+    "来搜ALI运营顾问-业务与交互说明.md",
+    "public/advisor-services.js",
+    "lib/analysis-runs.js",
+    "lib/analysis-context.js",
+    "public/analysis-reports.js",
+    "public/advisor-analytics.js",
+    "public/planning-tasks.js",
+    "frontend/main.jsx"
+  ],
+  "skills": [
+    {
+      "page": "plan",
+      "page_label": "运营规划",
+      "topic_index": 0,
+      "topic": "新店运营规划",
+      "skill": "lsou-new-store-plan",
+      "skill_path": "skills/lsou-new-store-plan/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "店铺诊断、产品优化、运营规划；活动中心与营销推广",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "plan"
+      ]
+    },
+    {
+      "page": "plan",
+      "page_label": "运营规划",
+      "topic_index": 1,
+      "topic": "老店运营诊断规划",
+      "skill": "lsou-established-store-plan",
+      "skill_path": "skills/lsou-established-store-plan/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "店铺诊断、产品优化、运营规划；活动中心与营销推广",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "plan"
+      ]
+    },
+    {
+      "page": "plan",
+      "page_label": "运营规划",
+      "topic_index": 2,
+      "topic": "3月新贸节作战计划",
+      "skill": "lsou-march-campaign-plan",
+      "skill_path": "skills/lsou-march-campaign-plan/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "店铺诊断、产品优化、运营规划；活动中心与营销推广",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "plan"
+      ]
+    },
+    {
+      "page": "plan",
+      "page_label": "运营规划",
+      "topic_index": 3,
+      "topic": "9月采购节作战计划",
+      "skill": "lsou-september-campaign-plan",
+      "skill_path": "skills/lsou-september-campaign-plan/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "店铺诊断、产品优化、运营规划；活动中心与营销推广",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "plan"
+      ]
+    },
+    {
+      "page": "position",
+      "page_label": "营销定位",
+      "topic_index": 0,
+      "topic": "市场与客群定位",
+      "skill": "lsou-market-positioning",
+      "skill_path": "skills/lsou-market-positioning/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "市场定位、产品定位、客户与公司定位、店铺装修、高质量发品",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。 现有定位主题的开始分析按钮也复用此路由。",
+      "available_pages": [
+        "position"
+      ]
+    },
+    {
+      "page": "position",
+      "page_label": "营销定位",
+      "topic_index": 1,
+      "topic": "公司定位",
+      "skill": "lsou-company-positioning",
+      "skill_path": "skills/lsou-company-positioning/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "市场定位、产品定位、客户与公司定位、店铺装修、高质量发品",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。 现有定位主题的开始分析按钮也复用此路由。",
+      "available_pages": [
+        "position"
+      ]
+    },
+    {
+      "page": "position",
+      "page_label": "营销定位",
+      "topic_index": 2,
+      "topic": "产品定位",
+      "skill": "lsou-product-positioning",
+      "skill_path": "skills/lsou-product-positioning/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "市场定位、产品定位、客户与公司定位、店铺装修、高质量发品",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。 现有定位主题的开始分析按钮也复用此路由。",
+      "available_pages": [
+        "position"
+      ]
+    },
+    {
+      "page": "position",
+      "page_label": "营销定位",
+      "topic_index": 3,
+      "topic": "店铺装修文案",
+      "skill": "lsou-store-copy",
+      "skill_path": "skills/lsou-store-copy/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "市场定位、产品定位、客户与公司定位、店铺装修、高质量发品",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。 现有定位主题的开始分析按钮也复用此路由。",
+      "available_pages": [
+        "position"
+      ]
+    },
+    {
+      "page": "position",
+      "page_label": "营销定位",
+      "topic_index": 4,
+      "topic": "详情页装修文案",
+      "skill": "lsou-product-detail-copy",
+      "skill_path": "skills/lsou-product-detail-copy/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "市场定位、产品定位、客户与公司定位、店铺装修、高质量发品",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。 现有定位主题的开始分析按钮也复用此路由。",
+      "available_pages": [
+        "position"
+      ]
+    },
+    {
+      "page": "foundation",
+      "page_label": "运营基建",
+      "topic_index": 0,
+      "topic": "一键选品",
+      "skill": "lsou-product-selection",
+      "skill_path": "skills/lsou-product-selection/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "产品定位与选品、关键词库、高质量发品",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。 基建步骤按钮仅选择主题与资料，不自动生成。",
+      "available_pages": [
+        "foundation"
+      ]
+    },
+    {
+      "page": "foundation",
+      "page_label": "运营基建",
+      "topic_index": 1,
+      "topic": "整理关键词",
+      "skill": "lsou-keyword-library",
+      "skill_path": "skills/lsou-keyword-library/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "产品定位与选品、关键词库、高质量发品",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。 基建步骤按钮仅选择主题与资料，不自动生成。",
+      "available_pages": [
+        "foundation"
+      ]
+    },
+    {
+      "page": "foundation",
+      "page_label": "运营基建",
+      "topic_index": 2,
+      "topic": "批量标题",
+      "skill": "lsou-product-titles",
+      "skill_path": "skills/lsou-product-titles/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "产品定位与选品、关键词库、高质量发品",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。 基建步骤按钮仅选择主题与资料，不自动生成。",
+      "available_pages": [
+        "foundation"
+      ]
+    },
+    {
+      "page": "foundation",
+      "page_label": "运营基建",
+      "topic_index": 3,
+      "topic": "批量发品规划",
+      "skill": "lsou-publishing-plan",
+      "skill_path": "skills/lsou-publishing-plan/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "产品定位与选品、关键词库、高质量发品",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。 基建步骤按钮仅选择主题与资料，不自动生成。",
+      "available_pages": [
+        "foundation"
+      ]
+    },
+    {
+      "page": "ads",
+      "page_label": "运营推广",
+      "topic_index": 0,
+      "topic": "广告策略",
+      "skill": "lsou-ad-strategy",
+      "skill_path": "skills/lsou-ad-strategy/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "付费广告五维复盘、聚量/问鼎/顶展、金品场景流量",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "ads"
+      ]
+    },
+    {
+      "page": "ads",
+      "page_label": "运营推广",
+      "topic_index": 1,
+      "topic": "广告诊断优化",
+      "skill": "lsou-ad-optimization",
+      "skill_path": "skills/lsou-ad-optimization/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "付费广告五维复盘、聚量/问鼎/顶展、金品场景流量",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "ads"
+      ]
+    },
+    {
+      "page": "ads",
+      "page_label": "运营推广",
+      "topic_index": 2,
+      "topic": "品广诊断优化",
+      "skill": "lsou-brand-ad-optimization",
+      "skill_path": "skills/lsou-brand-ad-optimization/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "付费广告五维复盘、聚量/问鼎/顶展、金品场景流量",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "ads"
+      ]
+    },
+    {
+      "page": "cultivation",
+      "page_label": "优爆品提升",
+      "topic_index": 0,
+      "topic": "优爆品提升",
+      "skill": "lsou-product-growth",
+      "skill_path": "skills/lsou-product-growth/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "优爆品打造、核心产品数据跟踪、资源跟进",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "cultivation"
+      ]
+    },
+    {
+      "page": "cultivation",
+      "page_label": "优爆品提升",
+      "topic_index": 1,
+      "topic": "核心品跟进",
+      "skill": "lsou-core-product-followup",
+      "skill_path": "skills/lsou-core-product-followup/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "优爆品打造、核心产品数据跟踪、资源跟进",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "cultivation"
+      ]
+    },
+    {
+      "page": "cultivation",
+      "page_label": "优爆品提升",
+      "topic_index": 2,
+      "topic": "单品历史数据",
+      "skill": "lsou-product-history",
+      "skill_path": "skills/lsou-product-history/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "优爆品打造、核心产品数据跟踪、资源跟进",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "cultivation"
+      ]
+    },
+    {
+      "page": "product",
+      "page_label": "数据分析与优化",
+      "topic_index": 0,
+      "topic": "店铺诊断",
+      "skill": "lsou-store-diagnosis",
+      "skill_path": "skills/lsou-store-diagnosis/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "店铺诊断、产品优化、付费广告和品广复盘",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "product"
+      ]
+    },
+    {
+      "page": "product",
+      "page_label": "数据分析与优化",
+      "topic_index": 1,
+      "topic": "产品诊断",
+      "skill": "lsou-product-diagnosis",
+      "skill_path": "skills/lsou-product-diagnosis/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "店铺诊断、产品优化、付费广告和品广复盘",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "product"
+      ]
+    },
+    {
+      "page": "product",
+      "page_label": "数据分析与优化",
+      "topic_index": 2,
+      "topic": "广告诊断",
+      "skill": "lsou-ad-diagnosis",
+      "skill_path": "skills/lsou-ad-diagnosis/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "店铺诊断、产品优化、付费广告和品广复盘",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "product",
+        "ads"
+      ]
+    },
+    {
+      "page": "product",
+      "page_label": "数据分析与优化",
+      "topic_index": 3,
+      "topic": "品广诊断",
+      "skill": "lsou-brand-ad-diagnosis",
+      "skill_path": "skills/lsou-brand-ad-diagnosis/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "店铺诊断、产品优化、付费广告和品广复盘",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "product"
+      ]
+    },
+    {
+      "page": "visitor",
+      "page_label": "商机转化",
+      "topic_index": 0,
+      "topic": "优质RFQ信息采集",
+      "skill": "lsou-rfq-selection",
+      "skill_path": "skills/lsou-rfq-selection/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "客户定位、RFQ营销、询盘质量每日登记与跟进；背调六阶段由原型补充",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "visitor"
+      ]
+    },
+    {
+      "page": "visitor",
+      "page_label": "商机转化",
+      "topic_index": 1,
+      "topic": "RFQ报价跟进表",
+      "skill": "lsou-rfq-followup",
+      "skill_path": "skills/lsou-rfq-followup/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "客户定位、RFQ营销、询盘质量每日登记与跟进；背调六阶段由原型补充",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "visitor"
+      ]
+    },
+    {
+      "page": "visitor",
+      "page_label": "商机转化",
+      "topic_index": 2,
+      "topic": "询盘明细分析",
+      "skill": "lsou-inquiry-diagnosis",
+      "skill_path": "skills/lsou-inquiry-diagnosis/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "客户定位、RFQ营销、询盘质量每日登记与跟进；背调六阶段由原型补充",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "visitor"
+      ]
+    },
+    {
+      "page": "visitor",
+      "page_label": "商机转化",
+      "topic_index": 3,
+      "topic": "客户列表分析",
+      "skill": "lsou-customer-segmentation",
+      "skill_path": "skills/lsou-customer-segmentation/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "客户定位、RFQ营销、询盘质量每日登记与跟进；背调六阶段由原型补充",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "visitor"
+      ]
+    },
+    {
+      "page": "visitor",
+      "page_label": "商机转化",
+      "topic_index": 4,
+      "topic": "询盘登记",
+      "skill": "lsou-inquiry-register",
+      "skill_path": "skills/lsou-inquiry-register/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "客户定位、RFQ营销、询盘质量每日登记与跟进；背调六阶段由原型补充",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "visitor"
+      ]
+    },
+    {
+      "page": "visitor",
+      "page_label": "商机转化",
+      "topic_index": 5,
+      "topic": "客户背调",
+      "skill": "lsou-customer-research",
+      "skill_path": "skills/lsou-customer-research/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "客户定位、RFQ营销、询盘质量每日登记与跟进；背调六阶段由原型补充",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "visitor"
+      ]
+    },
+    {
+      "page": "visitor",
+      "page_label": "商机转化",
+      "topic_index": 6,
+      "topic": "询盘分析与回复",
+      "skill": "lsou-inquiry-reply",
+      "skill_path": "skills/lsou-inquiry-reply/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "客户定位、RFQ营销、询盘质量每日登记与跟进；背调六阶段由原型补充",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。",
+      "available_pages": [
+        "visitor"
+      ]
+    },
+    {
+      "page": "shared",
+      "page_label": "共用入口",
+      "topic_index": 0,
+      "topic": "生成任务",
+      "skill": "lsou-planning-tasks",
+      "skill_path": "skills/lsou-planning-tasks/SKILL.md",
+      "output": "task_json",
+      "source_catalog": "public/planning-tasks.js",
+      "sop_basis": "店铺诊断、产品优化与运营规划；付费广告和场景流量",
+      "entry_state": "bound_existing_skill",
+      "entry_note": "React与原生入口均载入任务卡脚本；生成任务绑定v2 Skill，等待资料就绪后保存快照，校验并导入两字段任务。"
+    },
+    {
+      "page": "ads",
+      "page_label": "运营推广",
+      "topic_index": 3,
+      "topic": "广告知识问答",
+      "skill": "lsou-ad-knowledge",
+      "skill_path": "skills/lsou-ad-knowledge/SKILL.md",
+      "output": "html_report",
+      "source_catalog": "lib/analysis-runs.js",
+      "sop_basis": "店铺诊断、产品优化与运营规划；付费广告和场景流量",
+      "entry_state": "bound_report_skill",
+      "entry_note": "页面报告工具条选择本主题后，明确点击开始分析才调用绑定Skill；完成后回显、保存历史并支持下载。 运营推广知识问答表单携带用户实际问题；按钮点击和回车提交均走Skill，不再显示旧平台问答生成入口。",
+      "available_pages": [
+        "ads"
+      ]
+    }
+  ],
+  "current_analysis_buttons": [
+    {
+      "page": "运营规划",
+      "entry_page": "plan",
+      "button": "分析主题 → 开始分析",
+      "scope": "新店运营规划",
+      "skill": "lsou-new-store-plan",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "运营规划",
+      "entry_page": "plan",
+      "button": "分析主题 → 开始分析",
+      "scope": "老店运营诊断规划",
+      "skill": "lsou-established-store-plan",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "运营规划",
+      "entry_page": "plan",
+      "button": "分析主题 → 开始分析",
+      "scope": "3月新贸节作战计划",
+      "skill": "lsou-march-campaign-plan",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "运营规划",
+      "entry_page": "plan",
+      "button": "分析主题 → 开始分析",
+      "scope": "9月采购节作战计划",
+      "skill": "lsou-september-campaign-plan",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "营销定位",
+      "entry_page": "position",
+      "button": "分析主题 → 开始分析",
+      "scope": "市场与客群定位",
+      "skill": "lsou-market-positioning",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "营销定位",
+      "entry_page": "position",
+      "button": "分析主题 → 开始分析",
+      "scope": "公司定位",
+      "skill": "lsou-company-positioning",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "营销定位",
+      "entry_page": "position",
+      "button": "分析主题 → 开始分析",
+      "scope": "产品定位",
+      "skill": "lsou-product-positioning",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "营销定位",
+      "entry_page": "position",
+      "button": "分析主题 → 开始分析",
+      "scope": "店铺装修文案",
+      "skill": "lsou-store-copy",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "营销定位",
+      "entry_page": "position",
+      "button": "分析主题 → 开始分析",
+      "scope": "详情页装修文案",
+      "skill": "lsou-product-detail-copy",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "运营基建",
+      "entry_page": "foundation",
+      "button": "分析主题 → 开始分析",
+      "scope": "一键选品",
+      "skill": "lsou-product-selection",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "运营基建",
+      "entry_page": "foundation",
+      "button": "分析主题 → 开始分析",
+      "scope": "整理关键词",
+      "skill": "lsou-keyword-library",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "运营基建",
+      "entry_page": "foundation",
+      "button": "分析主题 → 开始分析",
+      "scope": "批量标题",
+      "skill": "lsou-product-titles",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "运营基建",
+      "entry_page": "foundation",
+      "button": "分析主题 → 开始分析",
+      "scope": "批量发品规划",
+      "skill": "lsou-publishing-plan",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "运营推广",
+      "entry_page": "ads",
+      "button": "分析主题 → 开始分析",
+      "scope": "广告策略",
+      "skill": "lsou-ad-strategy",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "运营推广",
+      "entry_page": "ads",
+      "button": "分析主题 → 开始分析",
+      "scope": "广告诊断优化",
+      "skill": "lsou-ad-optimization",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "运营推广",
+      "entry_page": "ads",
+      "button": "分析主题 → 开始分析",
+      "scope": "品广诊断优化",
+      "skill": "lsou-brand-ad-optimization",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "优爆品提升",
+      "entry_page": "cultivation",
+      "button": "分析主题 → 开始分析",
+      "scope": "优爆品提升",
+      "skill": "lsou-product-growth",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "优爆品提升",
+      "entry_page": "cultivation",
+      "button": "分析主题 → 开始分析",
+      "scope": "核心品跟进",
+      "skill": "lsou-core-product-followup",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "优爆品提升",
+      "entry_page": "cultivation",
+      "button": "分析主题 → 开始分析",
+      "scope": "单品历史数据",
+      "skill": "lsou-product-history",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "数据分析与优化",
+      "entry_page": "product",
+      "button": "分析主题 → 开始分析",
+      "scope": "店铺诊断",
+      "skill": "lsou-store-diagnosis",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "数据分析与优化",
+      "entry_page": "product",
+      "button": "分析主题 → 开始分析",
+      "scope": "产品诊断",
+      "skill": "lsou-product-diagnosis",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "数据分析与优化",
+      "entry_page": "product",
+      "button": "分析主题 → 开始分析",
+      "scope": "广告诊断",
+      "skill": "lsou-ad-diagnosis",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "运营推广",
+      "entry_page": "ads",
+      "button": "分析主题 → 开始分析",
+      "scope": "广告诊断",
+      "skill": "lsou-ad-diagnosis",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "数据分析与优化",
+      "entry_page": "product",
+      "button": "分析主题 → 开始分析",
+      "scope": "品广诊断",
+      "skill": "lsou-brand-ad-diagnosis",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "商机转化",
+      "entry_page": "visitor",
+      "button": "分析主题 → 开始分析",
+      "scope": "优质RFQ信息采集",
+      "skill": "lsou-rfq-selection",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "商机转化",
+      "entry_page": "visitor",
+      "button": "分析主题 → 开始分析",
+      "scope": "RFQ报价跟进表",
+      "skill": "lsou-rfq-followup",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "商机转化",
+      "entry_page": "visitor",
+      "button": "分析主题 → 开始分析",
+      "scope": "询盘明细分析",
+      "skill": "lsou-inquiry-diagnosis",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "商机转化",
+      "entry_page": "visitor",
+      "button": "分析主题 → 开始分析",
+      "scope": "客户列表分析",
+      "skill": "lsou-customer-segmentation",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "商机转化",
+      "entry_page": "visitor",
+      "button": "分析主题 → 开始分析",
+      "scope": "询盘登记",
+      "skill": "lsou-inquiry-register",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "商机转化",
+      "entry_page": "visitor",
+      "button": "分析主题 → 开始分析",
+      "scope": "客户背调",
+      "skill": "lsou-customer-research",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "商机转化",
+      "entry_page": "visitor",
+      "button": "分析主题 → 开始分析",
+      "scope": "询盘分析与回复",
+      "skill": "lsou-inquiry-reply",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "运营推广",
+      "entry_page": "ads",
+      "button": "分析主题 → 开始分析",
+      "scope": "广告知识问答",
+      "skill": "lsou-ad-knowledge",
+      "source": "public/analysis-reports.js",
+      "handler": "AdvisorReports.generate",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "report_bar"
+    },
+    {
+      "page": "营销定位",
+      "entry_page": "position",
+      "button": "开始分析",
+      "scope": "市场与客群定位",
+      "skill": "lsou-market-positioning",
+      "source": "public/advisor-services.js",
+      "handler": "startPosition(index) → AdvisorReports.start",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "position_toolbar"
+    },
+    {
+      "page": "营销定位",
+      "entry_page": "position",
+      "button": "开始分析",
+      "scope": "公司定位",
+      "skill": "lsou-company-positioning",
+      "source": "public/advisor-services.js",
+      "handler": "startPosition(index) → AdvisorReports.start",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "position_toolbar"
+    },
+    {
+      "page": "营销定位",
+      "entry_page": "position",
+      "button": "开始分析",
+      "scope": "产品定位",
+      "skill": "lsou-product-positioning",
+      "source": "public/advisor-services.js",
+      "handler": "startPosition(index) → AdvisorReports.start",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "position_toolbar"
+    },
+    {
+      "page": "营销定位",
+      "entry_page": "position",
+      "button": "开始分析",
+      "scope": "店铺装修文案",
+      "skill": "lsou-store-copy",
+      "source": "public/advisor-services.js",
+      "handler": "startPosition(index) → AdvisorReports.start",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "position_toolbar"
+    },
+    {
+      "page": "营销定位",
+      "entry_page": "position",
+      "button": "开始分析",
+      "scope": "详情页装修文案",
+      "skill": "lsou-product-detail-copy",
+      "source": "public/advisor-services.js",
+      "handler": "startPosition(index) → AdvisorReports.start",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "position_toolbar"
+    },
+    {
+      "page": "运营推广",
+      "entry_page": "ads",
+      "button": "开始诊断分析",
+      "scope": "广告账户诊断",
+      "skill": "lsou-ad-diagnosis",
+      "source": "public/advisor-analytics.js",
+      "handler": "data-ad-analysis → AdvisorReports.start",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "advertising_explicit"
+    },
+    {
+      "page": "运营推广",
+      "entry_page": "ads",
+      "button": "开始策略分析",
+      "scope": "投放策略",
+      "skill": "lsou-ad-strategy",
+      "source": "public/advisor-analytics.js",
+      "handler": "data-ad-analysis → AdvisorReports.start",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "advertising_explicit"
+    },
+    {
+      "page": "运营推广",
+      "entry_page": "ads",
+      "button": "开始优化分析",
+      "scope": "广告优化建议",
+      "skill": "lsou-ad-optimization",
+      "source": "public/advisor-analytics.js",
+      "handler": "data-ad-analysis → AdvisorReports.start",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "advertising_explicit"
+    },
+    {
+      "page": "运营推广",
+      "entry_page": "ads",
+      "button": "计划诊断 → 开始分析",
+      "scope": "选定计划与用户问题",
+      "skill": "lsou-ad-optimization",
+      "source": "public/advisor-analytics.js",
+      "handler": "data-plan-analysis → AdvisorReports.start",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "advertising_explicit"
+    },
+    {
+      "page": "运营推广",
+      "entry_page": "ads",
+      "button": "广告知识问答 → 开始分析",
+      "scope": "用户实际广告问题",
+      "skill": "lsou-ad-knowledge",
+      "source": "public/advisor-analytics.js",
+      "handler": "data-knowledge-analysis → AdvisorReports.start",
+      "current_route": "POST /api/advisor/reports op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "advertising_explicit"
+    },
+    {
+      "page": "共用任务卡",
+      "button": "生成任务",
+      "scope": "本页经营资料和任务历史",
+      "skill": "lsou-planning-tasks",
+      "source": "public/planning-tasks.js",
+      "handler": "generate",
+      "current_route": "POST /api/advisor/tasks op=generate",
+      "currently_skill_bound": true,
+      "entry_kind": "task_card"
+    }
+  ],
+  "legacy_entries": [
+    {
+      "source": "public/ai-advisor.js",
+      "buttons": [
+        "生成解读",
+        "更新解读",
+        "问AI"
+      ],
+      "state": "原六页兼容链路，当前主导航由运营顾问截获",
+      "suggested_skill_by_module": {
+        "overview": "lsou-store-diagnosis",
+        "visitor": "lsou-customer-segmentation",
+        "product": "lsou-product-diagnosis",
+        "flow": "lsou-store-diagnosis",
+        "market": "lsou-market-positioning",
+        "ads": "lsou-ad-diagnosis"
+      }
+    },
+    {
+      "source": "public/advisor-services.js",
+      "buttons": [
+        "开始分析",
+        "重新分析",
+        "继续讨论"
+      ],
+      "state": "旧Dify分析侧栏代码已移除；当前文件仅适配持久HTML报告入口，不再调用旧analysis/chat路由"
+    },
+    {
+      "source": "public/app.js",
+      "buttons": [
+        "生成运营待办"
+      ],
+      "state": "当前新顾问启用时提前退出，复用生成任务能力"
+    },
+    {
+      "source": "public/app.js",
+      "buttons": [
+        "批量标题"
+      ],
+      "state": "本地占位标题处理，未接真实分析",
+      "prepared_skill": "lsou-product-titles"
+    }
+  ],
+  "excluded_operations": [
+    "普通刷新和取数",
+    "筛选、排序、分页和查看详情",
+    "下载、复制和历史查看",
+    "任务完成、编辑、归档和恢复",
+    "真实商品保存、发布、图片上传",
+    "真实广告修改、报价或消息发送",
+    "平台账户广告诊断和推荐资料读取；具体入口见read_only_entries，不计为本地Skill分析"
+  ],
+  "known_integration_gaps": [
+    "本地代码与自动化回归不等于三平台正式ZIP安装验收；Windows x64、Intel Mac、M芯片Mac需分别打包及实机验证。",
+    "报告入口已绑定Skill；每个真实商家的资料完整性、宿主执行及生成内容仍以具体请求结果为准，不能把目录接线测试说成全部真实业务报告已生成。"
+  ],
+  "analysis_period_contract": {
+    "status": "前端锁定点击周期并等待资料；报告与任务后端复用lib/analysis-context.js严格校验日历日期和粒度边界",
+    "selection": {
+      "accepted_locations": [
+        "period",
+        "selected_period"
+      ],
+      "required_for_period_analysis": [
+        "mode（兼容明确提供的grain）",
+        "startDate",
+        "endDate"
+      ],
+      "modes": [
+        "day",
+        "week",
+        "month"
+      ],
+      "current_meaning": "用户点击时锁定的选择，不是第四种粒度"
+    },
+    "snapshot_rule": "同一请求保存点击时的周期与对应资料；执行跨日或页面切换不改变本次范围",
+    "source_period_rule": "逐来源保留实际起止时间、粒度、数据截止与完整性；有提供时核对点击时间/时区/保存时间，缺失不猜。固定7/30/90天不等于自然周/月。",
+    "decision_scale": {
+      "day": "异常核查与当期执行",
+      "week": "连续变化与调整复查",
+      "month": "持续趋势与资源安排；仍受样本和归因成熟度约束"
+    },
+    "history_rule": "历史结论保留原周期，不覆盖本次选择；复用须核对对象与实际数据范围",
+    "missing_or_conflicting_period": "不猜选择、不冒称所选周期结论；交付不受影响部分并列口径缺项",
+    "current_runtime": "报告与任务均保存mode/startDate/endDate，等待AdvisorLive.ready并核对页面版本；保存完整资料副本。各来源独立窗口仍保留原口径，商品与培养页面只支持日/月。报告entry_page须在available_pages内，历史按实际入口页保存。"
+  },
+  "read_only_entries": [
+    {
+      "page": "运营推广",
+      "button": "读取平台诊断",
+      "scope": "账户近7天独立窗口",
+      "source": "public/advisor-analytics.js",
+      "current_route": "GET /api/advertising/diagnosis",
+      "currently_skill_bound": false,
+      "state": "平台只读资料查询；不调用本地报告Skill，也不等于已经发起报告分析"
+    },
+    {
+      "page": "运营推广",
+      "button": "读取推荐方案",
+      "scope": "平台投放推荐",
+      "source": "public/advisor-analytics.js",
+      "current_route": "GET /api/advertising/recommendation",
+      "currently_skill_bound": false,
+      "state": "平台只读资料查询；不调用本地报告Skill，也不等于已经发起报告分析"
+    }
+  ]
+}
