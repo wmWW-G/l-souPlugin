@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{REPORT_TITLE}}</title>
+<style>
+:root { color-scheme:light; --ink:#25241f; --muted:#6b6961; --paper:#fbfaf7; --line:#e7e3da; --accent:#c65a22; --tint:#fff4e9; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--paper); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; font-size:15px; line-height:1.8; }
+a { color:var(--accent); text-decoration-thickness:1px; text-underline-offset:3px; }
+main { width:min(1160px,100%); margin:auto; padding:44px 32px 40px; }
+.brand { display:flex; align-items:center; gap:10px; color:var(--muted); font-size:13px; letter-spacing:.08em; }
+.brand::before { content:""; width:9px; height:9px; border-radius:50%; background:var(--accent); }
+header { padding-bottom:24px; border-bottom:1px solid var(--line); }
+h1 { font-size:clamp(27px,4vw,38px); letter-spacing:-.03em; line-height:1.35; margin:24px 0 10px; font-weight:650; }
+.scope { margin:0; color:var(--muted); font-size:14px; overflow-wrap:anywhere; }
+.summary { padding:22px 26px; margin:26px 0; background:var(--tint); border-left:3px solid var(--accent); border-radius:0 12px 12px 0; }
+.summary h2 { color:var(--accent); font-size:14px; margin:0 0 8px; }
+.summary p { margin:0; font-size:17px; }
+.report-section, .panel { background:#fff; border:1px solid var(--line); border-radius:14px; padding:24px; margin:0 0 20px; min-width:0; }
+h2 { font-size:20px; line-height:1.5; margin:0 0 16px; font-weight:650; }
+h3 { font-size:16px; margin:20px 0 10px; }
+p { margin:8px 0 14px; }
+ul,ol { padding-left:22px; margin:8px 0; }
+li { margin:5px 0; }
+.table-wrap { max-width:100%; overflow-x:auto; border:1px solid var(--line); border-radius:9px; margin:16px 0 6px; }
+table { border-collapse:collapse; width:100%; font-size:14px; text-align:left; }
+th,td { padding:12px 14px; border-bottom:1px solid var(--line); vertical-align:top; min-width:108px; overflow-wrap:anywhere; }
+th { background:#f6f5f1; color:#5a584f; font-size:13px; font-weight:600; }
+tr:last-child td { border-bottom:0; }
+.badge { display:inline-block; border-radius:20px; background:#f2f1ec; padding:1px 9px; font-size:12px; white-space:nowrap; }
+.badge.priority { color:#a64719; background:#fff0e1; }
+.note { color:var(--muted); font-size:13px; }
+.panels { display:grid; grid-template-columns:1.2fr 1fr; gap:20px; }
+.panels .panel { margin:0; }
+.sources { border-top:1px solid var(--line); margin-top:30px; padding-top:20px; color:var(--muted); font-size:13px; }
+.sources h2 { font-size:14px; margin-bottom:8px; }
+.copy { white-space:pre-wrap; background:#f8f7f3; border-radius:8px; padding:18px; }
+@media(max-width:680px) { main { padding:24px 16px; } .report-section,.panel { padding:18px; } .summary { padding:18px; } .panels { grid-template-columns:1fr; } }
+@media print { body { background:#fff; font-size:12px; } main { width:100%; padding:0; } .report-section,.panel { break-inside:avoid; } .table-wrap { overflow:visible; } th,td { min-width:0; padding:7px; } .panels { display:block; } .panel { margin-bottom:16px!important; } a { color:inherit; } }
+</style>
+</head>
+<body>
+<!-- 标题、范围、摘要为转义后的文字；各内容区为已转义原始资料后组织的可信报告标记。替换所有占位后再交付。业务段落用 report-section，表格用 table-wrap 包裹。 -->
+<main>
+  <header><div class="brand">来搜 · 运营顾问</div><h1>{{REPORT_TITLE}}</h1><p class="scope">{{REPORT_SCOPE}}</p></header>
+  <section class="summary"><h2>本次判断</h2><p>{{REPORT_SUMMARY}}</p></section>
+  <div class="report-body">{{REPORT_SECTIONS}}</div>
+  <div class="panels">
+    <section class="panel"><h2>建议先做什么</h2>{{REPORT_ACTIONS}}</section>
+    <section class="panel"><h2>还需要哪些资料</h2>{{REPORT_GAPS}}</section>
+  </div>
+  <footer class="sources"><h2>资料与口径</h2>{{REPORT_SOURCES}}</footer>
+</main>
+</body>
+</html>

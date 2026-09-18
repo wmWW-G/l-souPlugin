@@ -7,7 +7,7 @@ const fs=require('node:fs');
 const policy=require('../public/time-policy');
 /** 建立隔离浏览器环境，只测试读取/日期/缺失值边界。fetchImpl为网络替身，返回API，无主动异常。 */
 function harness(fetchImpl){
- const context={window:{TimePolicy:{...policy,today:()=> '2026-09-16'}},document:{addEventListener(){},querySelector(){return null;}},fetch:fetchImpl,AbortSignal,console,Map};
+ const context={window:{TimePolicy:{...policy,today:()=> '2026-09-16'}},document:{addEventListener(){},querySelector(){return null;}},fetch:fetchImpl,AbortSignal,console,Map,structuredClone};
  vm.runInNewContext(fs.readFileSync(require.resolve('../public/advisor-design.js'),'utf8'),context);
  return context.window.AdvisorLive;
 }

@@ -44,7 +44,7 @@ test('行业查询跟随当前商家类目，缺类目不发起其他行业查�
 test('RFQ空词不自动查询手表，显式产品词才发起商机查询且不读取演示快照', async () => {
   for (const keyword of ['', 'stainless steel bottle']) {
     const calls = [], nodes = {}, state = { compareIds: new Set(), quoteIds: new Set(), compareVersion: 0, quoteVersion: 0 };
-    const context = vm.createContext({ rfqState: state, $: key => nodes[key] ||= {}, num: value => Number(value || 0),
+    const context = vm.createContext({ rfqLoadVersion: 0, rfqState: state, $: key => nodes[key] ||= {}, num: value => Number(value || 0),
       rfqPriorityScore: () => 0, renderRfqCountries: () => {}, renderRfqKpis: () => {}, renderRfqHistory: () => {},
       renderRfqRights: () => {}, applyRfqFilters: () => {},
       fetch: () => { throw new Error('不应读取演示入口'); },

@@ -3914,6 +3914,8 @@ async function getOrGenerateOverviewTasks(snapshot, force = false) {
 const aiAdvisor = createAiAdvisor({root:__dirname,scope:PUBLISH_IMAGE_LIBRARY_SCOPE});
 const awHandoff = createAwHandoff({scope:PUBLISH_IMAGE_LIBRARY_SCOPE});
 const planningTasks = require('./lib/planning-tasks').createPlanningTasks({scope:PUBLISH_IMAGE_LIBRARY_SCOPE});
+// 所有报告共用账号隔离回传，只读引用人工任务；与平台业务写队列无关。
+const analysisRuns = require('./lib/analysis-runs').createAnalysisRuns({scope:PUBLISH_IMAGE_LIBRARY_SCOPE,taskContext:()=>planningTasks.list().tasks});
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${HOST}:${PORT}`);
   const p = url.pathname;
@@ -3938,6 +3940,11 @@ const server = http.createServer(async (req, res) => {
       try {
         const input=await readJsonBody(req,2*1024*1024);
         if(p==='/api/advisor/tasks')return sendJSON(res,200,{ok:true,data:input.op==='generate'?await planningTasks.generate(input):input.op==='list'?planningTasks.list():planningTasks.update(input)});
+        if(p==='/api/advisor/reports') {
+          const result=input.op==='generate'?await analysisRuns.generate(input):input.op==='list'?analysisRuns.list():input.op==='read'?analysisRuns.read(input.id):input.op==='cancel'?analysisRuns.cancel(input.id):null;
+          if(!result)throw new Error('未知报告操作');
+          return sendJSON(res,200,{ok:true,data:result});
+        }
         if(p==='/api/advisor/aw-handoff')return sendJSON(res,200,{ok:true,...await awHandoff.send(input)});
         if(p==='/api/advisor/cache')return sendJSON(res,200,{ok:true,...aiAdvisor.cached(input)});
         if(p==='/api/advisor/context')return sendJSON(res,200,{ok:true,...aiAdvisor.context(input)});

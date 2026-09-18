@@ -1,0 +1,3 @@
+interface:
+  display_name: "店铺诊断"
+  short_description: "结合已有业务资料完成店铺诊断，说明判断依据、具体工作和待核实内容。"

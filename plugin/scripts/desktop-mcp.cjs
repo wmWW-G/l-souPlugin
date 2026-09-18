@@ -5,7 +5,7 @@ const { desktopPaths, supportDirectory, systemCompatibility } = require('../desk
 const { diagnoseDesktop, inspectPackage } = require('../desktop/diagnostics.cjs');
 const readline = require('node:readline');
 const { spawn } = require('node:child_process');
-const version = '1.0.9';
+const version = '1.0.11';
 if (process.argv.includes('--version')) { console.log(version); process.exit(0); }
 const root = path.resolve(__dirname, '..');
 const logDir = supportDirectory();
@@ -20,12 +20,14 @@ let lifecycleRevision = 0;
 let startupTimer;
 let recoveryState = 'idle';
 let lastRecovery = null;
+let preparingUpdate = false;
+let sessionEnding = false;
 
 /** 写入无敏感内容的生命周期日志。text 为字符串，返回 void；磁盘错误会抛出。 */
 function record(text) { fs.writeSync(log, `${new Date().toISOString()} [plugin] ${text}\n`); }
 /** 启动或复用本插件窗口。参数无，返回状态对象；启动错误转为状态。 */
 function start() {
-  if (child || closing || stopPromise) return status();
+  if (child || closing || stopPromise || preparingUpdate || sessionEnding) return status();
   if(!systemCompatibility().supported){state="unsupported_os";record("系统版本不满足要求：需要macOS 11.0及以上");return status();}
   let executable;
   try {
@@ -68,8 +70,10 @@ function status() {
     error: '工作台启动失败，请让 Accio 读取来搜本机日志并反馈错误摘要。',
     missing_platform_build: '安装包缺少当前系统版本，请导入与电脑芯片对应的独立安装包。',
   };
-  return { application: '来搜国际站经营工作台', version, buildRevision: 'lifecycle-r1', frontend: 'React', desktop: 'Tauri', backend: 'Node.js', state,
-    platform: process.platform, architecture: process.arch, compatibility:systemCompatibility(), message: messages[state],
+  return { application: '来搜国际站经营工作台', version, buildRevision: '20260918-update-r2', frontend: 'React', desktop: 'Tauri', backend: 'Node.js', state,
+    platform: process.platform, architecture: process.arch, compatibility:systemCompatibility(),
+    message: preparingUpdate && state === 'stopped' ? '工作台已停止，正在准备更新；取消更新后才可重新启动。' : messages[state],
+    preparingUpdate, pluginConnection: process.argv.includes('--diagnose') ? 'standalone_diagnostic' : sessionEnding ? 'closing' : 'connected',
     pending: state === 'starting' || state === 'stopping', recoveryState, lastRecovery,
     scope: 'current_mcp_session', backendReady: state === 'ready',
     windowVerified: false, businessDataVerified: false,
@@ -125,16 +129,39 @@ function stopDesktop() {
     return { ok: stopped, desktop: status(), ownedWindowStopped: stopped,
       backendShutdownVerified: false,
       message: stopped
-        ? (hadChild ? '本会话工作台进程已退出，后端按既有生命周期机制清理；MCP 保持待命，可再次启动。'
+        ? (preparingUpdate ? '本会话工作台已停止，已阻止启动与自动恢复；插件连接尚未退出。'
+          : hadChild ? '本会话工作台进程已退出，后端按既有生命周期机制清理；MCP 保持待命，可再次启动。'
           : '本会话没有运行中的工作台，保持待命；未检查或关闭独立打开的窗口。')
         : '尚未确认本会话工作台退出，请读取诊断；未结束其他进程。' };
   }).finally(() => { stopPromise = null; });
   return stopPromise;
 }
+/**
+ * 准备更新：阻止新启动、取消在途恢复并等待本会话窗口退出。
+ * 无参数，返回 Promise<结果>；停止失败保留连接供排障，不删除配置或历史。
+ * 此阶段不会假报整个插件已停用：宿主仍持有当前连接，须继续关闭会话。
+ */
+async function prepareUpdate() {
+  preparingUpdate = true;
+  record('准备更新：禁止启动和恢复');
+  const result = await stopDesktop();
+  return { ...result, preparingUpdate: true, pluginDisabled: false, connectionClosed: false,
+    readyToReplaceFiles: false,
+    nextAction: result.ok ? 'close_plugin_session' : 'inspect_stop_failure',
+    message: result.ok ? '工作台已停止，配置和历史已保留；还需关闭插件连接以释放安装文件。'
+      : '尚未确认工作台退出，暂不更新；请先读取停止诊断。' };
+}
+/** 取消更新准备。无参数，返回结果对象；停止未结束或连接正在退出时拒绝，不自动打开窗口。 */
+function cancelUpdate() {
+  if (stopPromise || closing || sessionEnding) return { ok: false, desktop: status(), message: '停止或退出仍在进行，请等待结束。' };
+  preparingUpdate = false;
+  record('已取消更新准备，恢复工作台待命');
+  return { ok: true, desktop: status(), message: '已取消更新准备，需要时可以重新启动工作台。' };
+}
 /** 执行一次有限恢复：补齐随包可执行权限、重新发现当前会话、重启本 MCP 的失败窗口并验证。 */
 async function repairOnce() {
   const revision = lifecycleRevision;
-  const cancelled = () => revision !== lifecycleRevision || closing || Boolean(stopPromise);
+  const cancelled = () => revision !== lifecycleRevision || closing || preparingUpdate || Boolean(stopPromise);
   const cancelledResult = () => ({ ok: false, cancelled: true, actions, desktop: status(), message: '恢复已被停止请求取消，未重新启动工作台。' });
   record('开始有限启动恢复');
   const actions = [];
@@ -169,6 +196,7 @@ async function repairOnce() {
 }
 /** 合并重复恢复请求，避免两个工具调用同时关闭/启动窗口。 */
 function repair() {
+  if (preparingUpdate || sessionEnding) return Promise.resolve({ ok: false, desktop: status(), message: '已准备停止或更新，未执行恢复；用户取消更新后才可重新启动。' });
   if (stopPromise) return Promise.resolve({ ok: false, pending: true, desktop: status(), message: '正在停止工作台，未执行恢复。' });
   if (!repairPromise) {
     recoveryState = 'running';
@@ -198,6 +226,9 @@ function shutdown() {
   setTimeout(() => { child?.kill('SIGKILL'); process.exit(0); }, 1500);
 }
 const tools = [
+  { name: 'lsou_plugin_prepare_update', description: '为更新或重装停止本会话来搜工作台，取消恢复并阻止重新启动；保留配置和历史。仍需关闭插件连接释放安装文件。', inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
+  { name: 'lsou_plugin_shutdown', description: '用户要求停止整个来搜插件或准备更新时使用：先停止本会话窗口，再回复结果并退出当前插件连接。宿主可能重新连接；不等同于卸载或全局停用，不关闭 Accio。', inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
+  { name: 'lsou_plugin_cancel_update', description: '用户取消来搜更新准备时恢复待命；不会自动打开窗口、运行分析或安装文件。', inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
   { name: 'lsou_desktop_stop', description: '停止本 MCP 会话启动的来搜窗口，触发所属后端清理；保留插件待命，可再次启动。不删除数据、不关闭 Accio 或其他会话。', inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
   { name: 'lsou_desktop_launchpad', description: '取得来搜可交互 HTML 启动页。将返回的 widget 代码块原样渲染到回复；本工具不启动窗口、不查询店铺。', inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
   { name: 'lsou_desktop_status', description: '读取来搜 Tauri 桌面工作台运行状态，不查询店铺数据。', inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
@@ -234,8 +265,25 @@ input.on('line', async line => {
         if (!style || !body) throw new Error('Launchpad template is incomplete');
         return reply(request.id, { content: [{ type: 'text', text: '```widget lsou_launchpad\n' + style + '\n' + body + '\n```' }] });
       }
+      if (name === 'lsou_plugin_shutdown') {
+        const result = await prepareUpdate();
+        const ending = result.ok;
+        reply(request.id, { content: [{ type: 'text', text: JSON.stringify({ ...result,
+          shutdownScheduled: ending,
+          message: ending
+            ? '本会话工作台已停止，插件连接即将退出。若导入仍提示文件占用，请完全退出 Accio Work（包括托盘）后再打开导入；配置和历史保留。'
+            : result.message }) }] });
+        // 先让宿主收到结果，再结束持有随包 Node 的连接。不能通过退出伪造宿主“已停用”。
+        if (ending && !sessionEnding) {
+          sessionEnding = true;
+          record('用户请求停止整个插件：即将退出当前连接');
+          setTimeout(shutdown, 250);
+        }
+        return;
+      }
       if (name === 'lsou_desktop_open') start();
       const result = name === 'lsou_desktop_diagnose' ? await diagnoseDesktop(root, status())
+        : name === 'lsou_plugin_prepare_update' ? await prepareUpdate() : name === 'lsou_plugin_cancel_update' ? cancelUpdate()
         : name === 'lsou_desktop_stop' ? await stopDesktop() : name === 'lsou_desktop_repair' ? await repair() : name === 'lsou_desktop_open'
           ? await withinClientDeadline(waitForStartup(), () => ({ ...status(), message: '工作台仍在启动，尚未确认就绪。请稍后读取 lsou_desktop_status；保持插件启用。' })) : status();
       return reply(request.id, { content: [{ type: 'text', text: JSON.stringify(result) }] });

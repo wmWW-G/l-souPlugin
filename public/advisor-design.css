@@ -665,3 +665,13 @@ html body .av-date-popover{position:fixed;inset:auto;margin:0;width:340px;max-wi
 #advisorDesign .wf-notes-field textarea:focus{border-color:#ff8b49;box-shadow:0 0 0 3px #fff1e7}
 #advisorDesign .wf-notes-field textarea::placeholder{color:#b1a69d}
 #advisorDesign .wf-notes-actions{display:flex;justify-content:flex-end;gap:8px;flex-shrink:0}
+
+/* 报告工具条保持紧凑；历史浮层和沙箱正文独立于业务卡固定高度。 */
+.av-design .ar-toolbar{flex:none;grid-column:1/-1;padding:8px 12px;background:#fff;border:1px solid #e9edf3;border-radius:7px;margin-bottom:10px;position:relative;z-index:4}
+.av-design .ar-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px}
+.av-design .ar-controls label{display:flex;align-items:center;gap:8px}.av-design .ar-controls select{max-width:230px;padding:6px;border:1px solid #dce3ee;border-radius:4px}
+.av-design .ar-controls input{flex:1;min-width:160px;padding:7px;border:1px solid #dce3ee;border-radius:4px;font:inherit}
+.av-design .ar-status{font-size:11px;color:#758299;margin:5px 0 0}.av-design .ar-history{margin-left:auto}.av-design .ar-history summary{cursor:pointer;color:#53617d}
+.av-design .ar-history>div{position:absolute;right:0;top:45px;width:min(600px,90vw);max-height:360px;overflow:auto;background:#fff;border:1px solid #dce3ee;box-shadow:0 8px 30px #17244320;padding:12px;border-radius:7px}
+.av-design .ar-history-row{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:8px 0;border-bottom:1px solid #edf0f5}.av-design .ar-history-row small{display:block;color:#8490a6;margin-top:3px}
+.ar-dialog{width:min(1200px,94vw);height:88vh;max-width:94vw;max-height:92vh;padding:0;border:1px solid #dce3ee;border-radius:10px;box-shadow:0 20px 90px #16243c38;overflow:hidden}.ar-dialog::backdrop{background:#18213666}.ar-dialog[open]{display:flex;flex-direction:column}.ar-dialog header{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid #e6ebf3;flex:none}.ar-dialog header>div{flex:1}.ar-dialog h3{margin:0 0 4px;font:600 16px system-ui}.ar-dialog small{color:#718099;font:12px system-ui}.ar-dialog iframe{border:0;width:100%;flex:1;min-height:0;background:white}.ar-dialog button{cursor:pointer;padding:7px 12px}

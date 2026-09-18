@@ -1,6 +1,6 @@
 {
   "name": "lsou-workbench",
-  "version": "1.0.9",
+  "version": "1.0.11",
   "private": true,
   "scripts": {
     "dev": "vite --config vite.config.mjs",
@@ -8,6 +8,10 @@
     "prepare:desktop": "node scripts/prepare-desktop.mjs",
     "build:desktop": "node scripts/build-desktop.mjs",
     "package:plugin": "node scripts/package-plugin.mjs",
+    "release:check": "node scripts/manage-release.mjs check",
+    "release:version": "node scripts/manage-release.mjs version",
+    "release:publish": "node scripts/manage-release.mjs publish",
+    "release:prune": "node scripts/manage-release.mjs prune",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {

@@ -42,6 +42,7 @@ await fs.rm(payload, { force: true, recursive: true });
 await fs.mkdir(payload, { recursive: true });
 // 白名单复制；绝不把开发机账号、密钥、日志、测试与设计资料打包。
 await fs.cp(path.join(root,'plugin/skills'),path.join(payload,'plugin/skills'),{recursive:true});
+await fs.copyFile(path.join(root,'plugin/analysis-skills.json'),path.join(payload,'plugin/analysis-skills.json'));
 for (const entry of ['server.js', 'lib', 'desktop']) await fs.cp(path.join(root, entry), path.join(payload, entry), { recursive: true });
 await fs.cp(path.join(root, 'public'), path.join(payload, 'public'), { recursive: true });
 await fs.cp(path.join(root, 'dist'), path.join(payload, 'public'), { recursive: true });

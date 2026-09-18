@@ -1,0 +1,3 @@
+interface:
+  display_name: "客户背景核查"
+  short_description: "结合已有业务资料完成客户背景核查，说明判断依据、具体工作和待核实内容。"

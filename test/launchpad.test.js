@@ -10,7 +10,7 @@ const html = fs.readFileSync('plugin/skills/lsou-launchpad/assets/launchpad.html
 /** 用隔离 DOM 替身执行正式页面脚本。bridge 是可选宿主函数；返回节点与计时回调，脚本错误直接抛出。 */
 function page(bridge) {
   const elements = new Map();
-  for (const id of ['launchpad', 'feedback', 'launch', 'check', 'help']) {
+  for (const id of ['launchpad', 'feedback', 'launch', 'check', 'help', 'stop', 'update']) {
     elements.set(id, { textContent: '', disabled: false, classList: { add() {} }, addEventListener(event, callback) { this[event] = callback; } });
   }
   const timers = [];
@@ -25,12 +25,16 @@ test('launchpad sends only deliberate fixed actions, suppresses double clicks, a
   const p = page(text => messages.push(text));
   assert.deepEqual(messages, []);
   p.get('launch').click(); p.get('launch').click(); p.get('help').click();
-  assert.deepEqual(messages, ['启动来搜工作台']);
+  assert.deepEqual(messages, ['Use lsou-launchpad skill; action=start']);
   assert.match(p.get('feedback').textContent, /请求已发送/);
   assert.doesNotMatch(p.get('feedback').textContent, /已就绪|已成功|已连接/);
   p.flush(); p.get('check').click(); p.flush(); p.get('help').click();
-  assert.deepEqual(messages, ['启动来搜工作台', '查看来搜工作台启动状态', '帮我排查来搜工作台启动问题']);
-  assert.ok(messages.every(text => text.length <= 500));
+  assert.deepEqual(messages, ['Use lsou-launchpad skill; action=start', 'Use lsou-launchpad skill; action=status', 'Use lsou-startup-recovery skill; action=diagnose-and-recover']);
+  p.flush(); p.get('stop').click(); p.get('update').click();
+  assert.equal(messages.at(-1), 'Use lsou-launchpad skill; action=shutdown');
+  p.flush(); p.get('update').click();
+  assert.equal(messages.at(-1), 'Use lsou-launchpad skill; action=update');
+  assert.ok(messages.every(text => text.length <= 100 && /^[\x20-\x7e]+$/.test(text) && !text.includes('$')));
 });
 
 test('standalone preview and a broken bridge show actionable errors without a success state', () => {

@@ -38,7 +38,7 @@
 - `public/style.css`：负责来搜品牌浅色工作台、220 px 桌面固定边栏、68 px 收起态、窄屏横向导航、结果数据带、行动清单、诊断摘要、表格、图表、弹窗、日志和响应式布局。六个连续业务单页共用一页式标题和 1180 / 820 / 520 px 响应式骨架，但分别采用订单状态刻度、风险双层口径、店铺首页三栏规划台、素材工具架、知识目录与正文阅读台、成员目录与权限矩阵，避免相同卡片模板重复套用。知识页在桌面端使用双栏资料台，移动端切换目录/正文；桌面端产品发布页使用固定窗口工作区：顶部状态与紧凑进度、底部批量操作保持可见，左右两张卡片独立纵向滚动。
 - `demo-data/workctl-demo.json`：用于页面设计和本地演示的脱敏业务 Demo，保存真实汇总、趋势、分布、样本状态、真实空状态，以及产品发布页已核对的字段、命令链路和脱敏写入审计；不保存买家、联系人、账号、订单、商品标识或凭据。
 - `demo-data/workctl-command-audit.json`：保存 124 个查询 Schema 的实跑审计汇总、受阻原因和零写操作边界。
-- `design-pages/`：保存按当前固定侧边栏逐页生成的页面截图；生成模型草图放在 `imagegen-drafts/`，不得与浏览器实拍验收图混用。
+- `design-pages/`：仅本地留档的历史页面截图；生成模型草图放在 `imagegen-drafts/`。2026-09-18 起与根目录设计截图、旧设计验收目录一起排除出 Git；不影响正式界面资源。
 - `public/assets/lsou-logo-square.png`：官网同款方形应用标识和 favicon。
 - `public/assets/lsou-logo-new.png`：经营概览使用的新版透明品牌签名。
 - `design-qa.md`：Product Design 对比证据、响应式与交互验收记录。
@@ -878,3 +878,65 @@ SOP 参考 docs/references/国际站运营SOP.md 的“核心产品数据跟踪�
 - 当前单机本地保存，无跨设备同步；取消等待不取消Accio会话，只停止导入该请求。AI新增建议，既有任务编辑由用户完成。
 
 - 执行任务UI最新约定：直接显示work（工作事项）、reason（为什么要做），操作仅完成/编辑，最近/历史页签保留。Skill lsou-planning-tasks v2 输出两字段；内部ID、完成状态、归档和修订字段只用于持久化，不作为用户表单。旧title/action/evidence仍可兼容，旧数据不删除。
+
+
+### 2026-09-18 分析报告实际执行与持久回传（替代此前未接通状态）
+- 当前分析目录由 `plugin/analysis-skills.json` 提供，`lib/analysis-runs.js` 读取31个 `html_report` 项并校验允许的入口页；任务另由 `lib/planning-tasks.js` 绑定 `lsou-planning-tasks`。广告诊断可从分析页和推广页进入，广告问答归推广页；历史按实际 `entry_page` 保存。
+- `public/analysis-reports.js` 在各业务页挂载分析主题、补充问题、开始分析与报告历史；`public/advisor-services.js` 只保留现有按钮的适配。选择主题不生成。营销定位、基建流程、广告专用按钮、知识问答及单计划表单统一进入相应Skill。账户平台诊断/推荐仍可只读取资料；知识问答和单计划生成不再绕开Skill。原旧接口仅兼容，不代表当前入口使用它们。
+- 正式React脚本表与原生HTML入口均加载 `analysis-reports.js`、`planning-tasks.js`。桌面准备同时复制Skills及 `analysis-skills.json`，否则打包后报告目录不可用。
+- 点击时锁定日/周/月与起止日、资料版本、明确选定对象；等待 `AdvisorLive.ready()` 后保存全部已读取记录。期间切页、切周期或换对象则拒绝旧请求；`AdvisorLive.records()` 不再默默只取30条。各来源保留自己的统计范围，页面不支持的周粒度不能伪装为周数据。“当前”是点击时的选择，不是第四种模式。
+- `lib/analysis-context.js` 共用完整日期/自然周/自然月校验及指标字典；关键词搜索热度指数与本店访客数不可混算。当前未结束周期可以保存，但Skill必须说明完整性与数据覆盖，不能按完整业绩判断。
+- `POST /api/advisor/reports` 接受 `list/generate/read/cancel`。资料按账号哈希存于 `~/.lsou/analysis-runs/<账号哈希>/`；每请求固定保存 `input.json`、`skill/`及模板、模型 `report.html`，服务端验收后冻结为 `accepted.html`；`index.json` 保存状态、摘要和哈希。请求编号幂等，资料变化拒绝复用；同主题同周期未完成或无效结果须先取消再重发。取消仅停止本地接收，不终止宿主对话。
+- 新分析先排除对应Skill版本已变化的旧报告，再带入同主题最近5份和其他主题最近8份报告摘要、原周期及本机历史原件位置，以及已有人工任务；历史是待核对参考，不能取代当前事实。规则更新前的报告仍可在历史查看，标明旧版分析，不自动复用其结论；历史按新到旧显示生成时间。全部历史原件仍保留，未实现跨设备同步。
+- 模型原子写完整报告后，服务端轮询导入；不信任报告路径、符号链接或执行内容。静态结构及业务正文校验后注入禁止脚本和网络的内容策略，前端用无权限 `sandbox` 展示；下载保留内容策略。已验收历史不可被后续源文件悄悄覆盖，读取时验证哈希。
+- 任务新增/编辑点击只委托具体按钮，避免根容器页签属性误触发重绘；人工修订、完成与历史保留。v2最多8条，标准化两列正文精确去重并保留编辑前指纹；不同对象/理由仍可新增。源材料只作建议，不自动改投放、商品或向客户发送内容。
+- 本地验证：`npm test`、`npm run build:frontend`；Skill用官方 `quick_validate.py`。真实宿主测试必须同时检查固定Skill副本、输入快照、写回原件、存储导入与页面回显。合成数据/browser通过不能代替三平台正式Tauri安装包验收。本轮证据位于 `tmp/skill-repair-20260918/`，原失败证据保留在 `tmp/skill-acceptance-20260918-180015/`。
+
+### 2026-09-18 1.0.10 三平台完整插件封装
+
+- package/Cargo/Tauri/插件/MCP/前端版本统一1.0.10，buildRevision为20260918。release仅新增三个独立ZIP：macos-arm64、macos-x64、windows-x64；保留旧包，最新入口见README。每包35份Skill，其中32项分析/任务及3项启动辅助，31份报告模板与分析目录同时进入插件根目录和原生payload。
+- 沿用Windows已修复的普通绝对资源目录、固定相对bootstrap参数、资源cwd、随包node.exe、原生脱敏错误日志、20秒内返回在途状态与受控停止机制。标准包无开发账号快照、示例商品、运行日志或内部测试密钥；配置和业务历史继续留在用户本机原目录。
+- 按目标顺序构建，共享payload/runtime不并发覆盖；Windows使用已有cargo-xwin/LLVM/LLD和XWIN缓存，Mac完成adhoc签名核验，未做Apple公证。45项Node相关测试及9项Rust测试通过；Windows/Intel为原生编译与结构检查，未在目标机运行。
+- Mac M芯片从打包stage的MCP入口验证加载后待命、主动启动、真实Tauri窗口、当前店铺数据、分析入口/任务模块、停止及后端端口关闭；没有重装用户Accio插件。build.json保持runtimeVerified=false，不将本机stage测试冒充三平台导入验收。用户明确排除Skill效果检验，本次未调用分析生成。证据在tmp/plugin-release-1.0.10/。
+
+### 2026-09-18 Windows 1.0.11 分析对话唤起修复
+
+- 用户Windows实机反馈：1.0.10窗口/资料保存正常，explorer.exe短链接复现退出码1且Accio未收到；PowerShell Start-Process对照能创建新对话。证据支持替换中继方式，不声称已查清Windows内部原因或验证完整业务链接。
+- lib/aw-handoff.js的openAW在Windows通过固定PowerShell脚本调用Start-Process，完整URL放子进程专用环境变量，不插入脚本文本，不启用ExecutionPolicy绕过、不自动fallback/重试。Mac open及Linux xdg-open行为保持。
+- launchErrorDetails只保留code/errno/signal/killed/stderrPresent及固定结构的HRESULT/Win32错误码；不记录URL、原始异常正文、路径或凭据。报告、任务和兼容定位交接均记录请求号与此诊断；界面错误不再一律归因未登录。
+- 本次只交付1.0.11 Windows x64，Mac继续1.0.10。版本与原生程序同步重建，buildRevision=20260918-win-protocol-r1。198项工程测试197通过、0失败、1项原有可选发布测试跳过；ZIP结构/CRC/清洁检查与151个payload文件一致性通过。未发起实际协议/Skill效果测试，Windows新包的完整链接投递仍待目标机确认，runtimeVerified=false。
+
+### 2026-09-18 1.0.11 更新准备与插件退出
+
+- `plugin/scripts/desktop-mcp.cjs` 新增 `lsou_plugin_prepare_update / lsou_plugin_cancel_update / lsou_plugin_shutdown`。更新准备阻止启动和恢复，复用已有停止等待；整体退出先确认所属窗口退出、返回回执，再结束当前连接。失败保留连接供排障，不删除配置或历史，不结束其他连接或独立窗口。
+- `preparingUpdate` 只属于当前连接；`shutdownScheduled` 是即将退出的回执，不能当作宿主全局停用。诊断独立进程标记 `pluginConnection=standalone_diagnostic`。宿主可能重新连接，文件占用时完全退出 Accio（Windows 包括托盘）后再打开导入。
+- 启动页新增停止/更新按钮，启动与排障 Skill 按用户意图路由。面向用户不输出工具名，不为验证更新运行分析。停止状态不当作需要自动修复的错误。
+- 只读核对当前 Accio 0.32.6 的导入源码：标准ZIP会解压到按插件ID确定的固定来源，已有local-directory来源一致时允许再次导入；不同来源仍可能冲突。旧全局插件toggle已退役，未调用它或写插件注册表。当前没有自动下载更新功能，源码检查不等于Windows覆盖导入实测。
+- 本次Windows包保持1.0.11，构建标识20260918-update-r2，文件名增加update-r2以保留原包；打包脚本可用`--revision`选择安全修订名。Mac共用源码已更新，既有Mac 1.0.10交付包不变。相关21项工程检查通过，2份Skill静态验证通过，无Skill效果测试。
+- 修订ZIP的结构、CRC、35份Skill及151个payload文件一致性检查通过，原包保留。工程和构建证据在tmp/plugin-release-1.0.11-update-r2/，Windows实机导入更新仍未验证；当前未修改用户的已安装插件。
+
+### 2026-09-18 本地正式发布管理基线
+
+- 用户确认当前Windows可用、Mac正常，选择先管理本地版本、校验、三平台包和更新记录。`release-manifest.json`记录Windows1.0.11/update-r2与Mac两种架构1.0.10的实际SHA256，三个基线包未重打。Mac反馈未指明芯片，不据此新增Intel实机验收结论。
+- 读取当前Accio Work0.32.6及内置plugin-create1.0.3规范，版本独立于宿主；validate-plugin.cjs与当前官方验证器逐字节相同。不新增未知宿主兼容字段，不修改安装记录。
+- `scripts/manage-release.mjs`提供check/version/publish/prune。同步package/lock/插件/Tauri/Cargo/MCP/前端版本；拒绝同版重发、降级、文件名后缀替代版本。登记要求三平台同版本同源码，自动更新README入口。构建记录sourceDigest，打包和登记均检查，避免过期构建混入。
+- ZIP和校验文件排他创建；临时展开目录移至.build-cache/package-stage。发布元数据进入Git，release只放交付包。后续正式版本必须高于1.0.11；本次不自行升级当前已确认基线。
+- 删除23个旧ZIP、23个校验文件和5项重复展开/验证产物；保留三包与3份校验文件。清理和工程证据在tmp/release-management/。未重装用户插件、上传市场或运行分析。
+
+### 2026-09-18 GitHub 源码仓库整理
+
+- 用户指定远端为 `https://github.com/wmWW-G/l-souPlugin`，默认分支 `main`。清理前远端为 2026-09-03 的 `7f71ced709d8baa05df66e215ac959baf7575532`，仅一个分支，无标签或 Releases；本机源码仓库仍独立保留既有历史。
+- 通过 `.build-cache/remote-cleanup-source` 中的远端克隆整理、提交和推送，沿用远端历史，不重写提交。同步当前源码、35 份 Skill、工程测试及发布记录；仅移除根目录 `design-*` 材料、`design-pages/`、`design-audit-2026-09-03/` 的 95 个旧设计文件，本地原件保留。
+- `.gitignore` 固定忽略旧设计材料；README 聚焦当前安装、开发、结构、分析及发布流程。发布登记只列本地包名，不生成 GitHub 上不存在的 ZIP 下载链接。历史细节继续保存在本文件及开发日志。
+- ZIP、构建缓存、业务记录、密钥和日志不上传。后续维护先读取最新 main，使用正常提交与推送并核对远端 SHA；不强推覆盖历史。
+- 用户随后要求直接提交并推送：本机仓库配置 `origin=git@github-b:wmWW-G/l-souPlugin.git`，仅此仓库使用 SSH 443 连接。核对远端 `ffc1467` 的227个文件后连接双方既有历史，保留当前源码；后续直接在项目根目录的 `main` 提交、推送，不再通过独立清理克隆发布。95份设计资料和5份生成schema仅从版本管理移除，本地原件保留。
+
+### 2026-09-18 Skill 短消息与本地回传规则
+
+- 用户要求按钮消息仅保留 Skill Name 和必要输入参数。31 份报告及执行任务统一调用 `skillRequestMessage(skillName, period, requestRef)`，按用户最新要求输出普通英文指令 `Use <skill-name> skill; period=day|week|month; dates=start..end; request=scope/id`，不使用美元符号；不再发送长规则或绝对文件路径。账号隔离段沿用现有 scope 的20位哈希，任务编号沿用独立请求。
+- 32 份业务 Skill 新增“工作台请求与本地回传”：按系统用户主目录和任务参数精确定位 `.lsou/analysis-runs/` 或 `.lsou/planning-tasks/` 的请求，读取 input.json 并核对身份、周期、固定技能副本和输出路径；不扫描账号或猜最新任务。原日/周/月尺度与各主题业务方法保留。
+- 报告快照增加 request_ref；任务快照增加 schema_version=lsou.planning-run.v1、request_ref、result_path，完整技能副本统一保存在请求的 skill/。旧在途请求及历史导入机制不迁移、不删除；新消息与新技能随同一新版交付。
+- 临时文件写完并关闭后，在同目录原子重命名为 report.html/result.json，再回读；固定回传格式、路径边界、任务去重和人工状态保护写入对应 Skill。报告或任务本身才是回传产物，聊天只给简短完成说明。
+- 27 项定向工程检查通过，包含31报告入口、任务日/周/月参数定位、原子回传、历史恢复和 Windows 协议回归；32份 Skill 格式检查通过。没有发送真实分析、运行模型效果测试、重打包、重装或推送远端。
+
+- 英文命令统一：启动页五个按钮也发送 `Use ... skill; action=...`，启动/状态/停止/更新由启动Skill显式路由，排障使用 diagnose-and-recover 且保留一次恢复上限。旧定位兼容接口使用 `Use ... skill; input=<snapshot>`。仅发送指令改为英文，Skill内的方法、中文报告与界面文案沿用原约定。

@@ -1,0 +1,3 @@
+interface:
+  display_name: "采购需求筛选"
+  short_description: "结合已有业务资料完成采购需求筛选，说明判断依据、具体工作和待核实内容。"

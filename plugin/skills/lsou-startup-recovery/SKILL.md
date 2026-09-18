@@ -7,6 +7,8 @@ description: 排查并恢复来搜国际站经营工作台启动失败、窗口�
 
 目标是让用户能进入来搜 Tauri 工作台。用户只需在 Accio Work 中说明无法使用，不需要自行找文件、安装开发工具或敲命令。
 
+启动页发送 `Use lsou-startup-recovery skill; action=diagnose-and-recover` 时，先取得真实诊断，再严格按下文证据与次数限制决定是否恢复；不是无条件重启。结果仍用简短中文说明。
+
 ## 先取得实际诊断
 
 优先调用本插件的 `lsou_desktop_diagnose`。它检查当前电脑系统、包内程序、当前活动空间、国际站生意助手、实际安装的 Workctl、会话认证与经营 schema。输出不包含账号、令牌、API Key、原始命令或日志正文。
@@ -21,6 +23,8 @@ description: 排查并恢复来搜国际站经营工作台启动失败、窗口�
 ## 根据检查结果处理
 
 先看 `runtime.issue.code`、`package.issue` 和 `compatibility`；再看 `desktop.state`。`lastStartup` 是历史摘要，只能结合时间和 `processAlive` 使用，不能用历史 ready 证明当前成功。
+
+`desktop.preparingUpdate=true` 或用户正在要求停止、更新时，转到 `lsou-launchpad` 的停止与更新流程；这不是需要自动恢复的故障，不得重新启动工作台。插件连接主动退出后不反复探测唤醒它；当前宿主重新连接或文件占用时，提示完全退出 Accio Work（Windows 包括托盘）后重新导入。不要调用已退役的全局插件开关或改写插件安装记录。
 
 通过独立 CLI `--diagnose` 运行时，`desktop.state=stopped` 只描述这次诊断进程没有创建窗口，不能据此断言全局工作台已关闭。应结合 `lastStartup.processAlive` 和实际窗口核验；若原生进程仍存活但无法观察窗口，报告“进程仍在运行，窗口显示状态待确认”。已有 MCP 状态工具时优先读取它，不为了查询状态另开诊断进程。
 

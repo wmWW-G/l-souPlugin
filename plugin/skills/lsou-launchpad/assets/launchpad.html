@@ -28,14 +28,14 @@ button{font:inherit}button:focus-visible{outline:3px solid #292820;outline-offse
     </div>
     <div class="art" aria-hidden="true"><div class="orbit"></div><div class="disc"><svg viewBox="0 0 100 100" fill="none"><path d="M22 78L76 24M24 24h52v52" stroke="#fff8e7" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></svg></div><svg class="rays" viewBox="0 0 40 40" fill="none" stroke="#2b2b21" stroke-width="2.3"><path d="M20 0v40M0 20h40M6 6l28 28M6 34L34 6"/></svg><span class="sticker">LET’S GET TO WORK ↗</span><span class="hello">HELLO, OPPORTUNITY</span></div>
   </section>
-  <footer class="foot"><p class="feedback" id="feedback" role="status" aria-live="polite">点击后，将打开来搜桌面工作台。</p><div class="links"><button class="link" id="check" type="button">查看状态</button><button class="link" id="help" type="button">帮我排查</button></div></footer>
+  <footer class="foot"><p class="feedback" id="feedback" role="status" aria-live="polite">点击后，将打开来搜桌面工作台。更新前请保存尚未提交的内容。</p><div class="links"><button class="link" id="check" type="button">查看状态</button><button class="link" id="help" type="button">帮我排查</button><button class="link" id="stop" type="button">停止插件</button><button class="link" id="update" type="button">准备更新</button></div></footer>
 </main>
 <script>
 (function () {
   'use strict';
   var root = document.getElementById('launchpad');
   var feedback = document.getElementById('feedback');
-  var buttons = ['launch', 'check', 'help'].map(function (id) { return document.getElementById(id); });
+  var buttons = ['launch', 'check', 'help', 'stop', 'update'].map(function (id) { return document.getElementById(id); });
   var pending = false;
   /** 向 Accio 当前对话发送用户点击的请求。text/label 为字符串，无返回值；桥接异常就地显示。 */
   function request(text, label) {
@@ -60,9 +60,11 @@ button{font:inherit}button:focus-visible{outline:3px solid #292820;outline-offse
       buttons.forEach(function (button) { button.disabled = false; });
     }, 2400);
   }
-  document.getElementById('launch').addEventListener('click', function () { request('启动来搜工作台', '启动'); });
-  document.getElementById('check').addEventListener('click', function () { request('查看来搜工作台启动状态', '状态查询'); });
-  document.getElementById('help').addEventListener('click', function () { request('帮我排查来搜工作台启动问题', '排查'); });
+  document.getElementById('launch').addEventListener('click', function () { request('Use lsou-launchpad skill; action=start', '启动'); });
+  document.getElementById('check').addEventListener('click', function () { request('Use lsou-launchpad skill; action=status', '状态查询'); });
+  document.getElementById('help').addEventListener('click', function () { request('Use lsou-startup-recovery skill; action=diagnose-and-recover', '排查'); });
+  document.getElementById('stop').addEventListener('click', function () { request('Use lsou-launchpad skill; action=shutdown', '停止'); });
+  document.getElementById('update').addEventListener('click', function () { request('Use lsou-launchpad skill; action=update', '更新准备'); });
 })();
 </script>
 </body>

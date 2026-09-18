@@ -18,7 +18,7 @@ const navigation = [...sections.querySelector('.tabs-in').children].map(el => ({
   group: el.tagName === 'P', id: el.dataset.tab, label: el.textContent.trim(),
   icon: el.querySelector('i')?.className, secondary: el.dataset.secondary === 'true',
 }));
-const scripts = ['/publish-product-utils.js', '/time-policy.js', '/ai-advisor.js', '/consultant.js', '/advisor-services.js', '/advisor-design.js', '/advisor-workflows.js', '/advisor-analytics.js', '/advisor-dashboard.js', '/app.js', '/advertising.js', '/risk-workspace.js', '/operations.js'];
+const scripts = ['/publish-product-utils.js', '/time-policy.js', '/ai-advisor.js', '/consultant.js', '/analysis-reports.js', '/advisor-services.js', '/advisor-design.js', '/advisor-workflows.js', '/planning-tasks.js', '/advisor-analytics.js', '/advisor-dashboard.js', '/app.js', '/advertising.js', '/risk-workspace.js', '/operations.js'];
 let initialization;
 
 /** 按依赖顺序加载旧业务模块一次。参数无；返回 Promise；加载失败时拒绝。 */
@@ -61,5 +61,5 @@ function App() {
   return <>{error && <div role="alert" style={{ padding: 20, color: '#b42318' }}>{error}</div>}<Workspace/></>;
 }
 
-window.__LSOU_FRONTEND__ = { framework: 'React', version: React.version, delivery: 'Tauri', applicationVersion: '1.0.9' };
+window.__LSOU_FRONTEND__ = { framework: 'React', version: React.version, delivery: 'Tauri', applicationVersion: '1.0.11' };
 createRoot(document.getElementById('root')).render(<App/>);

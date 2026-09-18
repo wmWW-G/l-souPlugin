@@ -54,7 +54,7 @@ test('plugin MCP initializes and lists desktop tools without returning credentia
   child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'lsou_desktop_status' } }) + '\n');
   child.stdin.end(); await once(child, 'exit');
   const replies = output.trim().split('\n').map(JSON.parse);
-  assert.equal(replies[0].result.serverInfo.version, require('../package.json').version); assert.deepEqual(replies[1].result.tools.map(tool => tool.name).sort(), ['lsou_desktop_diagnose', 'lsou_desktop_launchpad', 'lsou_desktop_open', 'lsou_desktop_repair', 'lsou_desktop_status', 'lsou_desktop_stop']);
+  assert.equal(replies[0].result.serverInfo.version, require('../package.json').version); assert.deepEqual(replies[1].result.tools.map(tool => tool.name).sort(), ['lsou_desktop_diagnose', 'lsou_desktop_launchpad', 'lsou_desktop_open', 'lsou_desktop_repair', 'lsou_desktop_status', 'lsou_desktop_stop', 'lsou_plugin_cancel_update', 'lsou_plugin_prepare_update', 'lsou_plugin_shutdown']);
   assert.equal(JSON.parse(replies[2].result.content[0].text).state, 'stopped'); assert.doesNotMatch(output, /ACCIO_GATEWAY_TOKEN|password|\/Users\//);
 });
 
@@ -282,7 +282,24 @@ test('MCP recovery restarts its failed child once and preserves an already ready
   assert.equal(stopped.desktop.scope, 'current_mcp_session');
   assert.equal((await call('lsou_desktop_stop')).ok, true);
   assert.equal((await call('lsou_desktop_open')).state, 'ready');
-  child.stdin.end(); await once(child, 'exit');
+  // 更新准备必须保持停止状态，不能被后续启动或自动恢复重新打开。
+  const prepared = await call('lsou_plugin_prepare_update');
+  assert.equal(prepared.ok, true);
+  assert.equal(prepared.preparingUpdate, true);
+  assert.equal(prepared.readyToReplaceFiles, false);
+  assert.equal((await call('lsou_desktop_open')).state, 'stopped');
+  assert.equal((await call('lsou_desktop_repair')).ok, false);
+  assert.equal((await call('lsou_plugin_cancel_update')).ok, true);
+  assert.equal((await call('lsou_desktop_open')).state, 'ready');
+  // 整体停止须先收到成功回执，再观察当前 MCP 真正退出；它不等同宿主全局停用。
+  const exited = once(child, 'exit');
+  const shutdown = await call('lsou_plugin_shutdown');
+  assert.equal(shutdown.ok, true);
+  assert.equal(shutdown.ownedWindowStopped, true);
+  assert.equal(shutdown.shutdownScheduled, true);
+  assert.equal(shutdown.pluginDisabled, false);
+  const [code] = await exited;
+  assert.equal(code, 0);
 });
 
 test('Mac launcher explains wrong-chip package before attempting missing Node', { skip: process.platform !== 'darwin' }, async t => {

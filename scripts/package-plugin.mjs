@@ -5,15 +5,21 @@ import { execFileSync } from 'node:child_process';
 import { zipSync } from 'fflate';
 import { root, selectedTarget } from './desktop-targets.mjs';
 import { assertCleanRelease } from './verify-release-data.mjs';
+import { assertPackageVersion, productionSourceDigest } from './manage-release.mjs';
 const release = path.join(root, 'release');
 const pkg = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'));
+// 已交付的历史修订包保留原身份；今后正式更新必须让 Accio 看见新的包内版本。
+if (process.argv.includes('--revision')) throw new Error('正式发布不再使用文件名修订号，请先递增包内版本');
+await assertPackageVersion();
 if(process.argv.includes('--universal'))throw new Error('仅提供Mac、Intel Mac、Windows独立安装包，请使用--target选择平台');
 const names = [selectedTarget().name];
+const sourceDigest = await productionSourceDigest();
 // 先核对所选平台构建与版本，避免将旧产物重新封装。
 for (const name of names) {
   const dir = path.join(root, '.build-cache/desktop', name);
   const build = JSON.parse(await fs.readFile(path.join(dir, 'build.json'), 'utf8'));
   if (build.target !== name || build.version !== pkg.version) throw new Error(`构建版本不一致：${name}`);
+  if (build.sourceDigest !== sourceDigest) throw new Error(`构建后源码已变化，请重新构建：${name}`);
   await fs.access(path.join(dir, name.startsWith('macos') ? 'LSOUWorkbench.app/Contents/MacOS/lsou-workbench' : 'lsou-workbench.exe'));
   // 独立诊断与 Tauri 后端必须使用同一套发现逻辑，避免诊断通过而窗口仍运行旧代码。
   const resource = name.startsWith('macos') ? path.join(dir, 'LSOUWorkbench.app/Contents/Resources') : dir;
@@ -24,7 +30,8 @@ for (const name of names) {
   }
 }
 const label = names[0];
-const stage = path.join(release, `stage-${label}`);
+// 临时展开目录属于构建缓存，交付目录只放可导入的 ZIP 和校验文件。
+const stage = path.join(root, '.build-cache/package-stage', label);
 const output = path.join(stage, 'lsou-workbench');
 await fs.mkdir(release, { recursive: true });
 await fs.rm(stage, { recursive: true, force: true });
@@ -69,7 +76,7 @@ async function collect(dir, relative = 'lsou-workbench') {
 }
 await collect(output);
 const zip = path.join(release, `lsou-workbench-${pkg.version}-${label}.zip`);
-await fs.writeFile(zip, zipSync(entries, { level: 6 }));
+await fs.writeFile(zip, zipSync(entries, { level: 6 }), { flag: 'wx' });
 const sha = crypto.createHash('sha256').update(await fs.readFile(zip)).digest('hex');
-await fs.writeFile(zip + '.sha256', `${sha}  ${path.basename(zip)}\n`);
+await fs.writeFile(zip + '.sha256', `${sha}  ${path.basename(zip)}\n`, { flag: 'wx' });
 console.log(`Plugin ZIP: ${zip}\nSHA256: ${sha}\n包含平台: ${names.join(', ')}`);

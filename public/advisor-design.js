@@ -26,7 +26,8 @@
   }
   /** 只返回有效数值，缺失显示破折号。value为原始数值；返回展示文字，无主动异常。 */
   function format(value){return value==null||value===''||!Number.isFinite(Number(value))?'—':Number(value).toLocaleString('zh-CN',{maximumFractionDigits:2});}
-  window.AdvisorLive={fetch:read,range:()=>({...selectedRange}),records:()=>[...pageRecords.values()].slice(0,30),ready:async()=>{while(reads.size)await Promise.allSettled([...reads.values()]);},format};
+  // 不静默截断已经读取的资料；请求体过大时由后端明确提示缩小范围。
+  window.AdvisorLive={fetch:read,range:()=>({...selectedRange}),version:()=>dataVersion,records:()=>structuredClone([...pageRecords.values()]),ready:async()=>{while(reads.size)await Promise.allSettled([...reads.values()]);},format};
   /** 商品效果只允许指定日/月；其余经营区间支持完整周。返回模式数组，无异常。 */
   function periodModes(){return ['product','cultivation'].includes(active)?['day','month']:['day','week','month'];}
   /** 返回最新可选周期值。mode为日/周/月；按北京时间计算，周日已结束时可选上一周。 */
@@ -110,15 +111,17 @@
   }
   /** 处理主导航；返回true表示由新视觉工作区承接，false交回原工作区。 */
   function navigate(tab){
+    // 离开顾问页也使旧快照失效，避免发品/旧工作区仍复用上页的分析点击。
+    dataVersion++;pageRecords.clear();
     window.AdvisorRestoreRfq?.();
     const layout=document.querySelector('.app-layout');const page=window.AdvisorPages?.[tab];
     if(tab==='product-publish'){
+      window.AdvisorServices?.attach('');
       active=tab;layout?.classList.add('av-mode');layout?.classList.remove('sidebar-collapsed');
       ensureMast(layout);document.getElementById('avMastPeriod').innerHTML='';document.getElementById('avDatePopover')?.hidePopover();document.getElementById('advisorDesign')?.setAttribute('hidden','');
       return false;
     }
-    if(bypass||!page){layout?.classList.remove('av-mode');document.getElementById('advisorDesign')?.setAttribute('hidden','');return false;}
-    dataVersion++;pageRecords.clear();
+    if(bypass||!page){window.AdvisorServices?.attach('');layout?.classList.remove('av-mode');document.getElementById('advisorDesign')?.setAttribute('hidden','');return false;}
     active=tab;if(!periodModes().includes(selectedRange.mode)){applyPeriod('month',latestPeriodValue('month'));}if(['product','cultivation'].includes(active)){try{policy.validate('shop-product',{statDate:selectedRange.startDate,statisticsType:selectedRange.mode});}catch{applyPeriod('month',latestPeriodValue('month'));}}document.getElementById('avDatePopover')?.hidePopover();layout.classList.add('av-mode');layout.classList.remove('product-publish-mode','sidebar-collapsed');
     let root=document.getElementById('advisorDesign');if(!root){root=document.createElement('section');root.id='advisorDesign';root.className='av-design';document.querySelector('main').append(root);}root.hidden=false;
     document.querySelectorAll('main>.tab').forEach(e=>e.classList.remove('on'));

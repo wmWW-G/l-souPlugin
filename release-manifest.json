@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "pluginId": "lsou-workbench",
+  "host": {
+    "application": "Accio Work",
+    "versionInspected": "0.32.6",
+    "inspectedOn": "2026-09-18",
+    "authoringSkillVersion": "1.0.3",
+    "compatibilityRange": null,
+    "note": "依据当前宿主内置 plugin-create 规范和本机源码核对；不代表已经验证所有 Accio 版本。项目验证器与当前官方文件 SHA256 相同。"
+  },
+  "policy": {
+    "versionFormat": "x.y.z",
+    "immutableArtifacts": true,
+    "futureReleasesRequireAllTargets": true,
+    "automaticDownload": false,
+    "note": "当前为既有交付基线，允许 Windows 与 Mac 历史版本不同；以后每次正式发布三平台版本统一并高于所有冻结版本，保留稳定插件 ID。"
+  },
+  "userFeedback": {
+    "recordedOn": "2026-09-18",
+    "statement": "用户确认当前 Windows 版本可用、Mac 也正常。",
+    "macArchitectureSpecified": false,
+    "note": "没有把未说明芯片的 Mac 反馈记为两种 Mac 均完成实机验收；包内 runtimeVerified 原值保留。"
+  },
+  "current": {
+    "windows-x64": "lsou-workbench-1.0.11-windows-x64-update-r2.zip",
+    "macos-arm64": "lsou-workbench-1.0.10-macos-arm64.zip",
+    "macos-x64": "lsou-workbench-1.0.10-macos-x64.zip"
+  },
+  "artifacts": [
+    {
+      "file": "lsou-workbench-1.0.11-windows-x64-update-r2.zip",
+      "target": "windows-x64",
+      "version": "1.0.11",
+      "buildRevision": "20260918-update-r2",
+      "bytes": 40620040,
+      "sha256": "72ee4425e1d3f95a9c7662dd50ac07b6951c082de92a0978e7962cb556d4ff11",
+      "builtAt": "2026-09-18T11:48:50.943Z",
+      "packageVerified": true,
+      "runtimeVerified": false
+    },
+    {
+      "file": "lsou-workbench-1.0.10-macos-arm64.zip",
+      "target": "macos-arm64",
+      "version": "1.0.10",
+      "buildRevision": "20260918",
+      "bytes": 44885507,
+      "sha256": "8a25e4b0dd4f69aaec6e374b5972f67728d2c374659fd35a9e6b27abacd517bb",
+      "builtAt": "2026-09-18T11:03:19.300Z",
+      "packageVerified": true,
+      "runtimeVerified": false
+    },
+    {
+      "file": "lsou-workbench-1.0.10-macos-x64.zip",
+      "target": "macos-x64",
+      "version": "1.0.10",
+      "buildRevision": "20260918",
+      "bytes": 46469378,
+      "sha256": "dbed808b9f5f9c3d31ef0c384f04ae4c4cd4b42ef68ec6fb39233d1339194a76",
+      "builtAt": "2026-09-18T11:03:36.884Z",
+      "packageVerified": true,
+      "runtimeVerified": false
+    }
+  ],
+  "history": [
+    {
+      "at": "2026-09-18T13:08:49.369Z",
+      "event": "baseline_frozen",
+      "files": [
+        "lsou-workbench-1.0.11-windows-x64-update-r2.zip",
+        "lsou-workbench-1.0.10-macos-arm64.zip",
+        "lsou-workbench-1.0.10-macos-x64.zip"
+      ]
+    },
+    {
+      "at": "2026-09-18T13:10:23.841Z",
+      "event": "pruned",
+      "files": [
+        "lsou-workbench-1.0.0-macos-arm64.zip",
+        "lsou-workbench-1.0.0-macos-arm64.zip.sha256",
+        "lsou-workbench-1.0.1-macos-arm64.zip",
+        "lsou-workbench-1.0.1-macos-arm64.zip.sha256",
+        "lsou-workbench-1.0.1-macos-x64.zip",
+        "lsou-workbench-1.0.1-macos-x64.zip.sha256",
+        "lsou-workbench-1.0.1-windows-x64.zip",
+        "lsou-workbench-1.0.1-windows-x64.zip.sha256",
+        "lsou-workbench-1.0.10-windows-x64.zip",
+        "lsou-workbench-1.0.10-windows-x64.zip.sha256",
+        "lsou-workbench-1.0.11-windows-x64.zip",
+        "lsou-workbench-1.0.11-windows-x64.zip.sha256",
+        "lsou-workbench-1.0.2-macos-arm64.zip",
+        "lsou-workbench-1.0.2-macos-arm64.zip.sha256",
+        "lsou-workbench-1.0.2-macos-x64.zip",
+        "lsou-workbench-1.0.2-macos-x64.zip.sha256",
+        "lsou-workbench-1.0.2-windows-x64.zip",
+        "lsou-workbench-1.0.2-windows-x64.zip.sha256",
+        "lsou-workbench-1.0.3-macos-arm64.zip",
+        "lsou-workbench-1.0.3-macos-arm64.zip.sha256",
+        "lsou-workbench-1.0.3-macos-x64.zip",
+        "lsou-workbench-1.0.3-macos-x64.zip.sha256",
+        "lsou-workbench-1.0.3-windows-x64.zip",
+        "lsou-workbench-1.0.3-windows-x64.zip.sha256",
+        "lsou-workbench-1.0.4-macos-arm64.zip",
+        "lsou-workbench-1.0.4-macos-arm64.zip.sha256",
+        "lsou-workbench-1.0.4-macos-x64.zip",
+        "lsou-workbench-1.0.4-macos-x64.zip.sha256",
+        "lsou-workbench-1.0.4-windows-x64.zip",
+        "lsou-workbench-1.0.4-windows-x64.zip.sha256",
+        "lsou-workbench-1.0.5-windows-x64.zip",
+        "lsou-workbench-1.0.5-windows-x64.zip.sha256",
+        "lsou-workbench-1.0.6-windows-x64.zip",
+        "lsou-workbench-1.0.6-windows-x64.zip.sha256",
+        "lsou-workbench-1.0.7-windows-x64.zip",
+        "lsou-workbench-1.0.7-windows-x64.zip.sha256",
+        "lsou-workbench-1.0.8-windows-x64-internal-lifecycle-r1.zip",
+        "lsou-workbench-1.0.8-windows-x64-internal-lifecycle-r1.zip.sha256",
+        "lsou-workbench-1.0.8-windows-x64-internal.zip",
+        "lsou-workbench-1.0.8-windows-x64-internal.zip.sha256",
+        "lsou-workbench-1.0.9-macos-arm64.zip",
+        "lsou-workbench-1.0.9-macos-arm64.zip.sha256",
+        "lsou-workbench-1.0.9-macos-x64.zip",
+        "lsou-workbench-1.0.9-macos-x64.zip.sha256",
+        "lsou-workbench-1.0.9-windows-x64.zip",
+        "lsou-workbench-1.0.9-windows-x64.zip.sha256"
+      ]
+    }
+  ]
+}
