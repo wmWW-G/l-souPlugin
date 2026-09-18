@@ -94,3 +94,36 @@ test('普通计划按真实计划ID补齐预算与状态，不套用原始0枚�
   assert.equal(d.rows[0].onlineStatus,0);assert.equal(d.rows[0].verifiedOnlineStatus,'-2');assert.equal(d.rows[0].budget,'200');
   assert.equal(d.rows[1].verifiedOnlineStatus,undefined);assert.equal(d.rows[1].budget,undefined);
 });
+
+test('计划详情只跟随同计划只读入口，分页保留，写元数据不下发',async()=>{
+ const s=service(p=>{
+  if(p.entityType==='campaign')return envelope({data:[{campaignId:12,campaignName:'test'}],operations:[{name:'delete'}],links:[{name:'keywords',available:true,invoke:{entityType:'campaign_keyword',filters:{campaignId:12}}}]});
+  assert.equal(p.entityType,'campaign_keyword');assert.equal(p.page.index,2);assert.equal(p.filters.keyword,'watch');
+  return envelope({data:[{keyword:'watch',operations:[{name:'delete'}],invoke:{action:'delete'}}],total:35});
+ });
+ const d=await s.read('detail',{id:'12',section:'summary'});assert.equal(d.sections.find(x=>x.key==='keywords').available,true);assert.doesNotMatch(JSON.stringify(d),/delete|invoke/);
+ const k=await s.read('detail',{id:'12',section:'keywords',keyword:'watch',page:'2'});assert.equal(k.total,35);assert.doesNotMatch(JSON.stringify(k),/delete|invoke/);
+ const absent=await s.read('detail',{id:'12',section:'products'});assert.equal(absent.unavailable,true);
+ await assert.rejects(s.read('detail',{id:'12',section:'delete'}));await assert.rejects(s.read('detail',{id:'x'}));
+});
+test('错误计划归属或实体被拒绝，不能沿返回链接越过白名单',async()=>{
+ for(const invoke of [{entityType:'campaign_keyword',filters:{campaignId:99}},{entityType:'mutate',filters:{campaignId:12}}]){
+ const s=service(()=>envelope({data:[],links:[{name:'keywords',available:true,invoke}]}));
+ await assert.rejects(s.read('detail',{id:'12',section:'keywords'}),/归属|契约/);
+ }
+});
+test('计划报表使用独立临时表与平台计划数据源，不误用账户报告',async()=>{
+ const s=service(p=>{
+ if(p.entityType==='campaign')return envelope({data:[],links:[{name:'report',available:true,invoke:{entityType:'report',filters:{campaignId:12,datasource:'campaign_search'}}}]});
+ if(p.entityType==='report'){assert.equal(p.filters.campaignId,12);assert.equal(p.filters.datasource,'campaign_search');assert.match(p.filters.tempTableName,/^LSOU_AD_[A-F0-9]+$/);return producer(p);}
+ return envelope({data:[{success:true,tsvData:'日期\t花费\n'}]});
+ });
+ assert.equal((await s.read('report',{id:'12',scope:'search',...range})).state,'empty');
+});
+
+test('广告知识问答仅允许真实只读入口及非空短问题',async()=>{
+ let calls=0;const s=service(p=>{calls++;if(p.entityType==='company')return envelope({data:[],links:[{name:'explain',available:true,invoke:{entityType:'campaign_explanation',filters:{}}}]});assert.equal(p.entityType,'campaign_explanation');assert.equal(p.filters.query,'投放口径');return envelope({data:[{answer:'平台答复'}]});});
+ await assert.rejects(s.read('explanation',{question:''}));await assert.rejects(s.read('explanation',{question:'x'.repeat(501)}));assert.equal(calls,0);
+ assert.equal((await s.read('explanation',{question:' 投放口径 '})).rows[0].answer,'平台答复');
+ await assert.rejects(s.read('detail',{id:'999999999999999999'}));
+});

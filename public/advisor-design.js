@@ -2,7 +2,6 @@
 (() => {
   'use strict';
   const names={overview:'数据看板',plan:'运营规划',position:'营销定位',foundation:'运营基建',ads:'运营推广',cultivation:'优爆品提升',product:'数据分析与优化',visitor:'商机转化'};
-  const descriptions={overview:'看清数据表现，发现问题，制定策略，推动业务增长。',plan:'基于店铺阶段，制定清晰的运营路径与执行计划，分解目标、落实动作，助力业务持续增长。',position:'确定卖给谁、凭什么被选择。',foundation:'打好运营基础，从选品到发品的全流程支持，提升商品发布效率与质量。',ads:'基于数据诊断广告效果，制定优化策略，提升广告询盘与投放效率。',cultivation:'围绕核心商品进行持续跟进与资源投入，提升商品竞争力与转化效率。',product:'基于数据发现问题，定位原因，提供优化建议并跟踪执行效果。',visitor:'沉淀询盘资源，规范跟进流程，推动商机转化为实际订单。'};
   let active='overview', bypass=false;
   const policy=window.TimePolicy;
   let selectedRange={mode:'month',...policy.period('month',policy.addMonths(policy.today().slice(0,7)+'-01',-1).slice(0,7))};
@@ -28,18 +27,48 @@
   /** 只返回有效数值，缺失显示破折号。value为原始数值；返回展示文字，无主动异常。 */
   function format(value){return value==null||value===''||!Number.isFinite(Number(value))?'—':Number(value).toLocaleString('zh-CN',{maximumFractionDigits:2});}
   window.AdvisorLive={fetch:read,range:()=>({...selectedRange}),records:()=>[...pageRecords.values()].slice(0,30),ready:async()=>{while(reads.size)await Promise.allSettled([...reads.values()]);},format};
-  /** 改变完整报告周期并重新读取当前页。mode为day/week/month；无返回，日期非法抛Error。 */
-  function changePeriod(mode){
+  /** 商品效果只允许指定日/月；其余经营区间支持完整周。返回模式数组，无异常。 */
+  function periodModes(){return ['product','cultivation'].includes(active)?['day','month']:['day','week','month'];}
+  /** 返回最新可选周期值。mode为日/周/月；按北京时间计算，周日已结束时可选上一周。 */
+  function latestPeriodValue(mode){
     const yesterday=policy.shift(policy.today(),-1);
-    const value=mode==='month'?policy.addMonths(policy.today().slice(0,7)+'-01',-1).slice(0,7):mode==='week'?policy.weekValue(policy.shift(policy.period('week',policy.weekValue(yesterday),'9999-12-31').startDate,-7)):policy.shift(policy.today(),-2);
-    selectedRange={mode,...policy.period(mode,value)};navigate(active);
+    if(mode==='month')return policy.addMonths(policy.today().slice(0,7)+'-01',-1).slice(0,7);
+    if(mode==='week'){const week=policy.period('week',policy.weekValue(yesterday),'9999-12-31');return policy.weekValue(week.endDate<=yesterday?week.startDate:policy.shift(week.startDate,-7));}
+    return yesterday;
   }
-  /** 打开日期区间表单，提交前校验日期；返回void，无主动异常。 */
+  /** 校验后应用日/周/月，商品额外按真实工具合同限制近90天。非法输入抛Error，不刷新数据。 */
+  function applyPeriod(mode,value){
+    if(!periodModes().includes(mode))throw new Error('此页面不支持该统计周期');
+    const dates=policy.period(mode,value);
+    if(['product','cultivation'].includes(active))policy.validate('shop-product',{statDate:dates.startDate,statisticsType:mode});
+    if(active==='visitor')policy.validate('visitor-detail',dates);
+    selectedRange={mode,...dates};
+  }
+  /** 切换统计粒度，默认日为前天、周/月为最新完整周期；无返回值。 */
+  function changePeriod(mode){
+    if(!periodModes().includes(mode))return;
+    applyPeriod(mode,mode==='day'?policy.shift(policy.today(),-2):latestPeriodValue(mode));navigate(active);
+  }
+  /** 日期按钮下方展开选择器；保留区间校验，点击外部或Escape关闭，不遮罩页面。 */
   function periodDialog(){
-    document.getElementById('avDialog')?.remove();const el=document.createElement('dialog');el.id='avDialog';el.className='av-dialog';
-    el.innerHTML=`<form id="avDateForm"><h2>统计周期</h2><p>按当前账号读取；商品等独立口径会在卡片中注明。自定义最多31天。</p><label>开始日期<input name="from" type="date" required value="${selectedRange.startDate}"></label><label>结束日期<input name="to" type="date" required value="${selectedRange.endDate}" max="${policy.shift(policy.today(),-1)}"></label><p role="alert" id="avDateError"></p><button class="av-btn" type="submit">读取数据</button><button class="av-btn secondary" type="button" id="avDateCancel">取消</button></form>`;
-    document.body.append(el);el.querySelector('#avDateCancel').onclick=()=>el.close();
-    el.querySelector('form').onsubmit=event=>{event.preventDefault();try{const data=new FormData(event.currentTarget);const value=policy.range(data.get('from'),data.get('to'),{latest:policy.shift(policy.today(),-1),days:31});if(value.startDate<policy.shift(policy.today(),-89))throw new Error('请选择最近90天内的日期');selectedRange={mode:'range',...value};el.close();navigate(active);}catch(error){el.querySelector('#avDateError').textContent=error.message;}};el.showModal();
+    const existing=document.getElementById('avDatePopover');if(existing){existing.remove();return;}
+    const anchor=document.querySelector('[data-av-action="period"]');if(!anchor)return;
+    const el=document.createElement('div');el.id='avDatePopover';el.className='av-date-popover';el.setAttribute('popover','auto');el.setAttribute('role','dialog');el.setAttribute('aria-label','选择统计周期');
+    const mode=selectedRange.mode, value=mode==='month'?selectedRange.startDate.slice(0,7):mode==='week'?policy.weekValue(selectedRange.startDate):selectedRange.startDate;
+    const earliest=policy.shift(policy.today(),-89);
+    const min=['product','cultivation'].includes(active)?(mode==='month'?(earliest.endsWith('-01')?earliest.slice(0,7):policy.addMonths(earliest.slice(0,7)+'-01',1).slice(0,7)):earliest):'';
+    const label={day:'统计日',week:'自然周（周一至周日）',month:'自然月'}[mode];
+    el.innerHTML=`<form><strong>选择${label}</strong><div class="av-date-fields" style="grid-template-columns:1fr"><label>${label}<input name="period" type="${mode==='day'?'date':mode}" required value="${value}" min="${min}" max="${latestPeriodValue(mode)}"></label></div><p>${min?'商品仅支持近90天内的统计日或月初；':''}只可选择已结束的${{day:'日期',week:'完整自然周',month:'完整自然月'}[mode]}。</p><p role="alert" id="avDateError"></p><div class="av-date-actions"><button class="av-btn secondary" type="button" id="avDateCancel">取消</button><button class="av-btn" type="submit">应用</button></div></form>`;
+    document.body.append(el);anchor.setAttribute('aria-expanded','true');
+    const controller=new AbortController();
+    const close=()=>{el.remove();anchor.setAttribute('aria-expanded','false');controller.abort();};
+    el.addEventListener('toggle',event=>{if(event.newState==='closed')close();});
+    el.querySelector('#avDateCancel').onclick=()=>{close();anchor.focus();};
+    el.querySelector('form').onsubmit=event=>{event.preventDefault();try{applyPeriod(mode,new FormData(event.currentTarget).get('period'));close();navigate(active);}catch(error){el.querySelector('#avDateError').textContent=error.message;}};
+    el.showPopover();const rect=anchor.getBoundingClientRect();
+    el.style.left=Math.max(12,Math.min(rect.right-el.offsetWidth,window.innerWidth-el.offsetWidth-12))+'px';
+    el.style.top=Math.max(12,Math.min(rect.bottom+8,window.innerHeight-el.offsetHeight-12))+'px';
+    window.addEventListener('resize',close,{once:true,signal:controller.signal});
   }
 
   /** 转义外部文字。参数为任意值，返回安全字符串，无主动异常。 */
@@ -57,39 +86,56 @@
   }
   /** 原工作区入口；仅本次导航跳过视觉层，保留原数据及发布编辑状态。 */
   function real(tab){bypass=true;try{window.switchTab(tab);}finally{bypass=false;}}
+  let identityPending=null;
+  /** 读取当前账号已有公司资料，跨页复用顶部身份；失败显示缺失状态，不使用示例账号。 */
+  async function loadIdentity(){
+    if(identityPending)return identityPending;
+    const host=document.querySelector('#avMast .av-company-identity');if(!host)return;
+    host.innerHTML=`<span class="av-avatar">${icon('store-2-line')}</span><b>正在读取公司…</b>`;
+    identityPending=(async()=>{
+      try{
+        const response=await fetch('/api/workspaces/identity',{signal:AbortSignal.timeout(120000)}),result=await response.json();
+        if(!response.ok||result.ok===false)throw new Error('公司资料暂不可用');
+        const name=result.data?.companyName;
+        let logo='';try{const url=new URL(String(result.data?.companyLogo||'').replace(/^\/\//,'https://'));if(url.protocol==='https:')logo=url.href;}catch{}
+        host.innerHTML=`<span class="av-avatar">${logo?`<img src="${esc(logo)}" alt="公司头像" referrerpolicy="no-referrer">`:icon('store-2-line')}</span><b title="${esc(name||'公司名称未返回')}">${esc(name||'公司名称未返回')}</b>`;
+        host.querySelector('img')?.addEventListener('error',()=>{host.querySelector('.av-avatar').innerHTML=icon('store-2-line');},{once:true});
+      }catch{host.innerHTML=`<span class="av-avatar">${icon('store-2-line')}</span><b title="点击刷新重试">公司资料暂不可用</b>`;}
+      finally{identityPending=null;}
+    })();return identityPending;
+  }
   /** 确保所有业务页共用顶栏；layout为应用容器，不替换发布编辑器DOM。 */
   function ensureMast(layout){
-    let mast=document.getElementById('avMast');if(!mast){mast=document.createElement('header');mast.id='avMast';mast.innerHTML=`<div class="av-brand"><img src="/assets/lsou-logo-square.png" alt="来搜 L-SOU"><b>运营顾问</b></div><div class="av-account"><button data-av-action="refresh" class="av-refresh">${icon('refresh-line')} 刷新</button><button data-av-action="help">${icon('question-line')} 帮助中心</button><button data-av-action="notifications" aria-label="通知">${icon('notification-3-line')}</button><span class="av-avatar">A</span><b>当前登录店铺</b>${icon('arrow-down-s-line')}<div class="av-credit-balance" title="演示余额，尚未接入真实积分账户或扣费"><span>剩余积分 · 演示</span><strong>10,000</strong></div></div>`;layout.prepend(mast);}
+    let mast=document.getElementById('avMast');if(!mast){mast=document.createElement('header');mast.id='avMast';mast.innerHTML=`<div class="av-brand"><img src="/assets/lsou-logo-square.png" alt="来搜 L-SOU"><b>运营顾问</b></div><span class="av-company-identity" aria-live="polite"></span><div class="av-account"><div id="avMastPeriod" class="av-mast-period"></div><button data-av-action="refresh" class="av-refresh">${icon('refresh-line')} 刷新</button></div>`;layout.prepend(mast);void loadIdentity();}
   }
   /** 处理主导航；返回true表示由新视觉工作区承接，false交回原工作区。 */
   function navigate(tab){
+    window.AdvisorRestoreRfq?.();
     const layout=document.querySelector('.app-layout');const page=window.AdvisorPages?.[tab];
     if(tab==='product-publish'){
       active=tab;layout?.classList.add('av-mode');layout?.classList.remove('sidebar-collapsed');
-      ensureMast(layout);document.getElementById('advisorDesign')?.setAttribute('hidden','');
+      ensureMast(layout);document.getElementById('avMastPeriod').innerHTML='';document.getElementById('avDatePopover')?.hidePopover();document.getElementById('advisorDesign')?.setAttribute('hidden','');
       return false;
     }
     if(bypass||!page){layout?.classList.remove('av-mode');document.getElementById('advisorDesign')?.setAttribute('hidden','');return false;}
     dataVersion++;pageRecords.clear();
-    active=tab;layout.classList.add('av-mode');layout.classList.remove('product-publish-mode','sidebar-collapsed');
+    active=tab;if(!periodModes().includes(selectedRange.mode)){applyPeriod('month',latestPeriodValue('month'));}if(['product','cultivation'].includes(active)){try{policy.validate('shop-product',{statDate:selectedRange.startDate,statisticsType:selectedRange.mode});}catch{applyPeriod('month',latestPeriodValue('month'));}}document.getElementById('avDatePopover')?.hidePopover();layout.classList.add('av-mode');layout.classList.remove('product-publish-mode','sidebar-collapsed');
     let root=document.getElementById('advisorDesign');if(!root){root=document.createElement('section');root.id='advisorDesign';root.className='av-design';document.querySelector('main').append(root);}root.hidden=false;
     document.querySelectorAll('main>.tab').forEach(e=>e.classList.remove('on'));
     document.querySelectorAll('#tabs button[data-tab]').forEach(b=>{b.classList.toggle('on',b.dataset.tab===tab);b.classList.remove('module-on');if(b.dataset.tab===tab)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
     ensureMast(layout);
-    const controls=tab==='plan'?button(icon('history-line')+' 历史规划','history','secondary'):tab==='position'?'<span class="av-select">基于当前店铺资料</span>':tab==='overview'?'': '<span class="av-select">'+icon('store-2-line')+' 当前登录店铺 '+icon('arrow-down-s-line')+'</span>';
-    root.innerHTML=`<div class="av-page-heading"><div>${tab==='overview'?'':`<div class="av-breadcrumb">运营顾问 / ${names[tab]}</div>`}<div class="av-heading-line"><h1>${tab==='cultivation'?'核心品跟进':names[tab]}</h1><p>${descriptions[tab]}</p></div></div><div class="av-page-controls">${controls}<div class="av-period">${[['day','日'],['week','周'],['month','月']].map(([mode,label])=>`<button data-av-period="${mode}" class="${selectedRange.mode===mode?'selected':''}">${label}</button>`).join('')}</div><button class="av-select" data-av-action="period">${icon('calendar-line')} ${selectedRange.startDate} — ${selectedRange.endDate} ${icon('arrow-down-s-line')}</button></div></div><div class="av-workbench ${tab==='overview'?'':tab==='position'?'av-position-workbench':'av-split-workbench'}"><div class="av-content">${page()}</div>${tab==='overview'||tab==='position'?'':'<aside id="avWorkflowPanel" aria-label="分析结果"></aside>'}</div>`;
+    document.getElementById('avMastPeriod').innerHTML=`<div class="av-period">${[['day','日'],['week','周'],['month','月']].filter(([mode])=>periodModes().includes(mode)).map(([mode,label])=>`<button data-av-period="${mode}" class="${selectedRange.mode===mode?'selected':''}">${label}</button>`).join('')}</div><button class="av-select" data-av-action="period">${icon('calendar-line')} ${selectedRange.startDate} — ${selectedRange.endDate} ${icon('arrow-down-s-line')}</button>`;
+    root.innerHTML=`<div class="av-workbench ${tab==='overview'?'':tab==='position'?'av-position-workbench':'av-data-workbench'}"><div class="av-content">${page()}</div></div>`;
     window.AdvisorMounts?.[tab]?.();window.AdvisorServices?.attach(tab);refreshState();window.dispatchEvent(new CustomEvent('lsou:navigation',{detail:tab}));window.scrollTo(0,0);return true;
   }
   document.addEventListener('click',e=>{
     const b=e.target.closest('[data-av-action],[data-advisor-route],[data-nav]');if(!b)return;const a=b.dataset.avAction||b.dataset.advisorRoute||b.dataset.nav;
-    if(a==='refresh'){if(active==='product-publish')document.getElementById('btnReload')?.click();else navigate(active);return;}
+    if(a==='refresh'){void loadIdentity();if(active==='product-publish')document.getElementById('btnReload')?.click();else navigate(active);return;}
     if(a==='real'){real(active);return;}
     if(a==='product-publish'||a==='publish'){real('product-publish');return;}
     if(names[a]){window.switchTab(a);return;}
     if(a?.startsWith('next:')){window.switchTab(a.slice(5));return;}
     if(a==='history'){dialog('历史规划','仅展示你实际保存的规划；尚未保存的规划不会生成历史记录。');return;}
-    if(a==='help'){dialog('运营顾问','经营数据通过当前登录账号的 平台服务 读取；每个板块注明统计口径。未返回的指标保持空态。本地规划和跟进记录不会自动执行平台操作。产品发布保留完整功能。');return;}
-    if(a==='notifications'){dialog('通知','当前尚未接入平台通知。读取经营数据不会自动执行平台写操作。');return;}
     if(a==='period'){periodDialog();return;}
   });
   document.addEventListener('click',e=>{const b=e.target.closest('[data-av-period]');if(b)changePeriod(b.dataset.avPeriod);});

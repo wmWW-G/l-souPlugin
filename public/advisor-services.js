@@ -63,7 +63,7 @@
   /** 将分析入口挂到对应卡片；异步数据重绘后补回，已存在的入口不重复插入。 */
   function decorate(){
     const content=document.querySelector('#advisorDesign .av-content');if(!content)return;
-    for(const [label,indexes] of placements[currentPage]||[]){
+    for(const [label,indexes] of (currentPage==='position'?placements[currentPage]:[])||[]){
       const heading=[...content.querySelectorAll('h3,strong,.wf-campaign-head strong,.av-visitor-tabs button')].find(el=>el.textContent.trim().startsWith(label));
       const card=heading?.closest('section,.wf-sop,.av-visitor-shell');
       if(!card||card.querySelector(`[data-inline-group="${indexes.join('-')}"]`))continue;
@@ -83,7 +83,7 @@
     observer?.disconnect();currentPage=page;selected=null;drawer=null;
     const root=document.getElementById('advisorDesign');if(!root||!catalog[page])return;
     root.dataset.workflowPage=page;
-    if(page!=='position')ensureDrawer();
+    // Workflow/Chatflow 占位已撤下，页面仅保留数据和明确的 AW 交接入口。
     decorate();observer=new MutationObserver(decorate);observer.observe(root.querySelector('.av-content'),{childList:true,subtree:true});
   }
   /** 创建主题独立会话，仅准备真实资料和读取历史结果，不自动调用分析；结果仅写入当前主题。 */
@@ -106,8 +106,20 @@
   }
   /** 定位菜单切换回原始资料，清除结果区归属，不调用分析接口。 */
   function showData(){selected=null;drawer=null;}
-  /** 用户显式开始定位分析，准备资料后只运行仍被选中的主题；返回Promise<void>。 */
-  async function startPosition(index){const state=await open('position',index);if(state&&selected===state&&currentPage==='position')await generate(state);}
+  /** 用户显式交接当前定位数据给AW；不调用Dify，重复点击互斥，错误就地显示。返回Promise<void>。 */
+  let positionHandoffBusy=false;
+  async function startPosition(index){
+    if(positionHandoffBusy||currentPage!=='position')return;
+    const host=document.getElementById('wfPositionHandoff'),button=host?.querySelector('[data-position-analyze]'),status=host?.querySelector('[data-aw-status]');
+    positionHandoffBusy=true;if(button){button.disabled=true;button.textContent='正在打包资料…';}
+    try{
+      const data=window.AdvisorPositionExport(index),period=window.AdvisorLive.range();
+      if(status)status.textContent='正在保存当前资料并唤起 Accio Work…';
+      await request('aw-handoff',{requestId:crypto.randomUUID(),index,period,data});
+      if(status)status.textContent='已请求打开 Accio Work，请在新对话中查看分析；若未弹出，请确认已安装并登录。';
+    }catch(error){if(status)status.textContent=error.message||'未能发起分析，请重试。';}
+    finally{positionHandoffBusy=false;if(button){button.disabled=false;button.textContent='交给 Accio Work 分析';}}
+  }
   /** 市场卡片直接引用平台国家占比；state为会话，返回已转义的短表格。 */
   function marketFacts(state){
     if(state.page!=='position'||state.topic!=='市场与客群定位')return '';
@@ -134,7 +146,7 @@
   async function ask(question){const s=selected;if(!s?.snapshot||!s.result||s.busy||!s.config?.chatConfigured||!question.trim())return;s.busy=true;s.chatting=true;s.error='';s.draft='';s.messages.push({role:'user',text:question.trim()});const answer={role:'assistant',text:''};s.messages.push(answer);render();try{const response=await fetch('/api/advisor/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({snapshot_id:s.result.snapshot_id||s.snapshot.snapshot_id,question:question.trim(),selection:{label:s.topic},session_id:s.session})});if(!response.ok){const data=await response.json();throw new Error(data.error||'对话服务暂不可用');}const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='',ended=false;while(true){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});let end;while((end=buffer.indexOf('\n\n'))>=0){const frame=buffer.slice(0,end);buffer=buffer.slice(end+2);const line=frame.split('\n').find(x=>x.startsWith('data: '));if(!line)continue;const event=JSON.parse(line.slice(6));if(event.type==='meta')s.session=event.session_id;if(event.type==='answer')answer.text=event.text;if(event.type==='error')throw new Error(event.message);if(event.type==='done')ended=true;if(selected===s)render();}}if(!ended)throw new Error('连接中断，已收到的答复可能不完整。');}catch(error){s.error=error.message;}finally{s.busy=false;s.chatting=false;if(selected===s)render();}}
   /** 下载真实返回的报告为Markdown；没有报告则不下载，无远端写入。 */
   function download(){const s=selected;if(!s?.result)return;const r=s.result,text=`# ${s.topic}\n\n${r.summary}\n\n`+(r.tasks||[]).map(t=>`## ${t.title}\n\n${t.basis}\n\n`+(t.steps||[]).map((x,i)=>`${i+1}. ${x}`).join('\n')+'\n\n复查：\n'+(t.acceptance_criteria||[]).map(x=>'- '+x).join('\n')).join('\n\n');const url=URL.createObjectURL(new Blob([text],{type:'text/markdown;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=s.topic+'.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-  document.addEventListener('click',event=>{const b=event.target.closest('button');if(!b)return;if(b.hasAttribute('data-position-analyze')){void startPosition(Number(b.dataset.positionAnalyze));return;}if(b.dataset.servicePage){void open(b.dataset.servicePage,Number(b.dataset.serviceIndex));return;}if(!drawer?.contains(b))return;if(!selected)return;if(b.hasAttribute('data-service-generate'))void generate(selected);if(b.hasAttribute('data-service-download'))download();if(b.dataset.serviceQuestion){selected.draft=b.dataset.serviceQuestion;render();drawer.querySelector('textarea')?.focus();}});
+  document.addEventListener('click',event=>{const b=event.target.closest('button');if(!b)return;if(b.hasAttribute('data-position-analyze')){void startPosition(Number(b.dataset.positionAnalyze));return;}if(b.dataset.servicePage){if(document.getElementById('avWorkflowPanel'))void open(b.dataset.servicePage,Number(b.dataset.serviceIndex));return;}if(!drawer?.contains(b))return;if(!selected)return;if(b.hasAttribute('data-service-generate'))void generate(selected);if(b.hasAttribute('data-service-download'))download();if(b.dataset.serviceQuestion){selected.draft=b.dataset.serviceQuestion;render();drawer.querySelector('textarea')?.focus();}});
   document.addEventListener('input',event=>{if(event.target.id==='serviceQuestion'&&selected)selected.draft=event.target.value;});
   document.addEventListener('submit',event=>{if(event.target.matches('.av-service-chat-form')){event.preventDefault();void ask(selected.draft||'');}});
   window.AdvisorServices={open,attach,action,showData};

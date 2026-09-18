@@ -21,6 +21,7 @@ const { QueryCache } = require('./lib/query-cache');
 const { PublishReadCache } = require('./lib/publish-read-cache');
 const { MAX_PRODUCT_IMAGES, normalizePublishDetail } = require('./public/publish-product-utils');
 const { createAiAdvisor } = require('./lib/ai-advisor');
+const { createAwHandoff } = require('./lib/aw-handoff');
 
 let PORT = Number(process.env.PORT || 8787);
 // 桌面模式由系统分配端口，令牌仅驻内存；浏览器测试入口保持兼容。
@@ -832,6 +833,15 @@ async function fetchStorefrontCompanyProfile(companyInfo) {
   }
 }
 
+/** 顶栏仅加载当前账号公司名和标识，不等待装修/云端页面；无参数，返回精简身份，失败抛错。 */
+async function loadCompanyIdentity(){
+  const info=await readWorkspaceWorkctl(['icbu','storefront','ai-minisite-get-company-info','--data-type','all','--language','en'],'顶部公司资料');
+  const result=await fetchStorefrontCompanyProfile(info);
+  if(result.error)throw new Error(result.error);
+  const profile=result.profile;
+  return {companyName:profile?.companyBasicInfo?.companyBasicInfo?.companyName||null,companyLogo:profile?.companyExtraInfo?.companyBasicInfoExt?.companyLogo||null};
+}
+
 /**
  * 聚合店铺装修页需要的当前账号真实资料和页面版本。
  *
@@ -1013,6 +1023,7 @@ async function loadAccountWorkspace(name, force = false) {
   const cached = workspaceCache.get(name);
   if (!force && cached) return { ...cached.data, cached: true };
   const loaders = {
+    identity: loadCompanyIdentity,
     storefront: loadStorefrontWorkspace,
     assets: loadAssetsWorkspace,
     knowledge: loadKnowledgeWorkspace,
@@ -3901,6 +3912,8 @@ async function getOrGenerateOverviewTasks(snapshot, force = false) {
 }
 
 const aiAdvisor = createAiAdvisor({root:__dirname,scope:PUBLISH_IMAGE_LIBRARY_SCOPE});
+const awHandoff = createAwHandoff({scope:PUBLISH_IMAGE_LIBRARY_SCOPE});
+const planningTasks = require('./lib/planning-tasks').createPlanningTasks({scope:PUBLISH_IMAGE_LIBRARY_SCOPE});
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${HOST}:${PORT}`);
   const p = url.pathname;
@@ -3924,6 +3937,8 @@ const server = http.createServer(async (req, res) => {
       if(!String(req.headers['content-type']||'').startsWith('application/json'))return sendJSON(res,415,{ok:false,error:'请使用JSON请求'});
       try {
         const input=await readJsonBody(req,2*1024*1024);
+        if(p==='/api/advisor/tasks')return sendJSON(res,200,{ok:true,data:input.op==='generate'?await planningTasks.generate(input):input.op==='list'?planningTasks.list():planningTasks.update(input)});
+        if(p==='/api/advisor/aw-handoff')return sendJSON(res,200,{ok:true,...await awHandoff.send(input)});
         if(p==='/api/advisor/cache')return sendJSON(res,200,{ok:true,...aiAdvisor.cached(input)});
         if(p==='/api/advisor/context')return sendJSON(res,200,{ok:true,...aiAdvisor.context(input)});
         if(p==='/api/advisor/analysis')return sendJSON(res,200,{ok:true,result:await aiAdvisor.analyze(input.snapshot_id,input.refresh===true)});

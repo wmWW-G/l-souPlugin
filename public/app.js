@@ -5515,7 +5515,9 @@ function rfqTimeLabel(value) {
  * @returns {Promise<void>} 数据读取、筛选和页面渲染完成后返回。
  * @throws {Error} 单个接口失败会显示局部空状态，不会让整页失效。
  */
+let rfqLoadVersion = 0; // 多次搜索或重新挂载时，仅允许最新请求更新同一工作区。
 async function loadRfq(keyword = $('#rfqKeyword')?.value.trim() || '') {
+  const requestVersion = ++rfqLoadVersion;
   rfqState.keyword = String(keyword || '').trim();
   rfqState.compareIds.clear();rfqState.quoteIds.clear();rfqState.compareVersion++;rfqState.quoteVersion++;
   $('#rfqComparisonResult').hidden=true;$('#rfqQuoteDetailResult').hidden=true;
@@ -5525,6 +5527,7 @@ async function loadRfq(keyword = $('#rfqKeyword')?.value.trim() || '') {
     rfqState.keyword ? api('rfq-external-search', { keywords: JSON.stringify([rfqState.keyword]), pageNum: 1, pageSize: 10 }) : Promise.resolve(null),
     api('rfq-quote-history', { pageSize: 20, currentPage: 1 }),
   ]);
+  if (requestVersion !== rfqLoadVersion) return;
   const internalItems = Array.isArray(internal?.data?.items) ? internal.data.items : [];
   const externalItems = Array.isArray(external?.data?.items) ? external.data.items : [];
   rfqState.items = [...internalItems, ...externalItems]
@@ -5541,9 +5544,14 @@ async function loadRfq(keyword = $('#rfqKeyword')?.value.trim() || '') {
   renderRfqRights(null);
   // 权益未实时核验，不填入任何商家的历史数字。
   applyRfqFilters();
+  // 搜索返回后自动核对当前首条详情，无需再点击列表。
+  if (rfqState.selected) void selectRfq(rfqState.selected);
   if (!rfqState.keyword) $('#rfqOpportunityList').innerHTML = '<div class="empty">请输入当前产品的英文关键词，再搜索商机。</div>';
   $('#dataFreshness').textContent = `已更新 · ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
 }
+
+// 顾问页复用真实RFQ查询与原有事件，不复制节点或创建第二套同名控件。
+window.LsouRfq = { load: loadRfq };
 
 /**
  * 根据当前商机集合生成国家选项，并尽量保留用户已选国家。
@@ -5567,13 +5575,13 @@ function renderRfqCountries() {
  * @throws {Error} 不主动抛异常。
  */
 function renderRfqKpis(rights) {
-  const rightsValue = rights && Number.isFinite(Number(rights.availableQuote)) ? fmt(rights.availableQuote) : '—';
+  const rightsValue = rights && rights.availableQuote != null && Number.isFinite(Number(rights.availableQuote)) ? fmt(rights.availableQuote) : '未查询';
   $('#rfqKpis').innerHTML = [
-    ['站内 RFQ', rfqState.keyword ? fmt(rfqState.totals.internal) : '—', `${rfqState.keyword} · 平台数据`],
+    ['站内 RFQ', rfqState.keyword ? fmt(rfqState.totals.internal) : '—', rfqState.keyword ? `关键词：${rfqState.keyword}` : '输入关键词后查看'],
     ['站外 RFQ', rfqState.keyword ? fmt(rfqState.totals.external) : '—', `MIC / Tradewheel · 平台数据`],
     ['报价历史', fmt(rfqState.totals.quotes), '平台历史记录 · 平台数据'],
-    ['剩余普通权益', rightsValue, rights?.auditedAt ? `审计快照 · ${rights.auditedAt}` : '尚未查询当前账号权益'],
-  ].map(([label, value, note]) => `<article class="analysis-kpi"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(note)}</small></article>`).join('');
+    ['剩余普通权益', rightsValue, rights?.auditedAt ? `审计快照 · ${rights.auditedAt}` : '当前账号报价权益'],
+  ].map(([label, value, note]) => `<article class="analysis-kpi"><span>${esc(label)}</span><strong class="${value==='未查询'?'rfq-kpi-status':''}">${esc(value)}</strong><small>${esc(note)}</small></article>`).join('');
 }
 
 /**
